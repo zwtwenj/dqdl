@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Build output
+dist/
+build/
+
+# Env files
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Vector data (large binary files)
+dqdl-agent/vector_data/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp files
+_*.js
+_*.py

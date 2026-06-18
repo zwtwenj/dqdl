@@ -15,10 +15,15 @@ export class Mob {
   @Column({ type: 'varchar', length: 64, nullable: true, comment: '怪物名称' })
   name: string | null;
 
-  @Column({ type: 'text', nullable: true, comment: '描述' })
+  @Column({ type: 'text', nullable: true, comment: '描述（外观/体型/能力/弱点）' })
   description: string | null;
 
-  @Column({ type: 'int', default: 0, comment: '力量' })
+  /** 属性：火/冰/风/土/雷/暗/毒/木/水 */
+  @Column({ type: 'varchar', length: 8, nullable: true, comment: '元素属性' })
+  attribute: string | null;
+
+  /** 战力编码：3=斗之气三段, 13=三星斗者 */
+  @Column({ type: 'int', default: 0, comment: '战力编码' })
   power: number;
 
   @Column({ type: 'int', default: 0, comment: '智力' })
@@ -33,4 +38,8 @@ export class Mob {
   /** 等级，对应 player 的 level */
   @Column({ type: 'int', default: 0, comment: '等级' })
   level: number;
+
+  /** 掉落物 JSON：[{item_id,name,rate,min,max,type}] */
+  @Column({ type: 'text', nullable: true, comment: '掉落物列表(JSON)' })
+  drops: string | null;
 }

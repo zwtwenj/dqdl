@@ -1,0 +1,5424 @@
+[
+  {
+    "item_id": "cl-100",
+    "name": "焰鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-001",
+        "name": "焰尾蜥"
+      },
+      {
+        "mob_id": "WB-255",
+        "name": "焰棘蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-101",
+    "name": "冰蛙皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-002",
+        "name": "霜纹蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-102",
+    "name": "风翎羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-003",
+        "name": "风翎雀"
+      },
+      {
+        "mob_id": "WB-073",
+        "name": "风翎隼"
+      },
+      {
+        "mob_id": "WB-257",
+        "name": "狂风枭"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-103",
+    "name": "岩甲壳碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-004",
+        "name": "岩甲龟"
+      },
+      {
+        "mob_id": "WB-235",
+        "name": "岩甲龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-104",
+    "name": "电纹鼠尾",
+    "source_mobs": [
+      {
+        "mob_id": "WB-005",
+        "name": "电纹鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-105",
+    "name": "黑雾蝮毒牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-006",
+        "name": "黑雾蝮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-106",
+    "name": "毒棘蜂刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-007",
+        "name": "毒棘蜂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-107",
+    "name": "青木獾爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-008",
+        "name": "青木獾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-108",
+    "name": "水纹鳄皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-009",
+        "name": "水纹鳄"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-109",
+    "name": "烈阳蝶鳞粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-010",
+        "name": "烈阳蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-110",
+    "name": "催眠花粉囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-127",
+        "name": "木纹蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-111",
+    "name": "兔爪骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-038",
+        "name": "火绒兔"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-112",
+    "name": "冰丝触角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-294",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-113",
+    "name": "冰丝触须",
+    "source_mobs": [
+      {
+        "mob_id": "WB-265",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-114",
+    "name": "冰刃鳍",
+    "source_mobs": [
+      {
+        "mob_id": "WB-299",
+        "name": "寒潭鲛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-115",
+    "name": "冰刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-174",
+        "name": "冰刺豪猪"
+      },
+      {
+        "mob_id": "WB-180",
+        "name": "霜甲龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-116",
+    "name": "冰刺足肢",
+    "source_mobs": [
+      {
+        "mob_id": "WB-080",
+        "name": "霜纹蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-117",
+    "name": "冰晶毒刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-219",
+        "name": "冰晶蛇蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-118",
+    "name": "冰晶毒牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-155",
+        "name": "霜纹蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-119",
+    "name": "冰晶爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-189",
+        "name": "冰霜狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-120",
+    "name": "冰晶獠牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-104",
+        "name": "霜牙狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-121",
+    "name": "冰晶粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-058",
+        "name": "冰晶雪蛤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-122",
+    "name": "冰晶羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-227",
+        "name": "冰翼天鹅"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-123",
+    "name": "冰晶翅",
+    "source_mobs": [
+      {
+        "mob_id": "WB-198",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-124",
+    "name": "冰晶翅粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-088",
+        "name": "冰晶蝶"
+      },
+      {
+        "mob_id": "WB-165",
+        "name": "冰晶蝶"
+      },
+      {
+        "mob_id": "WB-231",
+        "name": "冰晶蝶"
+      },
+      {
+        "mob_id": "WB-294",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-125",
+    "name": "冰晶翼",
+    "source_mobs": [
+      {
+        "mob_id": "WB-265",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-126",
+    "name": "冰晶蛇鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-114",
+        "name": "冰晶蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-127",
+    "name": "冰晶蛛丝",
+    "source_mobs": [
+      {
+        "mob_id": "WB-206",
+        "name": "冰晶毒蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-128",
+    "name": "冰晶蝶翼",
+    "source_mobs": [
+      {
+        "mob_id": "WB-149",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-129",
+    "name": "冰晶蟹的螯钳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-043",
+        "name": "冰晶蟹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-130",
+    "name": "冰晶鬃毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-272",
+        "name": "冰霜狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-131",
+    "name": "冰晶龟壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-180",
+        "name": "霜甲龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-132",
+    "name": "冰棱触须",
+    "source_mobs": [
+      {
+        "mob_id": "WB-088",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-133",
+    "name": "冰毛皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-096",
+        "name": "冰牙猪"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-134",
+    "name": "冰熊甲片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-123",
+        "name": "冰甲熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-135",
+    "name": "冰牙狼的狼牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-051",
+        "name": "冰牙狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-136",
+    "name": "冰牙獠牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-096",
+        "name": "冰牙猪"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-137",
+    "name": "冰狼牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-272",
+        "name": "冰霜狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-138",
+    "name": "冰狼皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-189",
+        "name": "冰霜狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-139",
+    "name": "冰腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-054",
+        "name": "霜纹水蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-140",
+    "name": "冰舌黏液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-028",
+        "name": "霜纹蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-141",
+    "name": "冰蛇鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-067",
+        "name": "寒髓冰蛇"
+      },
+      {
+        "mob_id": "WB-130",
+        "name": "冰刺蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-142",
+    "name": "冰蛛丝",
+    "source_mobs": [
+      {
+        "mob_id": "WB-247",
+        "name": "冰霜蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-143",
+    "name": "冰蛤舌",
+    "source_mobs": [
+      {
+        "mob_id": "WB-058",
+        "name": "冰晶雪蛤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-144",
+    "name": "冰蝠翼片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-139",
+        "name": "冰霜蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-145",
+    "name": "冰蝶触须",
+    "source_mobs": [
+      {
+        "mob_id": "WB-165",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-146",
+    "name": "冰角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-256",
+        "name": "霜角蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-147",
+    "name": "冰霜熊皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-303",
+        "name": "冰霜巨熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-148",
+    "name": "冰霜狼牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-212",
+        "name": "冰霜雪狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-149",
+    "name": "冰霜皮毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-285",
+        "name": "霜牙雪狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-150",
+    "name": "冰鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-256",
+        "name": "霜角蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-151",
+    "name": "凝石碎块",
+    "source_mobs": [
+      {
+        "mob_id": "WB-098",
+        "name": "沙石怪"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-152",
+    "name": "凝血牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-269",
+        "name": "暗蝠群"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-153",
+    "name": "剧毒蝎毒囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-025",
+        "name": "剧毒蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-154",
+    "name": "卷风尾羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-064",
+        "name": "卷风雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-155",
+    "name": "发光腹壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-201",
+        "name": "雷光蜓"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-156",
+    "name": "叶片鳞甲",
+    "source_mobs": [
+      {
+        "mob_id": "WB-288",
+        "name": "青木羚羊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-157",
+    "name": "后腿肌肉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-045",
+        "name": "电光蝗"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-158",
+    "name": "吸血牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-276",
+        "name": "阴影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-159",
+    "name": "吸血獠牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-166",
+        "name": "黑风蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-160",
+    "name": "喙尖石",
+    "source_mobs": [
+      {
+        "mob_id": "WB-141",
+        "name": "火羽鹤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-161",
+    "name": "土岩铠甲碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-292",
+        "name": "地铠犀牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-162",
+    "name": "土毒腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-056",
+        "name": "岩甲地蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-163",
+    "name": "土甲壳碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-117",
+        "name": "土铠兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-164",
+    "name": "土甲龙的板甲碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-052",
+        "name": "土甲龙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-165",
+    "name": "地铠犀角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-292",
+        "name": "地铠犀牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-166",
+    "name": "声波腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-210",
+        "name": "暗影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-167",
+    "name": "声波腺体",
+    "source_mobs": [
+      {
+        "mob_id": "WB-029",
+        "name": "青翼蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-168",
+    "name": "复眼晶",
+    "source_mobs": [
+      {
+        "mob_id": "WB-146",
+        "name": "风刃螳螂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-169",
+    "name": "夜影翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-068",
+        "name": "夜影猎蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-170",
+    "name": "夜间眼石",
+    "source_mobs": [
+      {
+        "mob_id": "WB-110",
+        "name": "暗影猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-171",
+    "name": "天鹅泪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-227",
+        "name": "冰翼天鹅"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-172",
+    "name": "嫩叶冠羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-204",
+        "name": "青木猴"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-173",
+    "name": "寒冰毒液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-114",
+        "name": "冰晶蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-174",
+    "name": "寒冰熊掌",
+    "source_mobs": [
+      {
+        "mob_id": "WB-123",
+        "name": "冰甲熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-175",
+    "name": "寒晶牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-139",
+        "name": "冰霜蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-176",
+    "name": "寒毒液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-067",
+        "name": "寒髓冰蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-177",
+    "name": "寒液腺囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-130",
+        "name": "冰刺蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-178",
+    "name": "寒潭鲛鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-299",
+        "name": "寒潭鲛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-179",
+    "name": "寒花粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-149",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-180",
+    "name": "寒霜腺液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-036",
+        "name": "霜甲虫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-181",
+    "name": "寒霜花粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-198",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-182",
+    "name": "寒露珠",
+    "source_mobs": [
+      {
+        "mob_id": "WB-231",
+        "name": "冰晶蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-183",
+    "name": "尖牙刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-085",
+        "name": "暗影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-184",
+    "name": "尾焰火种",
+    "source_mobs": [
+      {
+        "mob_id": "WB-027",
+        "name": "炎尾蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-185",
+    "name": "尾电球",
+    "source_mobs": [
+      {
+        "mob_id": "WB-142",
+        "name": "雷纹豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-186",
+    "name": "尾部荧光液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-075",
+        "name": "雷击蜓"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-187",
+    "name": "岩壳碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-082",
+        "name": "岩甲龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-188",
+    "name": "岩壳龟的背甲碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-030",
+        "name": "岩壳龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-189",
+    "name": "岩浆精粹",
+    "source_mobs": [
+      {
+        "mob_id": "WB-221",
+        "name": "岩熔龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-190",
+    "name": "岩浆结晶",
+    "source_mobs": [
+      {
+        "mob_id": "WB-274",
+        "name": "熔岩石像"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-191",
+    "name": "岩爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-191",
+        "name": "地裂熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-192",
+    "name": "岩甲板",
+    "source_mobs": [
+      {
+        "mob_id": "WB-258",
+        "name": "岩甲龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-193",
+    "name": "岩甲碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-208",
+        "name": "岩甲巨犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-194",
+    "name": "岩石甲片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-126",
+        "name": "石甲犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-195",
+    "name": "岩蝎尾针",
+    "source_mobs": [
+      {
+        "mob_id": "WB-182",
+        "name": "岩甲蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-196",
+    "name": "岩蝎甲壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-056",
+        "name": "岩甲地蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-197",
+    "name": "岩龟壳板",
+    "source_mobs": [
+      {
+        "mob_id": "WB-133",
+        "name": "岩甲龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-198",
+    "name": "带电喙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-153",
+        "name": "雷羽鹰"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-199",
+    "name": "幼蜥爪骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-079",
+        "name": "熔岩幼蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-200",
+    "name": "影尾毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-144",
+        "name": "暗影猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-201",
+    "name": "影爪利刃",
+    "source_mobs": [
+      {
+        "mob_id": "WB-101",
+        "name": "影爪鼬"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-202",
+    "name": "影猫爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-158",
+        "name": "暗影猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-203",
+    "name": "影翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-286",
+        "name": "影刃蝙蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-204",
+    "name": "影蛇毒牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-093",
+        "name": "影蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-205",
+    "name": "影豹皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-260",
+        "name": "暗影豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-206",
+    "name": "掌心种子",
+    "source_mobs": [
+      {
+        "mob_id": "WB-070",
+        "name": "青藤猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-207",
+    "name": "放电器官",
+    "source_mobs": [
+      {
+        "mob_id": "WB-302",
+        "name": "闪雷蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-208",
+    "name": "旋风鬣犬鬃毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-022",
+        "name": "旋风鬣犬"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-209",
+    "name": "暗丝腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-172",
+        "name": "暗岩蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-210",
+    "name": "暗凝血液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-039",
+        "name": "黑水蛭"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-211",
+    "name": "暗影尖刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-202",
+        "name": "暗刺兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-212",
+    "name": "暗影披毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-158",
+        "name": "暗影猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-213",
+    "name": "暗影牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-260",
+        "name": "暗影豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-214",
+    "name": "暗影狼毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-222",
+        "name": "暗影狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-215",
+    "name": "暗影狼牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-222",
+        "name": "暗影狼"
+      },
+      {
+        "mob_id": "WB-246",
+        "name": "暗影狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-216",
+    "name": "暗影猫爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-024",
+        "name": "暗影猫"
+      },
+      {
+        "mob_id": "WB-110",
+        "name": "暗影猫"
+      },
+      {
+        "mob_id": "WB-295",
+        "name": "暗影猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-217",
+    "name": "暗影皮毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-101",
+        "name": "影爪鼬"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-218",
+    "name": "暗影翅膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-119",
+        "name": "暗影螳螂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-219",
+    "name": "暗影翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-128",
+        "name": "暗影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-220",
+    "name": "暗影蛇皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-093",
+        "name": "影蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-221",
+    "name": "暗影蛛丝",
+    "source_mobs": [
+      {
+        "mob_id": "WB-151",
+        "name": "暗影蜘蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-222",
+    "name": "暗影蝠牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-128",
+        "name": "暗影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-223",
+    "name": "暗影蝠翼",
+    "source_mobs": [
+      {
+        "mob_id": "WB-210",
+        "name": "暗影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-224",
+    "name": "暗影蝠翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-015",
+        "name": "暗影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-225",
+    "name": "暗影血滴",
+    "source_mobs": [
+      {
+        "mob_id": "WB-237",
+        "name": "暗影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-226",
+    "name": "暗影镰刃",
+    "source_mobs": [
+      {
+        "mob_id": "WB-119",
+        "name": "暗影螳螂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-227",
+    "name": "暗影鼠尾",
+    "source_mobs": [
+      {
+        "mob_id": "WB-032",
+        "name": "暗影鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-228",
+    "name": "暗毒牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-059",
+        "name": "暗影潜鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-229",
+    "name": "暗水蛇鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-216",
+        "name": "暗水蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-230",
+    "name": "暗猫爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-144",
+        "name": "暗影猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-231",
+    "name": "暗羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-252",
+        "name": "暗影鸦"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-232",
+    "name": "暗蚀牙粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-032",
+        "name": "暗影鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-233",
+    "name": "暗蛛丝",
+    "source_mobs": [
+      {
+        "mob_id": "WB-077",
+        "name": "暗影潜伏蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-234",
+    "name": "暗蝠翼",
+    "source_mobs": [
+      {
+        "mob_id": "WB-269",
+        "name": "暗蝠群"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-235",
+    "name": "暗蝠翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-085",
+        "name": "暗影蝠"
+      },
+      {
+        "mob_id": "WB-136",
+        "name": "暗影蝙蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-236",
+    "name": "暗血珠",
+    "source_mobs": [
+      {
+        "mob_id": "WB-286",
+        "name": "影刃蝙蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-237",
+    "name": "暗语猿的毛发",
+    "source_mobs": [
+      {
+        "mob_id": "WB-046",
+        "name": "暗语猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-238",
+    "name": "暗鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-184",
+        "name": "暗影蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-239",
+    "name": "暗鳞粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-193",
+        "name": "暗雾蛾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-240",
+    "name": "暗鼠皮毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-059",
+        "name": "暗影潜鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-241",
+    "name": "木化羽枝",
+    "source_mobs": [
+      {
+        "mob_id": "WB-094",
+        "name": "木质鸟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-242",
+    "name": "木化蹄壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-102",
+        "name": "荆棘鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-243",
+    "name": "木岩疣粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-251",
+        "name": "木岩猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-244",
+    "name": "木息毒液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-169",
+        "name": "翠木蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-245",
+    "name": "木灵叶",
+    "source_mobs": [
+      {
+        "mob_id": "WB-262",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-246",
+    "name": "木灵角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-143",
+        "name": "木灵鹿"
+      },
+      {
+        "mob_id": "WB-160",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-247",
+    "name": "木灵角碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-236",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-248",
+    "name": "木灵鹿角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-118",
+        "name": "木灵鹿"
+      },
+      {
+        "mob_id": "WB-214",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-249",
+    "name": "木熊掌",
+    "source_mobs": [
+      {
+        "mob_id": "WB-109",
+        "name": "木根熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-250",
+    "name": "木猴尾花",
+    "source_mobs": [
+      {
+        "mob_id": "WB-278",
+        "name": "木精猴"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-251",
+    "name": "木猿毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-297",
+        "name": "木猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-252",
+    "name": "木猿牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-176",
+        "name": "木藤猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-253",
+    "name": "木甲壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-271",
+        "name": "木甲蚁"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-254",
+    "name": "木甲片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-017",
+        "name": "木甲熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-255",
+    "name": "木甲犀角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-226",
+        "name": "木甲犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-256",
+    "name": "木甲皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-226",
+        "name": "木甲犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-257",
+    "name": "木纹蝶翅",
+    "source_mobs": [
+      {
+        "mob_id": "WB-127",
+        "name": "木纹蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-258",
+    "name": "木藤猴爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-135",
+        "name": "木藤猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-259",
+    "name": "木质喙尖",
+    "source_mobs": [
+      {
+        "mob_id": "WB-094",
+        "name": "木质鸟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-260",
+    "name": "木质翅鞘",
+    "source_mobs": [
+      {
+        "mob_id": "WB-061",
+        "name": "木甲螳螂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-261",
+    "name": "毒丝囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-203",
+        "name": "毒须蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-262",
+    "name": "毒刺囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-244",
+        "name": "石甲蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-263",
+    "name": "毒刺针",
+    "source_mobs": [
+      {
+        "mob_id": "WB-092",
+        "name": "毒刺蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-264",
+    "name": "毒囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-132",
+        "name": "毒瘤蛙"
+      },
+      {
+        "mob_id": "WB-182",
+        "name": "岩甲蝎"
+      },
+      {
+        "mob_id": "WB-261",
+        "name": "毒涎蛛"
+      },
+      {
+        "mob_id": "WB-264",
+        "name": "赤焰蝎"
+      },
+      {
+        "mob_id": "WB-281",
+        "name": "碧鳞水蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-265",
+    "name": "毒囊液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-042",
+        "name": "毒棘豪猪"
+      },
+      {
+        "mob_id": "WB-206",
+        "name": "冰晶毒蛛"
+      },
+      {
+        "mob_id": "WB-218",
+        "name": "绿毒蛙"
+      },
+      {
+        "mob_id": "WB-234",
+        "name": "毒沼蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-266",
+    "name": "毒囊蜂的毒腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-033",
+        "name": "毒囊蜂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-267",
+    "name": "毒孢粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-100",
+        "name": "毒雾菇精"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-268",
+    "name": "毒尾针",
+    "source_mobs": [
+      {
+        "mob_id": "WB-106",
+        "name": "沙隐蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-269",
+    "name": "毒棘刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-069",
+        "name": "毒棘豪猪"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-270",
+    "name": "毒棘豪猪的毒棘",
+    "source_mobs": [
+      {
+        "mob_id": "WB-042",
+        "name": "毒棘豪猪"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-271",
+    "name": "毒液囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-185",
+        "name": "毒雾蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-272",
+    "name": "毒牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-077",
+        "name": "暗影潜伏蛛"
+      },
+      {
+        "mob_id": "WB-136",
+        "name": "暗影蝙蝠"
+      },
+      {
+        "mob_id": "WB-147",
+        "name": "毒藤蟒"
+      },
+      {
+        "mob_id": "WB-151",
+        "name": "暗影蜘蛛"
+      },
+      {
+        "mob_id": "WB-184",
+        "name": "暗影蛇"
+      },
+      {
+        "mob_id": "WB-229",
+        "name": "沙牙蛇"
+      },
+      {
+        "mob_id": "WB-270",
+        "name": "毒蔓蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-273",
+    "name": "毒纹蛙的皮肤",
+    "source_mobs": [
+      {
+        "mob_id": "WB-049",
+        "name": "毒纹蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-274",
+    "name": "毒脓腺囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-125",
+        "name": "毒腐蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-275",
+    "name": "毒腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-159",
+        "name": "毒藤蟒"
+      },
+      {
+        "mob_id": "WB-177",
+        "name": "沙隐蛇"
+      },
+      {
+        "mob_id": "WB-194",
+        "name": "毒箭蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-276",
+    "name": "毒腺囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-078",
+        "name": "毒瘴蛙"
+      },
+      {
+        "mob_id": "WB-108",
+        "name": "毒藤蟒"
+      },
+      {
+        "mob_id": "WB-168",
+        "name": "毒雾蛤"
+      },
+      {
+        "mob_id": "WB-277",
+        "name": "毒雾蛤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-277",
+    "name": "毒腺液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-049",
+        "name": "毒纹蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-278",
+    "name": "毒腺液囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-092",
+        "name": "毒刺蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-279",
+    "name": "毒花蕊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-140",
+        "name": "毒花蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-280",
+    "name": "毒菇伞盖",
+    "source_mobs": [
+      {
+        "mob_id": "WB-100",
+        "name": "毒雾菇精"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-281",
+    "name": "毒菇孢子粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-060",
+        "name": "毒蘑菇精"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-282",
+    "name": "毒藤枝条",
+    "source_mobs": [
+      {
+        "mob_id": "WB-287",
+        "name": "毒藤妖树"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-283",
+    "name": "毒蛇牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-211",
+        "name": "毒藤花蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-284",
+    "name": "毒蛙皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-125",
+        "name": "毒腐蛙"
+      },
+      {
+        "mob_id": "WB-194",
+        "name": "毒箭蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-285",
+    "name": "毒蜂王尾针",
+    "source_mobs": [
+      {
+        "mob_id": "WB-225",
+        "name": "毒蜂王"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-286",
+    "name": "毒蜂蜜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-225",
+        "name": "毒蜂王"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-287",
+    "name": "毒蝎尾刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-213",
+        "name": "沙暴蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-288",
+    "name": "毒蟒蛇胆",
+    "source_mobs": [
+      {
+        "mob_id": "WB-185",
+        "name": "毒雾蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-289",
+    "name": "毒蟾皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-250",
+        "name": "水毒蟾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-290",
+    "name": "毒雾菇伞盖",
+    "source_mobs": [
+      {
+        "mob_id": "WB-016",
+        "name": "毒雾菇精"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-291",
+    "name": "毒鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-159",
+        "name": "毒藤蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-292",
+    "name": "毒鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-108",
+        "name": "毒藤蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-293",
+    "name": "毒鳞粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-243",
+        "name": "毒翼蛾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-294",
+    "name": "毒鳞粉囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-116",
+        "name": "毒雾蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-295",
+    "name": "水丝囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-163",
+        "name": "水柔蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-296",
+    "name": "水毒液囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-250",
+        "name": "水毒蟾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-297",
+    "name": "水泡鱼凝胶",
+    "source_mobs": [
+      {
+        "mob_id": "WB-018",
+        "name": "水泡鱼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-298",
+    "name": "水泡鱼皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-072",
+        "name": "水泡鱼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-299",
+    "name": "水波甲片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-111",
+        "name": "水纹龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-300",
+    "name": "水灵鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-196",
+        "name": "水灵蛇"
+      },
+      {
+        "mob_id": "WB-223",
+        "name": "水灵蛟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-301",
+    "name": "水犀角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-145",
+        "name": "水纹犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-302",
+    "name": "水箭鳍",
+    "source_mobs": [
+      {
+        "mob_id": "WB-173",
+        "name": "水箭鱼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-303",
+    "name": "水纹牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-137",
+        "name": "水纹鲛"
+      },
+      {
+        "mob_id": "WB-238",
+        "name": "水纹鲨"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-304",
+    "name": "水纹鳐皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-290",
+        "name": "水纹鳐"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-305",
+    "name": "水纹鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-263",
+        "name": "水纹蛟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-306",
+    "name": "水纹龟甲",
+    "source_mobs": [
+      {
+        "mob_id": "WB-152",
+        "name": "水纹龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-307",
+    "name": "水翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-279",
+        "name": "水翼蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-308",
+    "name": "水蓝毒腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-163",
+        "name": "水柔蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-309",
+    "name": "水蛙皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-187",
+        "name": "水纹蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-310",
+    "name": "水蟒鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-054",
+        "name": "霜纹水蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-311",
+    "name": "水速腺体",
+    "source_mobs": [
+      {
+        "mob_id": "WB-120",
+        "name": "水鳍蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-312",
+    "name": "水鳍鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-120",
+        "name": "水鳍蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-313",
+    "name": "沙暴甲壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-213",
+        "name": "沙暴蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-314",
+    "name": "沙牙蛇皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-229",
+        "name": "沙牙蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-315",
+    "name": "沙狼爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-170",
+        "name": "风沙狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-316",
+    "name": "沙石核心残片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-098",
+        "name": "沙石怪"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-317",
+    "name": "沙蝎尾钩",
+    "source_mobs": [
+      {
+        "mob_id": "WB-012",
+        "name": "沙蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-318",
+    "name": "沙蝎毒腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-138",
+        "name": "沙暴蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-319",
+    "name": "沙蝎甲壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-106",
+        "name": "沙隐蝎"
+      },
+      {
+        "mob_id": "WB-156",
+        "name": "沙暴蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-320",
+    "name": "沙隐蚺的蛇皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-044",
+        "name": "沙隐蚺"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-321",
+    "name": "沙隐鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-177",
+        "name": "沙隐蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-322",
+    "name": "沙鼬毫毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-081",
+        "name": "沙尘鼬"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-323",
+    "name": "沼泽黏液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-084",
+        "name": "沼泥蟾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-324",
+    "name": "流沙蝎的双螯",
+    "source_mobs": [
+      {
+        "mob_id": "WB-035",
+        "name": "流沙蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-325",
+    "name": "润滑黏液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-072",
+        "name": "水泡鱼"
+      },
+      {
+        "mob_id": "WB-187",
+        "name": "水纹蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-326",
+    "name": "火喙硬壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-087",
+        "name": "炽火雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-327",
+    "name": "火尾骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-103",
+        "name": "焚岩蜥"
+      },
+      {
+        "mob_id": "WB-148",
+        "name": "熔岩蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-328",
+    "name": "火山甲片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-161",
+        "name": "火山龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-329",
+    "name": "火棘刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-255",
+        "name": "焰棘蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-330",
+    "name": "火毒腺囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-230",
+        "name": "熔岩蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-331",
+    "name": "火焰掌骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-228",
+        "name": "燃木猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-332",
+    "name": "火焰狐尾",
+    "source_mobs": [
+      {
+        "mob_id": "WB-197",
+        "name": "焰尾狐"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-333",
+    "name": "火焰獠牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-188",
+        "name": "烈火野猪"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-334",
+    "name": "火焰蜥皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-079",
+        "name": "熔岩幼蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-335",
+    "name": "火牛蹄",
+    "source_mobs": [
+      {
+        "mob_id": "WB-239",
+        "name": "赤焰牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-336",
+    "name": "火狐毛皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-062",
+        "name": "烬火烈狐"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-337",
+    "name": "火绒兔毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-038",
+        "name": "火绒兔"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-338",
+    "name": "火羽雀的羽毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-048",
+        "name": "火羽雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-339",
+    "name": "火蜥尾骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-280",
+        "name": "赤鳞火蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-340",
+    "name": "火门牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-095",
+        "name": "焰火鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-341",
+    "name": "火鹤羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-141",
+        "name": "火羽鹤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-342",
+    "name": "灵木果核",
+    "source_mobs": [
+      {
+        "mob_id": "WB-135",
+        "name": "木藤猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-343",
+    "name": "炎尾蜥的鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-027",
+        "name": "炎尾蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-344",
+    "name": "炎火尾羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-167",
+        "name": "炎火雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-345",
+    "name": "炎火羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-215",
+        "name": "炎火狮鹫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-346",
+    "name": "炙热龟肉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-053",
+        "name": "熔岩啮龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-347",
+    "name": "炽火翎羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-087",
+        "name": "炽火雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-348",
+    "name": "焦热兽皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-179",
+        "name": "熔岩獾兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-349",
+    "name": "焦鬃毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-188",
+        "name": "烈火野猪"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-350",
+    "name": "焰尾毛发",
+    "source_mobs": [
+      {
+        "mob_id": "WB-095",
+        "name": "焰火鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-351",
+    "name": "焰鬃毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-298",
+        "name": "焰鬃狮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-352",
+    "name": "熊掌骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-303",
+        "name": "冰霜巨熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-353",
+    "name": "熊胆",
+    "source_mobs": [
+      {
+        "mob_id": "WB-191",
+        "name": "地裂熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-354",
+    "name": "熔岩喙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-167",
+        "name": "炎火雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-355",
+    "name": "熔岩壳片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-253",
+        "name": "熔岩蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-356",
+    "name": "熔岩尾锤",
+    "source_mobs": [
+      {
+        "mob_id": "WB-071",
+        "name": "熔岩蜥蜴"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-357",
+    "name": "熔岩尾锤骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-154",
+        "name": "赤晶蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-358",
+    "name": "熔岩犬牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-121",
+        "name": "熔岩豺"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-359",
+    "name": "熔岩獠牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-179",
+        "name": "熔岩獾兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-360",
+    "name": "熔岩甲壳碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-129",
+        "name": "熔岩蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-361",
+    "name": "熔岩甲片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-289",
+        "name": "熔岩巨龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-362",
+    "name": "熔岩石核",
+    "source_mobs": [
+      {
+        "mob_id": "WB-274",
+        "name": "熔岩石像"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-363",
+    "name": "熔岩胃石",
+    "source_mobs": [
+      {
+        "mob_id": "WB-161",
+        "name": "火山龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-364",
+    "name": "熔岩虫黏液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-019",
+        "name": "熔岩虫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-365",
+    "name": "熔岩蛛丝",
+    "source_mobs": [
+      {
+        "mob_id": "WB-230",
+        "name": "熔岩蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-366",
+    "name": "熔岩蜥鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-148",
+        "name": "熔岩蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-367",
+    "name": "熔岩鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-103",
+        "name": "焚岩蜥"
+      },
+      {
+        "mob_id": "WB-205",
+        "name": "熔岩蜥蜴"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-368",
+    "name": "熔岩龟壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-221",
+        "name": "岩熔龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-369",
+    "name": "熔岩龟壳碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-053",
+        "name": "熔岩啮龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-370",
+    "name": "熔火蛛丝囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-112",
+        "name": "熔火蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-371",
+    "name": "燃尾骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-121",
+        "name": "熔岩豺"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-372",
+    "name": "燃木猿毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-228",
+        "name": "燃木猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-373",
+    "name": "牛角粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-065",
+        "name": "碎石蛮牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-374",
+    "name": "犀皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-134",
+        "name": "雷角犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-375",
+    "name": "犀角粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-208",
+        "name": "岩甲巨犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-376",
+    "name": "狂风羽翼",
+    "source_mobs": [
+      {
+        "mob_id": "WB-207",
+        "name": "狂风鹰隼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-377",
+    "name": "狐尾火绒",
+    "source_mobs": [
+      {
+        "mob_id": "WB-062",
+        "name": "烬火烈狐"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-378",
+    "name": "狮火骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-298",
+        "name": "焰鬃狮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-379",
+    "name": "狮王电核",
+    "source_mobs": [
+      {
+        "mob_id": "WB-242",
+        "name": "雷鬃狮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-380",
+    "name": "狮鹫爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-215",
+        "name": "炎火狮鹫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-381",
+    "name": "狼毛暗核",
+    "source_mobs": [
+      {
+        "mob_id": "WB-246",
+        "name": "暗影狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-382",
+    "name": "狼皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-051",
+        "name": "冰牙狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-383",
+    "name": "猫爪尖刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-050",
+        "name": "风影猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-384",
+    "name": "猴毛束",
+    "source_mobs": [
+      {
+        "mob_id": "WB-278",
+        "name": "木精猴"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-385",
+    "name": "猿爪冰晶",
+    "source_mobs": [
+      {
+        "mob_id": "WB-240",
+        "name": "雪纹猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-386",
+    "name": "猿爪指甲",
+    "source_mobs": [
+      {
+        "mob_id": "WB-046",
+        "name": "暗语猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-387",
+    "name": "生命草种",
+    "source_mobs": [
+      {
+        "mob_id": "WB-214",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-388",
+    "name": "甲壳碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-164",
+        "name": "石铠犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-389",
+    "name": "电光蝗的翅膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-045",
+        "name": "电光蝗"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-390",
+    "name": "电击尾骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-105",
+        "name": "雷纹豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-391",
+    "name": "电尾球",
+    "source_mobs": [
+      {
+        "mob_id": "WB-209",
+        "name": "雷纹豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-392",
+    "name": "电纹蛛丝",
+    "source_mobs": [
+      {
+        "mob_id": "WB-031",
+        "name": "电纹蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-393",
+    "name": "皮鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-145",
+        "name": "水纹犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-394",
+    "name": "石化毒腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-150",
+        "name": "沙岩巨蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-395",
+    "name": "石犀角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-126",
+        "name": "石甲犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-396",
+    "name": "石猿拳骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-267",
+        "name": "碎石猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-397",
+    "name": "石猿毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-251",
+        "name": "木岩猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-398",
+    "name": "石甲片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-074",
+        "name": "石甲鼹鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-399",
+    "name": "石甲碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-283",
+        "name": "岩甲巨蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-400",
+    "name": "石甲鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-200",
+        "name": "石铠兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-401",
+    "name": "石铠角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-164",
+        "name": "石铠犀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-402",
+    "name": "石锤尾骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-090",
+        "name": "碎石蜥"
+      },
+      {
+        "mob_id": "WB-117",
+        "name": "土铠兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-403",
+    "name": "硬皮块",
+    "source_mobs": [
+      {
+        "mob_id": "WB-267",
+        "name": "碎石猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-404",
+    "name": "碎石晶核",
+    "source_mobs": [
+      {
+        "mob_id": "WB-021",
+        "name": "巨石傀儡"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-405",
+    "name": "碎石鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-090",
+        "name": "碎石蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-406",
+    "name": "碧鳞蛇胆",
+    "source_mobs": [
+      {
+        "mob_id": "WB-281",
+        "name": "碧鳞水蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-407",
+    "name": "绿毒蛙皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-218",
+        "name": "绿毒蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-408",
+    "name": "绿花芳香囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-118",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-409",
+    "name": "翠羽鸮的羽毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-040",
+        "name": "翠羽鸮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-410",
+    "name": "翠翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-245",
+        "name": "翠翼蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-411",
+    "name": "翠鳞皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-169",
+        "name": "翠木蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-412",
+    "name": "翼膜碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-131",
+        "name": "风翼狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-413",
+    "name": "腐木毒素",
+    "source_mobs": [
+      {
+        "mob_id": "WB-047",
+        "name": "腐根藤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-414",
+    "name": "腐根藤的韧皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-047",
+        "name": "腐根藤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-415",
+    "name": "腐蚀液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-216",
+        "name": "暗水蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-416",
+    "name": "腐骨汁液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-287",
+        "name": "毒藤妖树"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-417",
+    "name": "腿骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-133",
+        "name": "岩甲龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-418",
+    "name": "花岗象牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-301",
+        "name": "花岗巨象"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-419",
+    "name": "苔藓毛皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-160",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-420",
+    "name": "苔藓精露",
+    "source_mobs": [
+      {
+        "mob_id": "WB-236",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-421",
+    "name": "荆棘刺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-195",
+        "name": "棘藤兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-422",
+    "name": "荆棘鹿角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-102",
+        "name": "荆棘鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-423",
+    "name": "荧光触须",
+    "source_mobs": [
+      {
+        "mob_id": "WB-116",
+        "name": "毒雾蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-424",
+    "name": "菌柄汁液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-060",
+        "name": "毒蘑菇精"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-425",
+    "name": "藤猿毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-070",
+        "name": "青藤猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-426",
+    "name": "藤芯木",
+    "source_mobs": [
+      {
+        "mob_id": "WB-186",
+        "name": "木卫藤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-427",
+    "name": "藤蔓尾",
+    "source_mobs": [
+      {
+        "mob_id": "WB-297",
+        "name": "木猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-428",
+    "name": "藤蔓尾筋",
+    "source_mobs": [
+      {
+        "mob_id": "WB-086",
+        "name": "青木狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-429",
+    "name": "藤蔓种子",
+    "source_mobs": [
+      {
+        "mob_id": "WB-211",
+        "name": "毒藤花蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-430",
+    "name": "藤蔓茎",
+    "source_mobs": [
+      {
+        "mob_id": "WB-195",
+        "name": "棘藤兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-431",
+    "name": "藤蔓蛇皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-026",
+        "name": "藤蔓蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-432",
+    "name": "藤蔓触须",
+    "source_mobs": [
+      {
+        "mob_id": "WB-176",
+        "name": "木藤猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-433",
+    "name": "藤蟒皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-147",
+        "name": "毒藤蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-434",
+    "name": "虎爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-266",
+        "name": "风翼虎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-435",
+    "name": "虎牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-220",
+        "name": "风翼飞虎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-436",
+    "name": "虎牙风刃",
+    "source_mobs": [
+      {
+        "mob_id": "WB-241",
+        "name": "风翼虎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-437",
+    "name": "虎骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-178",
+        "name": "风翼虎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-438",
+    "name": "蚀骨毒牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-296",
+        "name": "蚀骨蜘蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-439",
+    "name": "蚁酸腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-271",
+        "name": "木甲蚁"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-440",
+    "name": "蛇毒液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-245",
+        "name": "翠翼蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-441",
+    "name": "蛇涎",
+    "source_mobs": [
+      {
+        "mob_id": "WB-196",
+        "name": "水灵蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-442",
+    "name": "蛇牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-044",
+        "name": "沙隐蚺"
+      },
+      {
+        "mob_id": "WB-279",
+        "name": "水翼蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-443",
+    "name": "蛇胆",
+    "source_mobs": [
+      {
+        "mob_id": "WB-140",
+        "name": "毒花蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-444",
+    "name": "蛇胆雷液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-233",
+        "name": "雷纹蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-445",
+    "name": "蛇蜕皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-270",
+        "name": "毒蔓蛇"
+      },
+      {
+        "mob_id": "WB-300",
+        "name": "风翼蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-446",
+    "name": "蛇蝎鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-219",
+        "name": "冰晶蛇蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-447",
+    "name": "蛙皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-078",
+        "name": "毒瘴蛙"
+      },
+      {
+        "mob_id": "WB-132",
+        "name": "毒瘤蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-448",
+    "name": "蛙皮膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-234",
+        "name": "毒沼蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-449",
+    "name": "蛛丝囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-296",
+        "name": "蚀骨蜘蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-450",
+    "name": "蛛丝束",
+    "source_mobs": [
+      {
+        "mob_id": "WB-261",
+        "name": "毒涎蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-451",
+    "name": "蛟角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-223",
+        "name": "水灵蛟"
+      },
+      {
+        "mob_id": "WB-263",
+        "name": "水纹蛟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-452",
+    "name": "蛤皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-277",
+        "name": "毒雾蛤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-453",
+    "name": "蛤蟆油",
+    "source_mobs": [
+      {
+        "mob_id": "WB-168",
+        "name": "毒雾蛤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-454",
+    "name": "蛮牛皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-065",
+        "name": "碎石蛮牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-455",
+    "name": "蛾翅薄膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-066",
+        "name": "静电飞蛾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-456",
+    "name": "蛾翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-243",
+        "name": "毒翼蛾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-457",
+    "name": "蜂巢碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-033",
+        "name": "毒囊蜂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-458",
+    "name": "蜃蛤珍珠",
+    "source_mobs": [
+      {
+        "mob_id": "WB-063",
+        "name": "水纹蜃蛤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-459",
+    "name": "蜥蜴尾液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-205",
+        "name": "熔岩蜥蜴"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-460",
+    "name": "蜥蜴皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-071",
+        "name": "熔岩蜥蜴"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-461",
+    "name": "蝎尾毒腺",
+    "source_mobs": [
+      {
+        "mob_id": "WB-129",
+        "name": "熔岩蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-462",
+    "name": "蝎尾毒针",
+    "source_mobs": [
+      {
+        "mob_id": "WB-035",
+        "name": "流沙蝎"
+      },
+      {
+        "mob_id": "WB-283",
+        "name": "岩甲巨蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-463",
+    "name": "蝎尾火囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-253",
+        "name": "熔岩蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-464",
+    "name": "蝎甲片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-244",
+        "name": "石甲蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-465",
+    "name": "蝎钩毒囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-156",
+        "name": "沙暴蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-466",
+    "name": "蝎钳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-217",
+        "name": "雷霆巨蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-467",
+    "name": "蝙牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-068",
+        "name": "夜影猎蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-468",
+    "name": "蝠粪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-055",
+        "name": "风刃灵蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-469",
+    "name": "蝠翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-237",
+        "name": "暗影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-470",
+    "name": "螯钳壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-138",
+        "name": "沙暴蝎"
+      },
+      {
+        "mob_id": "WB-150",
+        "name": "沙岩巨蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-471",
+    "name": "螳螂镰刃",
+    "source_mobs": [
+      {
+        "mob_id": "WB-061",
+        "name": "木甲螳螂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-472",
+    "name": "蟹壳碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-043",
+        "name": "冰晶蟹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-473",
+    "name": "蟾毒腺体",
+    "source_mobs": [
+      {
+        "mob_id": "WB-084",
+        "name": "沼泥蟾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-474",
+    "name": "血眼",
+    "source_mobs": [
+      {
+        "mob_id": "WB-202",
+        "name": "暗刺兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-475",
+    "name": "触角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-193",
+        "name": "暗雾蛾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-476",
+    "name": "触须",
+    "source_mobs": [
+      {
+        "mob_id": "WB-203",
+        "name": "毒须蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-477",
+    "name": "象皮甲",
+    "source_mobs": [
+      {
+        "mob_id": "WB-301",
+        "name": "花岗巨象"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-478",
+    "name": "豪猪皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-069",
+        "name": "毒棘豪猪"
+      },
+      {
+        "mob_id": "WB-174",
+        "name": "冰刺豪猪"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-479",
+    "name": "贝壳碎片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-063",
+        "name": "水纹蜃蛤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-480",
+    "name": "赤晶鳞片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-154",
+        "name": "赤晶蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-481",
+    "name": "赤炎角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-239",
+        "name": "赤焰牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-482",
+    "name": "赤蝎钳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-264",
+        "name": "赤焰蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-483",
+    "name": "赤金瞳孔",
+    "source_mobs": [
+      {
+        "mob_id": "WB-197",
+        "name": "焰尾狐"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-484",
+    "name": "赤鳞甲片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-280",
+        "name": "赤鳞火蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-485",
+    "name": "钝角粉末",
+    "source_mobs": [
+      {
+        "mob_id": "WB-052",
+        "name": "土甲龙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-486",
+    "name": "铁木种子",
+    "source_mobs": [
+      {
+        "mob_id": "WB-040",
+        "name": "翠羽鸮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-487",
+    "name": "锋利叶片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-186",
+        "name": "木卫藤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-488",
+    "name": "锋利爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-257",
+        "name": "狂风枭"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-489",
+    "name": "锋利爪骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-181",
+        "name": "风刃蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-490",
+    "name": "锋锐门齿",
+    "source_mobs": [
+      {
+        "mob_id": "WB-199",
+        "name": "风影鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-491",
+    "name": "锐利喙骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-190",
+        "name": "沙暴鹰"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-492",
+    "name": "锤状尾骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-200",
+        "name": "石铠兽"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-493",
+    "name": "闪电爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-124",
+        "name": "雷翼蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-494",
+    "name": "闪电皮毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-192",
+        "name": "闪电貂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-495",
+    "name": "阴影翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-276",
+        "name": "阴影蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-496",
+    "name": "隼喙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-037",
+        "name": "风刃隼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-497",
+    "name": "隼爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-073",
+        "name": "风翎隼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-498",
+    "name": "雀粪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-048",
+        "name": "火羽雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-499",
+    "name": "雀鸣骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-064",
+        "name": "卷风雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-500",
+    "name": "雕喙尖",
+    "source_mobs": [
+      {
+        "mob_id": "WB-232",
+        "name": "风吼雕"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-501",
+    "name": "雕喙电核",
+    "source_mobs": [
+      {
+        "mob_id": "WB-254",
+        "name": "风雷雕"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-502",
+    "name": "雕爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-273",
+        "name": "烈风雕"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-503",
+    "name": "雪狐毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-020",
+        "name": "雪狐"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-504",
+    "name": "雪狼毛皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-212",
+        "name": "冰霜雪狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-505",
+    "name": "雪纹毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-240",
+        "name": "雪纹猿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-506",
+    "name": "雷光囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-091",
+        "name": "雷光萤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-507",
+    "name": "雷光羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-249",
+        "name": "雷光雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-508",
+    "name": "雷光蝗腿",
+    "source_mobs": [
+      {
+        "mob_id": "WB-023",
+        "name": "雷光蝗"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-509",
+    "name": "雷光蝶粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-224",
+        "name": "雷光蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-510",
+    "name": "雷击爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-259",
+        "name": "雷隼鹫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-511",
+    "name": "雷击皮毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-162",
+        "name": "雷纹豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-512",
+    "name": "雷击蜓翅膀",
+    "source_mobs": [
+      {
+        "mob_id": "WB-075",
+        "name": "雷击蜓"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-513",
+    "name": "雷尾毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-192",
+        "name": "闪电貂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-514",
+    "name": "雷熊掌",
+    "source_mobs": [
+      {
+        "mob_id": "WB-268",
+        "name": "雷纹熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-515",
+    "name": "雷牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-183",
+        "name": "雷纹豹"
+      },
+      {
+        "mob_id": "WB-284",
+        "name": "雷纹豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-516",
+    "name": "雷牛皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-171",
+        "name": "雷角牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-517",
+    "name": "雷电翅膀",
+    "source_mobs": [
+      {
+        "mob_id": "WB-224",
+        "name": "雷光蝶"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-518",
+    "name": "雷纹毛皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-268",
+        "name": "雷纹熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-519",
+    "name": "雷纹牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-162",
+        "name": "雷纹豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-520",
+    "name": "雷纹牛皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-041",
+        "name": "雷纹角牛"
+      },
+      {
+        "mob_id": "WB-115",
+        "name": "雷角牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-521",
+    "name": "雷纹皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-183",
+        "name": "雷纹豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-522",
+    "name": "雷纹翅",
+    "source_mobs": [
+      {
+        "mob_id": "WB-201",
+        "name": "雷光蜓"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-523",
+    "name": "雷纹翅膀",
+    "source_mobs": [
+      {
+        "mob_id": "WB-083",
+        "name": "雷纹蜂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-524",
+    "name": "雷纹角牛的角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-041",
+        "name": "雷纹角牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-525",
+    "name": "雷纹豹爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-014",
+        "name": "雷纹豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-526",
+    "name": "雷纹豹皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-105",
+        "name": "雷纹豹"
+      },
+      {
+        "mob_id": "WB-142",
+        "name": "雷纹豹"
+      },
+      {
+        "mob_id": "WB-209",
+        "name": "雷纹豹"
+      },
+      {
+        "mob_id": "WB-284",
+        "name": "雷纹豹"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-527",
+    "name": "雷纹鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-233",
+        "name": "雷纹蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-528",
+    "name": "雷羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-259",
+        "name": "雷隼鹫"
+      },
+      {
+        "mob_id": "WB-275",
+        "name": "雷羽鹤"
+      },
+      {
+        "mob_id": "WB-293",
+        "name": "雷羽雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-529",
+    "name": "雷羽鹰羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-153",
+        "name": "雷羽鹰"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-530",
+    "name": "雷翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-124",
+        "name": "雷翼蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-531",
+    "name": "雷蛛丝",
+    "source_mobs": [
+      {
+        "mob_id": "WB-057",
+        "name": "雷纹跳蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-532",
+    "name": "雷蜂毒囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-083",
+        "name": "雷纹蜂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-533",
+    "name": "雷蜥皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-302",
+        "name": "闪雷蜥"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-534",
+    "name": "雷角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-134",
+        "name": "雷角犀"
+      },
+      {
+        "mob_id": "WB-171",
+        "name": "雷角牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-535",
+    "name": "雷角一对",
+    "source_mobs": [
+      {
+        "mob_id": "WB-115",
+        "name": "雷角牛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-536",
+    "name": "雷角片",
+    "source_mobs": [
+      {
+        "mob_id": "WB-099",
+        "name": "雷角羊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-537",
+    "name": "雷霆甲壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-217",
+        "name": "雷霆巨蝎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-538",
+    "name": "雷鬃毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-242",
+        "name": "雷鬃狮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-539",
+    "name": "霜囊液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-247",
+        "name": "冰霜蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-540",
+    "name": "霜狼牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-285",
+        "name": "霜牙雪狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-541",
+    "name": "霜甲虫的外壳",
+    "source_mobs": [
+      {
+        "mob_id": "WB-036",
+        "name": "霜甲虫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-542",
+    "name": "霜白狼皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-104",
+        "name": "霜牙狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-543",
+    "name": "霜纹蛇皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-155",
+        "name": "霜纹蟒"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-544",
+    "name": "霜纹蛙皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-028",
+        "name": "霜纹蛙"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-545",
+    "name": "霜蛛丝线",
+    "source_mobs": [
+      {
+        "mob_id": "WB-080",
+        "name": "霜纹蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-546",
+    "name": "霜角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-076",
+        "name": "霜角鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-547",
+    "name": "霜角粉末",
+    "source_mobs": [
+      {
+        "mob_id": "WB-011",
+        "name": "霜角鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-548",
+    "name": "青木狼牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-086",
+        "name": "青木狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-549",
+    "name": "青木猴毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-204",
+        "name": "青木猴"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-550",
+    "name": "青木蛇毒",
+    "source_mobs": [
+      {
+        "mob_id": "WB-034",
+        "name": "青木蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-551",
+    "name": "青木蛇鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-034",
+        "name": "青木蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-552",
+    "name": "青木角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-288",
+        "name": "青木羚羊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-553",
+    "name": "青翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-107",
+        "name": "青翼蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-554",
+    "name": "青翼蝠翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-029",
+        "name": "青翼蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-555",
+    "name": "青苔心皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-109",
+        "name": "木根熊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-556",
+    "name": "静电磷粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-066",
+        "name": "静电飞蛾"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-557",
+    "name": "静电绒毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-057",
+        "name": "雷纹跳蛛"
+      },
+      {
+        "mob_id": "WB-293",
+        "name": "雷羽雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-558",
+    "name": "静电羊毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-099",
+        "name": "雷角羊"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-559",
+    "name": "鞘翅碎纹",
+    "source_mobs": [
+      {
+        "mob_id": "WB-091",
+        "name": "雷光萤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-560",
+    "name": "风刃翎羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-157",
+        "name": "风刃鹰"
+      },
+      {
+        "mob_id": "WB-282",
+        "name": "风刃鹫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-561",
+    "name": "风刃螳前肢",
+    "source_mobs": [
+      {
+        "mob_id": "WB-013",
+        "name": "风刃螳"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-562",
+    "name": "风刃镰肢",
+    "source_mobs": [
+      {
+        "mob_id": "WB-146",
+        "name": "风刃螳螂"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-563",
+    "name": "风刃隼的翼羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-037",
+        "name": "风刃隼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-564",
+    "name": "风吼羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-232",
+        "name": "风吼雕"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-565",
+    "name": "风吼鬃毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-113",
+        "name": "风吼狮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-566",
+    "name": "风囊气囊",
+    "source_mobs": [
+      {
+        "mob_id": "WB-081",
+        "name": "沙尘鼬"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-567",
+    "name": "风影毛皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-199",
+        "name": "风影鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-568",
+    "name": "风影猫的毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-050",
+        "name": "风影猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-569",
+    "name": "风旋牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-113",
+        "name": "风吼狮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-570",
+    "name": "风旋骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-291",
+        "name": "飓风隼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-571",
+    "name": "风沙狼牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-170",
+        "name": "风沙狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-572",
+    "name": "风爪指甲",
+    "source_mobs": [
+      {
+        "mob_id": "WB-089",
+        "name": "飓风猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-573",
+    "name": "风爪钩",
+    "source_mobs": [
+      {
+        "mob_id": "WB-097",
+        "name": "风羽隼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-574",
+    "name": "风狼牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-131",
+        "name": "风翼狼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-575",
+    "name": "风纹角",
+    "source_mobs": [
+      {
+        "mob_id": "WB-248",
+        "name": "风纹鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-576",
+    "name": "风羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-190",
+        "name": "沙暴鹰"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-577",
+    "name": "风羽翎",
+    "source_mobs": [
+      {
+        "mob_id": "WB-097",
+        "name": "风羽隼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-578",
+    "name": "风翼羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-178",
+        "name": "风翼虎"
+      },
+      {
+        "mob_id": "WB-220",
+        "name": "风翼飞虎"
+      },
+      {
+        "mob_id": "WB-241",
+        "name": "风翼虎"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-579",
+    "name": "风翼羽毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-122",
+        "name": "风翼鹰"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-580",
+    "name": "风翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-055",
+        "name": "风刃灵蝠"
+      },
+      {
+        "mob_id": "WB-181",
+        "name": "风刃蝠"
+      },
+      {
+        "mob_id": "WB-266",
+        "name": "风翼虎"
+      },
+      {
+        "mob_id": "WB-300",
+        "name": "风翼蛇"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-581",
+    "name": "风蝠爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-107",
+        "name": "青翼蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-582",
+    "name": "风隼翎羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-291",
+        "name": "飓风隼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-583",
+    "name": "风雕羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-273",
+        "name": "烈风雕"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-584",
+    "name": "风雷羽",
+    "source_mobs": [
+      {
+        "mob_id": "WB-254",
+        "name": "风雷雕"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-585",
+    "name": "飓风尾毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-089",
+        "name": "飓风猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-586",
+    "name": "高温毒牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-112",
+        "name": "熔火蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-587",
+    "name": "鱼鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-173",
+        "name": "水箭鱼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-588",
+    "name": "鲛鳞",
+    "source_mobs": [
+      {
+        "mob_id": "WB-137",
+        "name": "水纹鲛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-589",
+    "name": "鲨鳍刃",
+    "source_mobs": [
+      {
+        "mob_id": "WB-238",
+        "name": "水纹鲨"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-590",
+    "name": "鳐骨扇",
+    "source_mobs": [
+      {
+        "mob_id": "WB-290",
+        "name": "水纹鳐"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-591",
+    "name": "鸟喙电核",
+    "source_mobs": [
+      {
+        "mob_id": "WB-249",
+        "name": "雷光雀"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-592",
+    "name": "鸦眼血晶",
+    "source_mobs": [
+      {
+        "mob_id": "WB-252",
+        "name": "暗影鸦"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-593",
+    "name": "鹤喙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-275",
+        "name": "雷羽鹤"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-594",
+    "name": "鹰爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-122",
+        "name": "风翼鹰"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-595",
+    "name": "鹰爪骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-282",
+        "name": "风刃鹫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-596",
+    "name": "鹰眼晶",
+    "source_mobs": [
+      {
+        "mob_id": "WB-157",
+        "name": "风刃鹰"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-597",
+    "name": "鹰隼利爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-207",
+        "name": "狂风鹰隼"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-598",
+    "name": "鹿皮",
+    "source_mobs": [
+      {
+        "mob_id": "WB-076",
+        "name": "霜角鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-599",
+    "name": "鹿角藤",
+    "source_mobs": [
+      {
+        "mob_id": "WB-262",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-600",
+    "name": "鹿蹄草",
+    "source_mobs": [
+      {
+        "mob_id": "WB-143",
+        "name": "木灵鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-601",
+    "name": "鹿蹄风痕",
+    "source_mobs": [
+      {
+        "mob_id": "WB-248",
+        "name": "风纹鹿"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-602",
+    "name": "麻痹毒液",
+    "source_mobs": [
+      {
+        "mob_id": "WB-031",
+        "name": "电纹蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-603",
+    "name": "黑尾毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-295",
+        "name": "暗影猫"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-604",
+    "name": "黑曜石獠牙",
+    "source_mobs": [
+      {
+        "mob_id": "WB-172",
+        "name": "暗岩蛛"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-605",
+    "name": "黑水蛭的吸盘",
+    "source_mobs": [
+      {
+        "mob_id": "WB-039",
+        "name": "黑水蛭"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-606",
+    "name": "黑炎爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-175",
+        "name": "黑炎狮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-607",
+    "name": "黑炎鬃毛",
+    "source_mobs": [
+      {
+        "mob_id": "WB-175",
+        "name": "黑炎狮"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-608",
+    "name": "黑风翼膜",
+    "source_mobs": [
+      {
+        "mob_id": "WB-166",
+        "name": "黑风蝠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-609",
+    "name": "鼹鼠爪",
+    "source_mobs": [
+      {
+        "mob_id": "WB-074",
+        "name": "石甲鼹鼠"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-610",
+    "name": "龟火胆",
+    "source_mobs": [
+      {
+        "mob_id": "WB-289",
+        "name": "熔岩巨龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-611",
+    "name": "龟珠",
+    "source_mobs": [
+      {
+        "mob_id": "WB-152",
+        "name": "水纹龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-612",
+    "name": "龟甲筋腱",
+    "source_mobs": [
+      {
+        "mob_id": "WB-082",
+        "name": "岩甲龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-613",
+    "name": "龟甲苔",
+    "source_mobs": [
+      {
+        "mob_id": "WB-030",
+        "name": "岩壳龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-614",
+    "name": "龟甲软骨",
+    "source_mobs": [
+      {
+        "mob_id": "WB-111",
+        "name": "水纹龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-615",
+    "name": "龟足筋",
+    "source_mobs": [
+      {
+        "mob_id": "WB-258",
+        "name": "岩甲龟"
+      }
+    ]
+  },
+  {
+    "item_id": "cl-616",
+    "name": "龟骨粉",
+    "source_mobs": [
+      {
+        "mob_id": "WB-235",
+        "name": "岩甲龟"
+      }
+    ]
+  }
+]

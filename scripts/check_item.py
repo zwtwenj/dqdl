@@ -1,0 +1,18 @@
+import pymysql
+conn = pymysql.connect(host='os.environ.get("DB_HOST", "127.0.0.1")', port=3306, user='root', password='os.environ.get("DB_PASSWORD", "")', database='dqdl', charset='utf8mb4')
+cur = conn.cursor()
+cur.execute('SELECT COUNT(*) FROM item')
+print(f'item总数: {cur.fetchone()[0]}')
+cur.execute("SELECT COUNT(*) FROM item WHERE type='材料'")
+print(f'材料: {cur.fetchone()[0]}')
+cur.execute("SELECT COUNT(*) FROM item WHERE type='魔核'")
+print(f'魔核: {cur.fetchone()[0]}')
+cur.execute("SELECT COUNT(*) FROM item WHERE type='材料' AND description IS NOT NULL AND description != ''")
+print(f'材料有描述: {cur.fetchone()[0]}')
+cur.execute("SELECT COUNT(*) FROM item WHERE type='魔核' AND description IS NOT NULL AND description != ''")
+print(f'魔核有描述: {cur.fetchone()[0]}')
+print()
+cur.execute('SELECT item_id, name, type, price, description FROM item ORDER BY item_id LIMIT 10')
+for r in cur.fetchall():
+    print(f'  {r[0]} | {r[1]} | {r[2]} | {r[3]}G | {r[4]}')
+conn.close()

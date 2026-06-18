@@ -8,12 +8,19 @@ export class Item {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 64 })
+  /** 全局唯一物品ID，如 mh-h1-1, cl-100 */
+  @Column({ type: 'varchar', length: 32, unique: true })
+  item_id: string;
+
+  @Column({ type: 'varchar', length: 128 })
   name: string;
 
   /** 类别：丹药/武器/功法/武技/防具/材料/消耗品/特殊 等 */
   @Column({ type: 'varchar', length: 32 })
   type: string;
+
+  @Column({ type: 'int', default: 0, comment: '参考价格（金币）' })
+  price: number;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;

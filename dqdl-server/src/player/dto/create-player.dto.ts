@@ -39,4 +39,9 @@ export class CreatePlayerDto {
   @Min(1)
   @Max(999)
   lucky?: number;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 512)
+  position?: string;
 }

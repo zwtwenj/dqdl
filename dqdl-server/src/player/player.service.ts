@@ -23,6 +23,8 @@ export class PlayerService {
     player.exp = 0;
     player.cultivation = 0;
     player.technique_id = 1; // 默认焰诀
+    player.position = dto.position || '';
+    player.status = 1;
     return this.playerRepo.save(player);
   }
 
@@ -65,5 +67,10 @@ export class PlayerService {
 
   async remove(id: number): Promise<void> {
     await this.playerRepo.delete(id);
+  }
+
+  /** 更新玩家位置 */
+  async updatePosition(id: number, position: string): Promise<void> {
+    await this.playerRepo.update(id, { position: position as any });
   }
 }

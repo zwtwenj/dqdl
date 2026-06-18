@@ -16,6 +16,10 @@ from dotenv import load_dotenv
 # ── 加载配置 ──
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
+# 强制 HuggingFace 离线模式，避免模型加载时连接超时
+os.environ['TRANSFORMERS_OFFLINE'] = '1'
+os.environ['HF_HUB_OFFLINE'] = '1'
+
 AGENT_PORT = int(os.getenv('AGENT_PORT', '5000'))
 AGENT_HOST = os.getenv('AGENT_HOST', '0.0.0.0')
 
@@ -92,36 +96,101 @@ def build_prompt(parent_info, rule, count, existing_names):
 
 
 def _fetch_real_mobs(parent_info, loc_info, max_count=4):
-    """从 RAG 向量库中检索真实魔兽，返回 [{mob_id, name}] 列表"""
+    """从 RAG 向量库中检索真实魔兽，返回 [{mob_id, name, rank}] 列表
+    根据 loc_info.danger_level 过滤等阶：1→一阶, 2→二阶, 3→三阶"""
     try:
         ensure_rag()
         from rag_service import search
-        # 用地点描述+父区域构造查询
+
+        # 危险度 → 品阶前缀
+        danger_level = int(loc_info.get('danger_level', 0))
+        tier_map = {1: '一阶', 2: '二阶', 3: '三阶'}
+        expected_tier = tier_map.get(danger_level, None)
+
+        # 构建query：包含品阶关键词以提高匹配率
         desc = loc_info.get('description', '')
         tags = ', '.join(loc_info.get('tags') or [])
         parent_name = parent_info.get('name', '')
-        query = f'{parent_name} {tags} {desc} 魔兽栖息'.strip()
-        results = search(query, top_k=max_count * 3)
+        tier_hint = f'{expected_tier}魔兽' if expected_tier else '魔兽'
+        query = f'{tier_hint} {parent_name} {tags} {desc} 栖息'.strip()
+        # 大量多取，过滤后可能很少（一阶魔兽在top结果中占比低）
+        results = search(query, top_k=max_count * 15)
+
         mobs = []
         for r in results:
             text = r['text']
-            # 从 chunk 中提取 【ID】WB-xxx 和 【名称】xxx
             mob_id = None
             mob_name = None
+            tier = None
+            power_ref = None
             for line in text.split('\n'):
                 line = line.strip()
                 if line.startswith('【ID】'):
                     mob_id = line.replace('【ID】', '').strip()
                 elif line.startswith('【名称】'):
                     mob_name = line.replace('【名称】', '').strip()
+                elif line.startswith('【品阶】'):
+                    tier = line.replace('【品阶】', '').strip()
+                elif line.startswith('【战力参考】'):
+                    power_ref = line.replace('【战力参考】', '').strip()
             if mob_id and mob_name:
-                mobs.append({'mob_id': mob_id, 'name': mob_name})
+                # 按危险度过滤等阶
+                if expected_tier and tier:
+                    if not tier.startswith(expected_tier):
+                        continue  # 跳过不匹配等阶的魔兽
+                entry = {'mob_id': mob_id, 'name': mob_name}
+                rank = _build_rank(tier, power_ref)
+                if rank:
+                    entry['rank'] = rank
+                mobs.append(entry)
             if len(mobs) >= max_count:
                 break
         return mobs if mobs else None
     except Exception as e:
         app.logger.error(f'RAG 魔兽检索失败: {e}')
         return None
+
+
+def _build_rank(tier, power_ref):
+    """组合品阶 + 战力编码 → 如 一阶三段 / 二阶三星 / 三阶五星
+    战力编码规则: 1-9=斗之气1-9段, 11-19=斗者1-9星, 21-29=斗师1-9星"""
+    if not tier:
+        return None
+    if not power_ref:
+        return tier
+
+    # 先尝试按纯数字战力编码解析
+    import re
+    m = re.match(r'(\d+)', str(power_ref))
+    if m:
+        code = int(m.group(1))
+        cn_nums = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+        if 1 <= code <= 9:
+            # 斗之气 X段
+            return f'{tier}{cn_nums[code]}段'
+        elif 11 <= code <= 19:
+            # 斗者 X星
+            star = code - 10
+            return f'{tier}{cn_nums[star]}星'
+        elif 21 <= code <= 29:
+            # 斗师 X星
+            star = code - 20
+            return f'{tier}{cn_nums[star]}星'
+
+    # fallback: 兼容旧格式文本
+    for label, cn in [('一星', '一星'), ('二星', '二星'), ('三星', '三星'), ('四星', '四星'),
+                       ('五星', '五星'), ('六星', '六星'), ('七星', '七星'), ('八星', '八星'),
+                       ('九星', '九星'), ('半星', '半星')]:
+        if label in power_ref:
+            return f'{tier}{cn}'
+    for label, cn in [('巅峰', '巅峰'), ('后期', '后期'), ('中期', '中期'), ('初期', '初期')]:
+        if label in power_ref:
+            return f'{tier}{cn}'
+    for label, cn in [('一段', '一段'), ('二段', '二段'), ('三段', '三段'), ('四段', '四段'), ('五段', '五段')]:
+        if label in power_ref:
+            return f'{tier}{cn}'
+
+    return f'{tier}·{power_ref}'
 
 
 def _enrich_qi_density(loc_dict, parent_info):
@@ -150,11 +219,17 @@ def generate_locations(parent_info, rule, count, existing_names):
         items = parse_json_response(content)
         results = []
         for item in items:
+            # 野外 danger_level：AI倾向生成高值(2/3)，强制均匀随机 1-3
+            loc_type_val = str(item.get('loc_type', rule.get('loc_type', 'district')))
+            if loc_type_val in ('wild', 'wild2', 'wild3'):
+                raw_danger = random.randint(1, 3)
+            else:
+                raw_danger = 0
             loc = _enrich_qi_density({
                 'name': str(item.get('name', '')),
-                'loc_type': str(item.get('loc_type', rule.get('loc_type', 'district'))),
+                'loc_type': loc_type_val,
                 'description': str(item.get('description', '')),
-                'danger_level': int(item.get('danger_level', 0)),
+                'danger_level': raw_danger,
                 'available_actions': item.get('available_actions'),
                 'tags': item.get('tags'),
                 'common_mobs': None,
@@ -388,7 +463,9 @@ def generate_training():
         player: { name, technique_name, ... },
         mob: { mob_id, name, description, power, intelligence, quick, stamina, level },
         battle: { win_rate, rounds, style, player_total, mob_total },
-        location: { name, description }
+        location: { name, description },
+        won: bool,
+        drops: [{ name, count }]
     }
     """
     data = request.get_json(force=True)
@@ -396,24 +473,46 @@ def generate_training():
     mob = data.get('mob', {})
     battle = data.get('battle', {})
     location = data.get('location', {})
+    won = data.get('won', True)
 
-    system_prompt = (
-        '你是斗气大陆的冒险叙事者。根据战斗信息生成一段简练的历练叙事文本。'
-        '文字风格参考斗破苍穹小说，生动但不啰嗦，1-3句话。'
-        '只输出叙事文本，不要输出JSON或其他格式。'
-    )
-
-    user_prompt = (
-        f'【地点】{location.get("name", "")} - {location.get("description", "")}\n'
-        f'【玩家】{player.get("name", "")}，修炼功法：{player.get("technique_name", "无")}\n'
-        f'【遭遇怪物】{mob.get("name", "")}\n'
-        f'  描述：{mob.get("description", "")}\n'
-        f'【战斗结果】\n'
-        f'  胜率：{battle.get("win_rate", 0)}%\n'
-        f'  预计回合：{battle.get("rounds", 1)}\n'
-        f'  战斗风格：{battle.get("style", "普通")}\n'
-        f'\n请生成这段历练遭遇的叙事文本。'
-    )
+    if won:
+        system_prompt = (
+            '你是斗气大陆的冒险叙事者。根据战斗信息生成一段简练的历练叙事文本。'
+            '文字风格参考斗破苍穹小说，生动但不啰嗦，1-3句话。'
+            '必须描述：遭遇→交锋→结果。'
+            '只输出叙事文本，不要输出JSON或其他格式。'
+        )
+        user_prompt = (
+            f'【地点】{location.get("name", "")} - {location.get("description", "")}\n'
+            f'【玩家】{player.get("name", "")}，修炼功法：{player.get("technique_name", "无")}\n'
+            f'【遭遇怪物】{mob.get("name", "")}\n'
+            f'  描述：{mob.get("description", "")}\n'
+            f'【战斗信息】\n'
+            f'  结局：胜利\n'
+            f'  胜率预估：{battle.get("win_rate", 0)}%\n'
+            f'  战斗风格：{battle.get("style", "普通")}\n'
+            f'  回合数：{battle.get("rounds", 1)}\n'
+            f'\n请根据以上信息生成叙事文本。'
+        )
+    else:
+        system_prompt = (
+            '你是斗气大陆的冒险叙事者。根据战斗信息生成一段简练的历练叙事文本。'
+            '玩家遭遇强敌，短暂交锋后逃跑。'
+            '文字风格参考斗破苍穹小说，生动但不啰嗦，1-2句话。'
+            '必须描述：遭遇→交锋→逃跑。'
+            '只输出叙事文本，不要输出JSON或其他格式。'
+        )
+        user_prompt = (
+            f'【地点】{location.get("name", "")} - {location.get("description", "")}\n'
+            f'【玩家】{player.get("name", "")}，修炼功法：{player.get("technique_name", "无")}\n'
+            f'【遭遇怪物】{mob.get("name", "")}\n'
+            f'  描述：{mob.get("description", "")}\n'
+            f'【战斗信息】\n'
+            f'  结局：逃跑\n'
+            f'  胜率预估：{battle.get("win_rate", 0)}%\n'
+            f'  战斗风格：{battle.get("style", "普通")}\n'
+            f'\n请根据以上信息生成叙事文本。'
+        )
 
     try:
         r = ai_client.chat.completions.create(
@@ -428,7 +527,9 @@ def generate_training():
         text = r.choices[0].message.content.strip()
         return jsonify({'text': text})
     except Exception as e:
-        app.logger.error(f'历练文本生成失败: {e}')
+        import traceback
+        print(f'[Training ERROR] {e}')
+        traceback.print_exc()
         return jsonify({'text': f'你在{location.get("name", "")}遭遇了一只{mob.get("name", "")}。'})
 
 

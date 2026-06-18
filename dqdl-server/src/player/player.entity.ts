@@ -58,4 +58,12 @@ export class Player {
 
   @UpdateDateColumn({ comment: '更新时间' })
   updated_at: Date;
+
+  /** 玩家当前位置路径，如：斗气大陆 > 黑角域 > 天罡帝国 > 铁壁城 > 佣兵公会 */
+  @Column({ type: 'varchar', length: 512, default: '', comment: '玩家当前位置路径' })
+  position: string;
+
+  /** 用户状态: 1=正常 */
+  @Column({ type: 'tinyint', default: 1, comment: '用户状态: 1=正常' })
+  status: number;
 }

@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Patch, ParseIntPipe } from '@nestjs/common';
 import { PlayerService } from './player.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
+import { UpdatePositionDto } from './dto/update-position.dto';
 
 @Controller('player')
 export class PlayerController {
@@ -32,5 +33,14 @@ export class PlayerController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.playerService.remove(id);
+  }
+
+  /** 更新玩家位置 */
+  @Patch(':id/position')
+  updatePosition(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePositionDto,
+  ) {
+    return this.playerService.updatePosition(id, dto.position);
   }
 }

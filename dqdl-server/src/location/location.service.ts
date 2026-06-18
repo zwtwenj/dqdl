@@ -71,10 +71,12 @@ export class LocationService {
       existingNames,
     });
 
-    // 查找父级 wild 的 common_mobs（用于 wild2/wild3 继承）
+    // 查找父级 wild 的 common_mobs 和 danger_level（用于 wild2/wild3 继承）
     let parentWildMobs: string | null = null;
+    let parentWildDanger: number = 0;
     if (isWildParent && parent.common_mobs) {
       parentWildMobs = parent.common_mobs;
+      parentWildDanger = parent.danger_level || 0;
     } else if (isWild2Parent) {
       // wild2 的父级一定是 wild，往上找
       const grandParent = parent.parent_id
@@ -82,6 +84,7 @@ export class LocationService {
         : null;
       if (grandParent?.common_mobs) {
         parentWildMobs = grandParent.common_mobs;
+        parentWildDanger = grandParent.danger_level || 0;
       }
     }
 
@@ -102,7 +105,15 @@ export class LocationService {
 
       loc.description = item.description || null;
       loc.depth = childDepth;
-      loc.danger_level = item.danger_level ?? 0;
+      // 野外类型：danger_level 继承父级 wild
+      if ((isWildParent || isWild2Parent) && parentWildDanger > 0) {
+        loc.danger_level = parentWildDanger;
+      } else if (loc.loc_type === 'wild' || loc.loc_type === 'wild2' || loc.loc_type === 'wild3') {
+        // wild 类型但无法继承时，clamp 1-3
+        loc.danger_level = Math.max(1, Math.min(item.danger_level ?? 1, 3));
+      } else {
+        loc.danger_level = 0;
+      }
       loc.qi_density = item.qi_density ?? 0;
       loc.is_fixed = 0;
       loc.is_expanded = 0;

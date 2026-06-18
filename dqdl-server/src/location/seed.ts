@@ -98,8 +98,8 @@ async function seed() {
       min_children: 3,
       max_children: 7,
       naming_style: '城市、山脉、宗派、秘境名，风格参考仙侠小说',
-      danger_range: '1-6',
-      world_constraints: '必须包含至少1个城市、1个野外、1个宗派或秘境。类型分布：city/wild/sect/secret。',
+      danger_range: '1-3',
+      world_constraints: '必须包含至少1个城市、1个野外、1个宗派或秘境。类型分布：city/wild/sect/secret。野外(wild)的danger_level只能是1-3，1=一阶魔兽区，2=二阶魔兽区，3=三阶魔兽区。城市danger_level为0。',
       gen_prompt: `你是斗气大陆的世界观设计师。请为"{parent_name}"（{parent_description}）生成{count}个地点。
 
 【地点类型】每个地点必须是以下之一：
@@ -111,7 +111,8 @@ async function seed() {
 【严格约束】
 - 名称必须符合斗气大陆仙侠风格
 - 至少包含1个city类型和1个wild类型
-- 危险等级范围：{danger_range}
+- 危险等级范围：{danger_range}（野外danger_level只允许1-3，城市为0）
+- 野外danger_level含义：1=一阶魔兽区，2=二阶魔兽区，3=三阶魔兽区
 - {forbidden}
 
 【输出格式】只输出JSON数组
@@ -132,8 +133,8 @@ async function seed() {
       min_children: 2,
       max_children: 5,
       naming_style: '区域内景点名，如坊市、佣兵公会、药材商行、修炼场',
-      danger_range: '1-8',
-      world_constraints: '区域类型要与父节点匹配：城市内是功能区域，野外内是野外深处，宗派内是功能区域。',
+      danger_range: '1-3',
+      world_constraints: '区域类型要与父节点匹配：城市内是功能区域，野外内是野外深处，宗派内是功能区域。野外(wild2)的danger_level只能是1-3，继承父级wild的danger_level。非野外区域danger_level为0。',
       gen_prompt: `你是斗气大陆的世界观设计师。请为"{parent_name}"（{parent_description}）生成{count}个内部区域。
 
 【区域类型】根据父节点类型选择：
@@ -146,7 +147,8 @@ async function seed() {
 - 至少包含1个功能性区域（可交易/接任务/修炼）
 - 区域类型必须与父节点匹配
 - {forbidden}
-- 如果父节点是野外类型，loc_type必须设为"wild2"
+- 如果父节点是野外类型，loc_type必须设为"wild2"，danger_level继承父节点（1-3）
+- 非野外区域danger_level设为0
 
 【输出格式】只输出JSON数组
 [
@@ -166,8 +168,8 @@ async function seed() {
       min_children: 2,
       max_children: 4,
       naming_style: '具体场景名，如某个摊位、某个房间、某棵树旁',
-      danger_range: '3-10',
-      world_constraints: '场景是最细粒度的地点，应该有具体的交互对象。如：炼药炉旁、悬赏牌前、老者摊位。',
+      danger_range: '1-3',
+      world_constraints: '场景是最细粒度的地点，应该有具体的交互对象。如：炼药炉旁、悬赏牌前、老者摊位。野外(wild3)的danger_level只能是1-3，继承父级wild2的danger_level。非野外场景danger_level为0。',
       gen_prompt: `你是斗气大陆的世界观设计师。请为"{parent_name}"（{parent_description}）生成{count}个具体场景。
 
 【场景是最细粒度的地点】
@@ -177,7 +179,8 @@ async function seed() {
 - 场景名称要具体，如“悬赏牌前”、“炼药炉旁”、“密林深处”
 - 每个场景应该暗示可能的交互
 - {forbidden}
-- 如果父节点是wild2类型，loc_type必须设为"wild3"
+- 如果父节点是wild2类型，loc_type必须设为"wild3"，danger_level继承父节点（1-3）
+- 非野外场景danger_level设为0
 
 【输出格式】只输出JSON数组
 [

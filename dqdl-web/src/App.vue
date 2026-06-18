@@ -3,7 +3,10 @@
   <div v-if="!gameStarted" class="start-screen">
     <div class="title-glow">斗气大陆</div>
     <p class="subtitle">AI 文字冒险</p>
-    <button v-if="!loading" class="btn-start" @click="startGame">开始游戏</button>
+    <template v-if="!loading">
+      <button v-if="hasSave" class="btn-start continue-btn" @click="continueGame">继续游戏</button>
+      <button class="btn-start" :class="{ 'new-btn': hasSave }" @click="newGame">新游戏</button>
+    </template>
     <div v-else class="loading-box">
       <div class="spinner"></div>
       <p class="loading-text">{{ loadingText }}</p>
@@ -12,19 +15,13 @@
 
   <!-- 游戏界面 -->
   <div v-else class="game-screen">
-    <!-- 顶栏：玩家信息 -->
+    <!-- 顶栏 -->
     <div class="top-bar">
       <span class="player-name">{{ player?.name }}</span>
-      <span class="player-stat">
-        HP {{ player?.hp }} &nbsp; 斗气 {{ player?.energy }} &nbsp;
-        金币 {{ player?.money }} &nbsp; 经验 {{ player?.exp }} &nbsp; 修为 {{ player?.cultivation }}
-      </span>
-      <span class="player-attr">
-        力量 {{ player?.power }} &nbsp; 智力 {{ player?.intelligence }} &nbsp;
-        敏捷 {{ player?.quick }} &nbsp; 体质 {{ player?.stamina }} &nbsp;
-        运气 {{ player?.lucky }}
-      </span>
-      <button class="btn-role" @click="showRole = true">角色</button>
+      <div class="top-bar-right">
+        <button class="btn-backpack" @click="toggleBackpack">背包</button>
+        <button class="btn-role" @click="showRole = true">角色</button>
+      </div>
     </div>
 
     <!-- 角色面板弹窗 -->
@@ -99,7 +96,7 @@
         <span class="loc-name">{{ currentLocation.name }}</span>
         <span class="loc-type-badge">{{ typeLabel(currentLocation.loc_type) }}</span>
         <span class="loc-danger" v-if="currentLocation.danger_level > 0">
-          危险度 {{ currentLocation.danger_level }}/10
+          危险度 {{ dangerLabel(currentLocation.danger_level) }}
         </span>
         <span class="loc-qi" v-if="currentLocation.qi_density > 0">
           斗气浓郁度 {{ currentLocation.qi_density }}
@@ -108,7 +105,9 @@
       <p class="loc-desc" v-if="currentLocation.description">{{ currentLocation.description }}</p>
       <div class="loc-mobs" v-if="parseMobs(currentLocation.common_mobs).length">
         <span class="mobs-label">常见怪物：</span>
-        <span class="mob-tag" v-for="mob in parseMobs(currentLocation.common_mobs)" :key="mob.mob_id">{{ mob.name }}</span>
+        <span class="mob-tag" v-for="mob in parseMobs(currentLocation.common_mobs)" :key="mob.mob_id">
+          {{ mob.name }}<template v-if="mob.rank">（{{ mob.rank }}）</template>
+        </span>
       </div>
 
       <!-- 历练区域 -->
@@ -117,10 +116,13 @@
           {{ trainingLoading ? '历练中...' : '历练' }}
         </button>
         <div class="training-log" v-if="trainingLog.length">
-          <div class="log-entry" v-for="(evt, idx) in trainingLog" :key="idx">
+          <div class="log-entry" :class="{ 'log-lost': evt.won === false }" v-for="(evt, idx) in trainingLog" :key="idx">
             <p class="log-text">{{ evt.text }}</p>
+            <div class="log-drops" v-if="evt.drops && evt.drops.length">
+              掉落：<span class="drop-item" v-for="(d, di) in evt.drops" :key="di">{{ d.name }}&times;{{ d.count }}<template v-if="di < evt.drops.length - 1">，</template></span>
+            </div>
             <span class="log-meta" v-if="evt.battle">
-              {{ evt.mob?.name }} · {{ evt.battle.style }} · {{ evt.battle.rounds }}回合 · 胜率{{ evt.battle.win_rate }}%
+              {{ evt.mob?.name }} · {{ evt.won === false ? '逃跑' : evt.battle.style }} · {{ evt.battle.rounds }}回合 · 胜率{{ evt.battle.win_rate }}%
             </span>
           </div>
         </div>
@@ -148,6 +150,9 @@
           >
             <span class="card-name">{{ sib.name }}</span>
             <span class="card-type">{{ typeLabel(sib.loc_type) }}</span>
+            <span class="card-danger" v-if="sib.danger_level > 0">
+              危险 {{ dangerLabel(sib.danger_level) }}
+            </span>
           </div>
         </div>
       </div>
@@ -165,7 +170,7 @@
             <span class="card-name">{{ child.name }}</span>
             <span class="card-type">{{ typeLabel(child.loc_type) }}</span>
             <span class="card-danger" v-if="child.danger_level > 0">
-              危险 {{ child.danger_level }}
+              危险 {{ dangerLabel(child.danger_level) }}
             </span>
             <span class="card-qi" v-if="child.qi_density > 0">
               斗气 {{ child.qi_density }}
@@ -235,6 +240,23 @@
         </div>
       </div>
     </div>
+
+    <!-- 背包弹窗 -->
+    <div class="role-overlay" v-if="showBackpack" @click="showBackpack = false">
+      <div class="role-panel backpack-panel" @click.stop>
+        <div class="role-header">
+          <span class="role-title">背包</span>
+          <button class="role-close" @click="showBackpack = false">&times;</button>
+        </div>
+        <div class="backpack-body">
+          <div v-if="backpackItems.length === 0" class="backpack-empty">背包空空如也</div>
+          <div v-for="(item, idx) in backpackItems" :key="idx" class="backpack-item">
+            <span class="bp-item-name">{{ item.name }}</span>
+            <span class="bp-item-count">&times;{{ item.count }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -246,8 +268,9 @@ const {
   gameStarted, loading, loadingText, player,
   breadcrumb, currentChildren, currentLocation, currentNpcs,
   dialogNpc, dialogHistory, dialogLoading,
-  startGame, moveTo, openDialog, closeDialog, sendDialog,
+  hasSave, newGame, continueGame, moveTo, openDialog, closeDialog, sendDialog,
   trainingLog, trainingLoading, doTrainingEvent,
+  showBackpack, backpackItems, toggleBackpack,
 } = useGame()
 
 const dialogInput = ref('')
@@ -283,6 +306,11 @@ function typeLabel(type) {
     district: '区域', scene: '场景',
   }
   return map[type] || type
+}
+
+function dangerLabel(level) {
+  const map = { 1: '一阶(低危)', 2: '二阶(中危)', 3: '三阶(高危)' }
+  return map[level] || level
 }
 
 function parseMobs(raw) {
@@ -344,11 +372,32 @@ function handleEventClick(evt) {
   cursor: pointer;
   letter-spacing: 0.3rem;
   transition: all 0.3s;
+  margin: 8px 0;
+  display: block;
+  width: 260px;
 }
 
 .btn-start:hover {
   background: #f0c040;
   color: #0a0a0f;
+}
+
+.continue-btn {
+  border-color: #60c080;
+  color: #60c080;
+}
+
+.continue-btn:hover {
+  background: #60c080;
+  color: #0a0a0f;
+}
+
+.new-btn {
+  border-color: #8a7e6a;
+  color: #8a7e6a;
+  font-size: 0.95rem;
+  padding: 10px 36px;
+  letter-spacing: 0.2rem;
 }
 
 .loading-box {
@@ -531,6 +580,13 @@ function handleEventClick(evt) {
   margin-bottom: 6px;
   border-radius: 0 4px 4px 0;
 }
+.log-entry.log-lost {
+  border-left-color: #555;
+  background: #1a1a22;
+}
+.log-entry.log-lost .log-text {
+  color: #777;
+}
 .log-text {
   color: #d0d0d8;
   font-size: 0.88rem;
@@ -540,6 +596,17 @@ function handleEventClick(evt) {
 .log-meta {
   color: #6a6a7a;
   font-size: 0.75rem;
+}
+
+/* 掉落物 */
+.log-drops {
+  color: #b0a070;
+  font-size: 0.82rem;
+  margin-top: 4px;
+}
+.drop-item {
+  color: #f0c040;
+  font-weight: bold;
 }
 
 /* 地图区域 */
@@ -630,6 +697,23 @@ function handleEventClick(evt) {
   font-size: 0.85rem;
 }
 .btn-role:hover { background: #4a4030; }
+
+.top-bar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-backpack {
+  background: #2a3a3a;
+  color: #60c0a0;
+  border: 1px solid #3a5a5a;
+  padding: 4px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.btn-backpack:hover { background: #3a4a4a; }
 
 /* 角色面板 */
 .role-overlay {
@@ -936,5 +1020,43 @@ function handleEventClick(evt) {
   background: #3a3a4a;
   color: #5a5a6a;
   cursor: not-allowed;
+}
+
+/* 背包弹窗 */
+.backpack-panel {
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+.backpack-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+.backpack-empty {
+  color: #5a5a6a;
+  text-align: center;
+  padding: 24px 0;
+  font-size: 0.95rem;
+}
+.backpack-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #222233;
+  transition: background 0.2s;
+}
+.backpack-item:hover {
+  background: #1f1f2c;
+}
+.bp-item-name {
+  color: #d0c8b8;
+  font-size: 0.9rem;
+}
+.bp-item-count {
+  color: #50c878;
+  font-weight: bold;
+  font-size: 0.9rem;
 }
 </style>

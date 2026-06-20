@@ -11,9 +11,10 @@ import { PlayerModule } from '../player/player.module';
 import { TechniqueModule } from '../technique/technique.module';
 import { BackpackModule } from '../backpack/backpack.module';
 import { ItemModule } from '../item/item.module';
+import { TaskModule } from '../task/task.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Location, LocationGenRule]), MobModule, PlayerModule, TechniqueModule, BackpackModule, ItemModule],
+  imports: [TypeOrmModule.forFeature([Location, LocationGenRule]), MobModule, PlayerModule, TechniqueModule, BackpackModule, ItemModule, TaskModule],
   controllers: [LocationController],
   providers: [LocationService, MapGeneratorService, TrainingService],
   exports: [LocationService],

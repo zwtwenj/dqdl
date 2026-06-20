@@ -134,6 +134,9 @@ def _fetch_real_mobs(parent_info, loc_info, max_count=4):
                 elif line.startswith('【战力参考】'):
                     power_ref = line.replace('【战力参考】', '').strip()
             if mob_id and mob_name:
+                # 只接受魔兽ID（WB-xxx格式），过滤魔核/材料等非怪物条目
+                if not mob_id.startswith('WB-'):
+                    continue
                 # 按危险度过滤等阶
                 if expected_tier and tier:
                     if not tier.startswith(expected_tier):

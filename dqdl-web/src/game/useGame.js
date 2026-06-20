@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { getRoots, getChildren, getLocation, createPlayer, getPlayer, getNpcsByLocation, talkToNpc, doTraining, getBackpack, updatePlayerPosition } from '../api'
+import { getRoots, getChildren, getLocation, getTree, createPlayer, getPlayer, getNpcsByLocation, talkToNpc, doTraining, getBackpack, updatePlayerPosition, generateTask, acceptTask, completeAdventurerTasks, getPlayerTasks } from '../api'
 
 // 存档缓存 key
 const SAVE_KEY = 'dqdl_save'
@@ -65,6 +65,23 @@ async function syncPosition(playerId, locId) {
   writeSave(playerId, locId)
   // 异步更新后端，不阻塞
   updatePlayerPosition(playerId, pos).catch(() => {})
+}
+
+/** 将后端 getTree 返回的树结构填充到面包屑的 _children 缓存中
+ *  这样后续导航时子节点数据已在本地，无需再次请求 */
+function _fillTreeChildren(node) {
+  // 后端 getTree 已返回完整的 children 数组
+  // 递归为每个节点设置 _children
+  if (node.children && node.children.length > 0) {
+    node._children = node.children
+    for (const child of node.children) {
+      _fillTreeChildren(child)
+    }
+    delete node.children
+  } else {
+    node._children = []
+    delete node.children
+  }
 }
 
 export function useGame() {
@@ -184,41 +201,12 @@ export function useGame() {
       if (!playerRes.data) throw new Error('玩家数据已丢失')
       player.value = playerRes.data
 
-      // 2. 确定当前位置：优先用存档的 locationId，否则从玩家 position 推算
-      let locId = save.locationId
-
-      // 3. 加载当前位置详情
+      // 2. 构建完整面包屑 + 加载子节点/NPC（复用公共方法）
       loadingText.value = '载入地图...'
-      const locRes = await getLocation(locId)
-      const target = locRes.data
+      await _loadLocationChain(save.locationId)
 
-      // 4. 向上追溯 parent 构建完整面包屑
-      loadingText.value = '重建路径...'
-      const chain = []
-      let current = target
-      while (current) {
-        chain.unshift(current)
-        if (current.parent_id) {
-          current = (await getLocation(current.parent_id)).data
-        } else {
-          break
-        }
-      }
-      breadcrumb.value = chain
-
-      // 5. 加载当前地点的子节点
-      loadingText.value = '读取周遭...'
-      const childrenRes = await getChildren(locId)
-      const children = childrenRes.data
-      if (breadcrumb.value.length > 0) {
-        breadcrumb.value[breadcrumb.value.length - 1]._children = children
-      }
-      currentLocation.value = target
-      currentChildren.value = children
-
-      // 6. 写出位置到缓存（确保 locationId 正确）
-      writeSave(player.value.id, locId)
-      // 同步 position 到后端
+      // 3. 写出位置到缓存
+      writeSave(player.value.id, save.locationId)
       updatePlayerPosition(player.value.id, buildPosition(breadcrumb.value)).catch(() => {})
 
       gameStarted.value = true
@@ -247,13 +235,29 @@ export function useGame() {
       const locRes = await getLocation(loc.id)
       const target = locRes.data
 
-      // 获取目标地点的子节点
-      const childrenRes = await getChildren(loc.id)
-      const children = childrenRes.data
+      // 获取目标地点的子节点（如果面包屑缓存中已有则跳过请求）
+      const cachedParent = breadcrumb.value.find(b => b.id === loc.id)
+      let children
+      if (cachedParent?._children && cachedParent._children.length > 0) {
+        children = cachedParent._children
+      } else {
+        const childrenRes = await getChildren(loc.id)
+        children = childrenRes.data
+      }
 
       // 更新面包屑
       target._children = children
       breadcrumb.value.push(target)
+
+      // empire 类型：预加载完整子树到面包屑的 _children 中
+      // 这样后续导航不再触发 getChildren，直接从缓存读取
+      if (target.loc_type === 'empire') {
+        loadingText.value = '探索帝国全境...'
+        const treeRes = await getTree(loc.id)
+        _fillTreeChildren(treeRes.data)
+        // 用树数据替换直接子节点
+        target._children = treeRes.data._children || []
+      }
 
       currentLocation.value = target
       currentChildren.value = children
@@ -350,8 +354,12 @@ export function useGame() {
       if (res.data.drops && res.data.drops.length > 0) {
         await fetchBackpack()
       }
+      // 如果有任务进度更新，刷新任务列表
+      if (res.data.task_updates && res.data.task_updates.length > 0) {
+        await fetchTasks()
+      }
     } catch (err) {
-      trainingLog.value.unshift({ text: '历练中出现了意外...', mob: null, battle: null, drops: [] })
+      trainingLog.value.unshift({ text: '历练中出现了意外...', mob: null, battle: null, drops: [], task_updates: [] })
     }
     trainingLoading.value = false
   }
@@ -374,6 +382,232 @@ export function useGame() {
   function toggleBackpack() {
     showBackpack.value = !showBackpack.value
     if (showBackpack.value) fetchBackpack()
+  }
+
+  // ===== 任务系统 =====
+  const tasks = ref([])
+  const taskLoading = ref(false)
+
+  /** 处理对话事件回调 */
+  async function handleDialogEvent(evt) {
+    console.log('[handleDialogEvent] evt.event =', evt.event)
+    if (!evt.event) {
+      // 没有事件标识，走普通对话
+      sendDialog(evt.text)
+      return
+    }
+
+    let eventData
+    try {
+      eventData = typeof evt.event === 'string' ? JSON.parse(evt.event) : evt.event
+    } catch {
+      sendDialog(evt.text)
+      return
+    }
+
+    if (eventData.type === 'createAdventurerTask') {
+      taskLoading.value = true
+      try {
+        // 只生成预览，不入库
+        const res = await generateTask(currentLocation.value.id)
+        const preview = res.data
+        const t0 = preview.target?.[0] || {}
+        const delivery = preview.delivery || null
+        // 在对话中插入带任务卡片的消息（含接受按鈕）
+        dialogHistory.value.push({
+          player: evt.text,
+          npc: '本公会有以下任务，你是否接受？',
+          taskCard: {
+            preview: true,  // 未入库标识
+            description: preview.description,
+            target: preview.target,
+            reward: preview.reward,
+            delivery: delivery,
+            star: preview.star || 1,
+            location_path: t0.location_path || [],
+            mob_name: t0.mob_name || '',
+            kill_count: t0.kill_count || t0.required || 0,
+            required: t0.required || 0,
+            current: 0,
+          },
+        })
+      } catch (err) {
+        dialogHistory.value.push({
+          player: evt.text,
+          npc: `任务生成失败：${err.response?.data?.message || err.message}`,
+        })
+      } finally {
+        taskLoading.value = false
+      }
+    } else if (eventData.type === 'completeTask') {
+      taskLoading.value = true
+      try {
+        // 传入当前 NPC id，只交付该 NPC 关联的达标任务
+        const npcId = dialogNpc.value?.id
+        const res = await completeAdventurerTasks(player.value.id, npcId)
+        const { count, tasks: doneTasks } = res.data
+        if (count === 0) {
+          dialogHistory.value.push({
+            player: evt.text,
+            npc: '目前没有可以交付的已完成任务。',
+          })
+        } else {
+          const names = doneTasks.map(t => t.description).join('、')
+          // 计算金币奖励
+          let totalMoney = 0
+          for (const dt of doneTasks) {
+            const rewards = dt.reward || []
+            for (const r of rewards) {
+              if (r.type === 'money' && r.value) totalMoney += r.value
+            }
+          }
+          const moneyMsg = totalMoney > 0 ? ` 获得奖励 ${totalMoney} 金币！` : ''
+          dialogHistory.value.push({
+            player: evt.text,
+            npc: `辛苦了！已为你登记以下 ${count} 个任务完成：${names}。${moneyMsg}`,
+          })
+          await fetchTasks()
+          // 刷新玩家数据（金币可能变化）
+          if (player.value) {
+            const pRes = await getPlayer(player.value.id)
+            player.value = pRes.data
+          }
+        }
+      } catch (err) {
+        dialogHistory.value.push({
+          player: evt.text,
+          npc: `交付失败：${err.response?.data?.message || err.message}`,
+        })
+      } finally {
+        taskLoading.value = false
+      }
+    } else {
+      // 未知事件类型，走普通对话
+      sendDialog(evt.text)
+    }
+  }
+
+  /**
+   * 公共方法：从 locationId 构建完整面包屑、加载子节点/NPC
+   * 供 continueGame / navigateToLocation 共用
+   */
+  async function _loadLocationChain(locationId) {
+    // 1. 加载目标地点
+    const locRes = await getLocation(locationId)
+    const target = locRes.data
+    if (!target) throw new Error('地点不存在')
+
+    // 2. 向上追溯 parent 构建完整链
+    const chain = []
+    let current = target
+    while (current) {
+      chain.unshift(current)
+      if (current.parent_id) {
+        current = (await getLocation(current.parent_id)).data
+      } else {
+        break
+      }
+    }
+
+    // 3. 加载目标地点的子节点
+    const childrenRes = await getChildren(locationId)
+    const children = childrenRes.data
+    chain[chain.length - 1]._children = children
+
+    // 4. 预加载每一层的 _children（让面包屑中间层级可点击展开）
+    for (let i = 0; i < chain.length - 1; i++) {
+      if (!chain[i]._children || chain[i]._children.length === 0) {
+        const sibRes = await getChildren(chain[i].id)
+        chain[i]._children = sibRes.data
+      }
+    }
+
+    // 5. empire 预加载完整子树
+    const empireNode = chain.find(n => n.loc_type === 'empire')
+    if (empireNode && empireNode.id) {
+      const treeRes = await getTree(empireNode.id)
+      _fillTreeChildren(treeRes.data)
+      empireNode._children = treeRes.data._children || []
+    }
+
+    // 6. 应用到面包屑
+    breadcrumb.value = chain
+    currentLocation.value = target
+    currentChildren.value = children
+
+    // 7. 加载 NPC
+    await loadNpcs(locationId)
+  }
+
+  /**
+   * 公共跳转方法：按 locationId 导航到任意地点
+   */
+  async function navigateToLocation(locationId) {
+    loading.value = true
+    loadingText.value = '跳转中...'
+    try {
+      await _loadLocationChain(locationId)
+      if (player.value) syncPosition(player.value.id, locationId)
+      closeDialog()
+      loading.value = false
+    } catch (err) {
+      console.error('跳转失败:', err)
+      loading.value = false
+    }
+  }
+
+  /** 任务地点跳转：使用公共跳转方法 */
+  async function navigateToTask(locationPath) {
+    if (!locationPath || locationPath.length === 0) return
+    const dest = locationPath[locationPath.length - 1]
+    await navigateToLocation(dest.id)
+  }
+
+  /** 玩家接受任务卡片，入库并更新卡片状态 */
+  async function acceptCurrentTask(taskCard) {
+    if (!player.value) return
+    taskLoading.value = true
+    try {
+      const res = await acceptTask(
+        player.value.id,
+        taskCard.description,
+        taskCard.target,
+        taskCard.reward,
+        taskCard.delivery,
+        taskCard.star,
+      )
+      const saved = res.data
+      tasks.value.unshift(saved)
+      // 将卡片标识为已接受
+      taskCard.preview = false
+      taskCard.id = saved.id
+      taskCard.accepted = true
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message
+      // 将错误信息写入卡片
+      taskCard.error = msg
+    } finally {
+      taskLoading.value = false
+    }
+  }
+
+  /** 前往交付地点（按任务的 delivery.location_path 跳转） */
+  async function navigateToDelivery(delivery) {
+    if (!delivery?.location_path?.length) return
+    const path = delivery.location_path
+    const dest = path[path.length - 1]
+    await navigateToLocation(dest.id)
+  }
+
+  /** 加载玩家任务列表 */
+  async function fetchTasks() {
+    if (!player.value) return
+    try {
+      const res = await getPlayerTasks(player.value.id)
+      tasks.value = res.data || []
+    } catch (err) {
+      console.error('任务加载失败:', err)
+    }
   }
 
   return {
@@ -403,5 +637,13 @@ export function useGame() {
     backpackItems,
     fetchBackpack,
     toggleBackpack,
+    tasks,
+    taskLoading,
+    handleDialogEvent,
+    fetchTasks,
+    navigateToTask,
+    acceptCurrentTask,
+    navigateToDelivery,
+    navigateToLocation,
   }
 }

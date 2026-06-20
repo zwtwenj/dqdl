@@ -16,6 +16,7 @@ export class TaskController {
       ...t,
       target: this.taskService.parse(t.target),
       reward: this.taskService.parse(t.reward),
+      delivery: t.delivery ? JSON.parse(t.delivery) : null,
     }));
   }
 
@@ -61,6 +62,54 @@ export class TaskController {
       ...result.task,
       target: this.taskService.parse(result.task.target),
       reward: result.rewards,
+    };
+  }
+
+  /** 生成随机任务预览（不入库） */
+  @Post('generate')
+  async generateTask(
+    @Body() body: { location_id: number },
+  ) {
+    const preview = await this.taskService.previewBattleTask(body.location_id);
+    return {
+      ...preview,
+      // target 已是对象数组，直接返回
+    };
+  }
+
+  /** 玩家接受任务（入库） */
+  @Post('accept')
+  async acceptTask(
+    @Body() body: { player_id: number; description: string; target: any[]; reward: any[]; delivery?: any; star?: number },
+  ) {
+    const task = await this.taskService.acceptBattleTask(
+      body.player_id,
+      body.description,
+      body.target,
+      body.reward || [],
+      body.delivery || null,
+      body.star || 1,
+    );
+    return {
+      ...task,
+      target: this.taskService.parse(task.target),
+      reward: this.taskService.parse(task.reward),
+      delivery: task.delivery ? JSON.parse(task.delivery) : null,
+    };
+  }
+
+  /** 玩家交付：将指定 NPC 关联的、达标的 pending 任务改为 completed */
+  @Post('complete-adventurer')
+  async completeAdventurer(@Body() body: { player_id: number; npc_id?: number }) {
+    const tasks = await this.taskService.completeReadyTasks(body.player_id, body.npc_id);
+    return {
+      count: tasks.length,
+      tasks: tasks.map(t => ({
+        ...t,
+        target: this.taskService.parse(t.target),
+        reward: this.taskService.parse(t.reward),
+        delivery: t.delivery ? JSON.parse(t.delivery) : null,
+      })),
     };
   }
 }

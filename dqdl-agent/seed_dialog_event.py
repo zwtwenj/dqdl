@@ -17,8 +17,8 @@ cur.execute('TRUNCATE TABLE dialog_event')
 # (role_name, text, event)  event 暂时全为空字符串
 events = [
     # 公会接待员 (role_id=1)
-    ('公会接待员', '我想要接取一些任务', ''),
-    ('公会接待员', '我完成了任务，来交付', ''),
+    ('公会接待员', '我想要接取一些任务', '{"type":"createAdventurerTask"}'),
+    ('公会接待员', '我完成了任务，来交付', '{"type":"completeTask"}'),
     ('公会接待员', '这里有什么难度的任务？', ''),
     ('公会接待员', '最近有什么特别的悬赏吗？', ''),
 

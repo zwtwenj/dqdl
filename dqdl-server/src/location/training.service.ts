@@ -6,6 +6,7 @@ import { TechniqueService } from '../technique/technique.service';
 import { BackpackService } from '../backpack/backpack.service';
 import { ItemService } from '../item/item.service';
 import { LocationService } from './location.service';
+import { TaskService } from '../task/task.service';
 
 /** 怪物掉落条目（对应 mob.drops JSON 元素） */
 interface MobDrop {
@@ -24,6 +25,15 @@ interface DropResult {
   count: number;
 }
 
+/** 历练任务进度更新条目 */
+export interface TaskProgressUpdate {
+  taskId: number;
+  description: string;
+  current: number;
+  required: number;
+  done: boolean;
+}
+
 export interface TrainingEvent {
   text: string;
   mob: { mob_id: string; name: string };
@@ -38,6 +48,8 @@ export interface TrainingEvent {
   won: boolean;
   /** 本次历练掉落的物品（失败为空） */
   drops: DropResult[];
+  /** 被更新的任务进度（胜利且匹配时展示） */
+  task_updates: TaskProgressUpdate[];
 }
 
 @Injectable()
@@ -52,6 +64,7 @@ export class TrainingService {
     private locationService: LocationService,
     private backpackService: BackpackService,
     private itemService: ItemService,
+    private taskService: TaskService,
   ) {
     this.agentUrl = config.get<string>('AGENT_URL', 'http://localhost:5000');
   }
@@ -158,6 +171,11 @@ export class TrainingService {
       await this.backpackService.addItem(playerId, d.name, d.count);
     }
 
+    // 6.5 胜利后检查任务进度
+    const task_updates = won
+      ? await this.taskService.checkAndUpdateProgress(playerId, mob.name || '')
+      : [];
+
     // 7. 调 agent 生成叙事文本（胜利/失败都调用）
     const techniqueName = player.technique?.name ?? '无';
     const resp = await fetch(`${this.agentUrl}/generate/training`, {
@@ -180,6 +198,7 @@ export class TrainingService {
       battle: { win_rate: winRate, rounds, style, player_total: playerTotal, mob_total: mobTotal },
       won,
       drops,
+      task_updates,
     };
   }
 }

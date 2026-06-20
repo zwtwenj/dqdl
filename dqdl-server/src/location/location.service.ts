@@ -20,7 +20,9 @@ export class LocationService {
     private readonly mobService: MobService,
   ) {}
 
-  /** 查询某个节点的子节点（如果未展开则自动触发生成） */
+  /** 查询某个节点的子节点（如果未展开则自动触发生成）
+   *  当父节点为 empire 时，递归展开所有后代（一次性生成完整子树）
+   */
   async getChildren(locationId: number): Promise<Location[]> {
     const parent = await this.locationRepo.findOneBy({ id: locationId });
     if (!parent) throw new NotFoundException(`地点 ${locationId} 不存在`);
@@ -30,6 +32,11 @@ export class LocationService {
 
     if (!parent.is_expanded && parent.depth < 5 && !isMaxWild) {
       await this.expandNode(parent);
+
+      // empire 类型：递归展开所有后代
+      if (parent.loc_type === 'empire') {
+        await this.expandAllDescendants(locationId);
+      }
     }
 
     return this.locationRepo.find({
@@ -144,6 +151,54 @@ export class LocationService {
 
     this.logger.log(`展开 [${parent.name}] 生成了 ${children.length} 个子节点`);
     return children;
+  }
+
+  /** 递归展开某个节点的所有未展开后代（BFS逐层展开） */
+  private async expandAllDescendants(rootId: number): Promise<void> {
+    // BFS：逐层找到未展开的节点并展开
+    let queue = [rootId];
+    while (queue.length > 0) {
+      // 查找当前层所有子节点
+      const children = await this.locationRepo
+        .createQueryBuilder('loc')
+        .where('loc.parent_id IN (:...ids)', { ids: queue })
+        .getMany();
+
+      if (children.length === 0) break;
+
+      // 找出未展开的节点
+      const unexpanded = children.filter(
+        (c) => !c.is_expanded && c.depth < 5 && c.loc_type !== 'wild3',
+      );
+
+      queue = [];
+
+      // 逐个展开（需要按顺序，因为每层依赖上一层的 parent 数据）
+      for (const node of unexpanded) {
+        try {
+          await this.expandNode(node);
+          // 收集新展开节点的 ID，作为下一层的 parent
+          const newChildren = await this.locationRepo.find({
+            where: { parent_id: node.id },
+          });
+          queue.push(...newChildren.map((c) => c.id));
+        } catch (err) {
+          this.logger.error(`展开 [${node.name}] 失败: ${err.message}`);
+        }
+      }
+
+      // 已展开的节点其子节点也需要加入下一轮
+      const expandedWithChildren = children.filter(
+        (c) => c.is_expanded && !unexpanded.includes(c),
+      );
+      for (const node of expandedWithChildren) {
+        const existingChildren = await this.locationRepo.find({
+          where: { parent_id: node.id },
+        });
+        queue.push(...existingChildren.map((c) => c.id));
+      }
+    }
+    this.logger.log(`[expandAllDescendants] empire 子树全部展开完成`);
   }
 
   /** 获取节点详情 */

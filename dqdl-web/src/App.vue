@@ -20,6 +20,9 @@
       <span class="player-name">{{ player?.name }}</span>
       <div class="top-bar-right">
         <button class="btn-backpack" @click="toggleBackpack">背包</button>
+        <button class="btn-task" @click="openTaskPanel">任务
+          <span v-if="pendingTaskCount > 0" class="task-badge">{{ pendingTaskCount }}</span>
+        </button>
         <button class="btn-role" @click="showRole = true">角色</button>
       </div>
     </div>
@@ -121,6 +124,18 @@
             <div class="log-drops" v-if="evt.drops && evt.drops.length">
               掉落：<span class="drop-item" v-for="(d, di) in evt.drops" :key="di">{{ d.name }}&times;{{ d.count }}<template v-if="di < evt.drops.length - 1">，</template></span>
             </div>
+            <!-- 任务进度更新指示 -->
+            <div class="log-task-updates" v-if="evt.task_updates && evt.task_updates.length">
+              <span
+                v-for="(upd, ui) in evt.task_updates"
+                :key="ui"
+                class="log-task-upd"
+                :class="{ 'upd-done': upd.done }"
+              >
+                ⚔️ {{ upd.description.slice(0, 18) }}… {{ upd.current }}/{{ upd.required }}
+                <span v-if="upd.done"> ✔已完成</span>
+              </span>
+            </div>
             <span class="log-meta" v-if="evt.battle">
               {{ evt.mob?.name }} · {{ evt.won === false ? '逃跑' : evt.battle.style }} · {{ evt.battle.rounds }}回合 · 胜率{{ evt.battle.win_rate }}%
             </span>
@@ -214,9 +229,54 @@
           <div class="msg-system">你走向了{{ dialogNpc.name }}...</div>
           <div v-for="(msg, idx) in dialogHistory" :key="idx" class="msg-pair">
             <div v-if="msg.player" class="msg-player">{{ msg.player }}</div>
-            <div class="msg-npc">{{ msg.npc }}</div>
+            <div class="msg-npc">
+              {{ msg.npc }}
+              <!-- 任务卡片 -->
+              <div v-if="msg.taskCard" class="task-card">
+                <div class="task-card-title">⚔️ 战斗任务 <span class="task-card-star">{{ '\u2605'.repeat(msg.taskCard.star || 1) }}</span></div>
+                <div class="task-card-body">
+                  <span class="task-label">前往：</span>
+                  <template v-for="(loc, li) in msg.taskCard.location_path" :key="loc.id">
+                    <span v-if="li > 0" class="task-arrow"> &gt; </span>
+                    <span
+                      class="task-loc-link"
+                      @click="navigateToTask(msg.taskCard.location_path); closeDialog()"
+                    >{{ loc.name }}</span>
+                  </template>
+                </div>
+                <div class="task-card-body">
+                  <span class="task-label">目标：</span>
+                  击杀 <span class="task-mob">{{ msg.taskCard.mob_name }}</span>
+                    <span class="task-kill">{{ msg.taskCard.kill_count }}只</span>
+                </div>
+                <div class="task-card-body" v-if="msg.taskCard.reward && msg.taskCard.reward.length">
+                  <span class="task-label">奖励：</span>
+                  <span v-for="(rw, ri) in msg.taskCard.reward" :key="ri" class="task-reward-tag">
+                    <template v-if="rw.type === 'money'">💰 {{ rw.value }} 金币</template>
+                    <template v-else>{{ rw.name }} &times;{{ rw.count }}</template>
+                  </span>
+                </div>
+                <div class="task-card-progress">
+                  进度：{{ msg.taskCard.current }} / {{ msg.taskCard.required }}
+                </div>
+                <!-- 接受按鈕区域 -->
+                <div class="task-card-actions" v-if="msg.taskCard.preview && !msg.taskCard.accepted">
+                  <button
+                    class="btn-accept-task"
+                    :disabled="taskLoading"
+                    @click="acceptCurrentTask(msg.taskCard)"
+                  >接受任务</button>
+                </div>
+                <div class="task-accepted-tip" v-else-if="msg.taskCard.accepted">
+                  ✔ 已接受，前往目标地点完成任务
+                </div>
+                <div class="task-error-tip" v-if="msg.taskCard.error">
+                  ⚠️ {{ msg.taskCard.error }}
+                </div>
+              </div>
+            </div>
           </div>
-          <div v-if="dialogLoading" class="msg-loading">思考中...</div>
+          <div v-if="dialogLoading || taskLoading" class="msg-loading">思考中...</div>
         </div>
         <!-- 快捷对话选项 -->
         <div class="dialog-events" v-if="dialogNpc?.dialog_events?.length">
@@ -241,18 +301,113 @@
       </div>
     </div>
 
+    <!-- 任务面板弹窗 -->
+    <div class="role-overlay" v-if="showTaskPanel" @click="showTaskPanel = false">
+      <div class="role-panel task-panel" @click.stop>
+        <div class="role-header">
+          <span class="role-title">任务列表</span>
+          <button class="role-close" @click="showTaskPanel = false">&times;</button>
+        </div>
+        <div class="task-panel-body">
+          <div v-if="tasks.length === 0" class="backpack-empty">暂无任务</div>
+          <div
+            v-for="task in tasks.filter(t => t.status === 'pending')"
+            :key="task.id"
+            class="task-item"
+            :class="'task-status-' + task.status"
+          >
+            <!-- 头部：类型标签 + 星级 + 状态 -->
+            <div class="task-item-header">
+              <span class="task-type-badge" :class="'type-' + task.type">
+                {{ taskTypeLabel(task.type) }}
+              </span>
+              <span class="task-star-badge">
+                {{ '\u2605'.repeat(task.star || 1) }}
+              </span>
+              <span class="task-status-badge" :class="'status-' + task.status">
+                {{ taskStatusLabel(task.status) }}
+              </span>
+            </div>
+            <!-- 描述 -->
+            <div class="task-item-desc">{{ task.description }}</div>
+            <!-- 奖励 -->
+            <div v-if="task.reward && task.reward.length" class="task-item-reward">
+              <span v-for="(rw, ri) in task.reward" :key="ri" class="reward-tag">
+                <template v-if="rw.type === 'money'">💰 {{ rw.value }} 金币</template>
+                <template v-else>{{ rw.name }} &times;{{ rw.count }}</template>
+              </span>
+            </div>
+            <!-- 目标进度 -->
+            <div class="task-item-targets">
+              <div
+                v-for="(tgt, ti) in parseTarget(task.target)"
+                :key="ti"
+                class="task-target-row"
+              >
+                <span class="target-desc">{{ tgt.desc }}</span>
+                <span class="target-progress">
+                  <span :class="tgt.current >= tgt.required ? 'progress-done' : 'progress-ing'">
+                    {{ tgt.current }} / {{ tgt.required }}
+                  </span>
+                </span>
+              </div>
+            </div>
+            <!-- 前往击杀地点 -->
+            <div
+              v-if="getTaskPath(task) && !parseTarget(task.target).every(t => t.current >= t.required)"
+              class="task-item-nav"
+              @click="navigateToTask(getTaskPath(task)); showTaskPanel = false"
+            >
+              📍 前往击杀：{{ getTaskPathLabel(task) }}
+            </div>
+            <!-- 达标后：展示交付地点，点击前往 -->
+            <div
+              v-if="task.delivery && parseTarget(task.target).every(t => t.current >= t.required)"
+              class="task-item-delivery ready"
+              @click="navigateToDelivery(task.delivery); showTaskPanel = false"
+            >
+              ✨ 进度已满！前往交付：{{ task.delivery.location_label }}
+            </div>
+            <!-- 进行中：提示交付地点 -->
+            <div
+              v-else-if="task.delivery && !parseTarget(task.target).every(t => t.current >= t.required)"
+              class="task-item-delivery-hint"
+            >
+              🏦 交付地点：{{ task.delivery.location_label }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 背包弹窗 -->
-    <div class="role-overlay" v-if="showBackpack" @click="showBackpack = false">
+    <div class="role-overlay" v-if="showBackpack" @click="showBackpack = false; activeTooltip = -1">
       <div class="role-panel backpack-panel" @click.stop>
         <div class="role-header">
           <span class="role-title">背包</span>
-          <button class="role-close" @click="showBackpack = false">&times;</button>
+          <button class="role-close" @click="showBackpack = false; activeTooltip = -1">&times;</button>
+        </div>
+        <!-- 金币 -->
+        <div class="backpack-money">
+          <span class="money-icon">💰</span>
+          <span class="money-value">{{ player?.money ?? 0 }}</span>
+          <span class="money-unit">金币</span>
         </div>
         <div class="backpack-body">
           <div v-if="backpackItems.length === 0" class="backpack-empty">背包空空如也</div>
-          <div v-for="(item, idx) in backpackItems" :key="idx" class="backpack-item">
+          <div
+            v-for="(item, idx) in backpackItems"
+            :key="idx"
+            class="backpack-item"
+            @click="toggleItemTooltip(idx)"
+          >
             <span class="bp-item-name">{{ item.name }}</span>
             <span class="bp-item-count">&times;{{ item.count }}</span>
+            <!-- 悬浮描述 -->
+            <div v-if="activeTooltip === idx && item.description" class="item-tooltip" @click.stop>
+              <div class="tooltip-name">{{ item.name }}</div>
+              <div class="tooltip-desc">{{ item.description }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -271,13 +426,60 @@ const {
   hasSave, newGame, continueGame, moveTo, openDialog, closeDialog, sendDialog,
   trainingLog, trainingLoading, doTrainingEvent,
   showBackpack, backpackItems, toggleBackpack,
+  tasks, taskLoading, handleDialogEvent, fetchTasks, navigateToTask, acceptCurrentTask, navigateToDelivery,
 } = useGame()
 
 const dialogInput = ref('')
 
+// 背包物品悬浮提示
+const activeTooltip = ref(-1)
+function toggleItemTooltip(idx) {
+  activeTooltip.value = activeTooltip.value === idx ? -1 : idx
+}
+
 // 角色面板
 const showRole = ref(false)
 const roleTab = ref('attr')
+
+// 任务面板
+const showTaskPanel = ref(false)
+function openTaskPanel() {
+  fetchTasks()
+  showTaskPanel.value = true
+}
+
+const pendingTaskCount = computed(() =>
+  tasks.value.filter(t => t.status === 'pending').length
+)
+
+function taskTypeLabel(type) {
+  const map = { adventurer: '佣兵', common: '普通', main: '主线', side: '支线' }
+  return map[type] || type
+}
+
+function taskStatusLabel(status) {
+  const map = { pending: '进行中', completed: '已完成', claimed: '已领奖' }
+  return map[status] || status
+}
+
+function parseTarget(raw) {
+  if (!raw) return []
+  try {
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return Array.isArray(arr) ? arr : []
+  } catch { return [] }
+}
+
+function getTaskPath(task) {
+  const targets = parseTarget(task.target)
+  return targets[0]?.location_path || null
+}
+
+function getTaskPathLabel(task) {
+  const path = getTaskPath(task)
+  if (!path) return ''
+  return path.map(p => p.name).join(' > ')
+}
 
 const attrLabels = {
   power: '力量', intelligence: '智力', quick: '敏捷',
@@ -330,8 +532,8 @@ function handleSend() {
 
 // 快捷对话事件点击
 function handleEventClick(evt) {
-  if (dialogLoading.value) return
-  sendDialog(evt.text)
+  if (dialogLoading.value || taskLoading.value) return
+  handleDialogEvent(evt)
 }
 </script>
 
@@ -599,6 +801,26 @@ function handleEventClick(evt) {
 }
 
 /* 掉落物 */
+.log-task-updates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0;
+}
+.log-task-upd {
+  font-size: 0.75rem;
+  background: #1a1a2e;
+  border: 1px solid #4a3a60;
+  color: #b090e0;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+.log-task-upd.upd-done {
+  border-color: #60d060;
+  color: #60d060;
+  background: #0a1a0a;
+}
+
 .log-drops {
   color: #b0a070;
   font-size: 0.82rem;
@@ -714,6 +936,154 @@ function handleEventClick(evt) {
   font-size: 0.85rem;
 }
 .btn-backpack:hover { background: #3a4a4a; }
+
+/* 任务按钮 */
+.btn-task {
+  position: relative;
+  padding: 5px 12px;
+  background: #2a2040;
+  border: 1px solid #5a4a80;
+  border-radius: 4px;
+  color: #c0a0f0;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.btn-task:hover { background: #3a2a50; }
+.task-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #e05050;
+  color: #fff;
+  font-size: 0.65rem;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* 任务面板 */
+.task-panel {
+  width: 480px;
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+}
+.task-panel-body {
+  overflow-y: auto;
+  padding: 12px 16px;
+  flex: 1;
+}
+.task-item {
+  background: #13131e;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.task-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.task-type-badge {
+  font-size: 0.72rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: bold;
+}
+.type-adventurer { background: #3a2a10; color: #f0a040; border: 1px solid #f0a040; }
+.type-common     { background: #1a2a1a; color: #60b060; border: 1px solid #60b060; }
+.type-main       { background: #1a1a3a; color: #60a0f0; border: 1px solid #60a0f0; }
+.type-side       { background: #2a2a1a; color: #c0c060; border: 1px solid #c0c060; }
+.task-status-badge {
+  font-size: 0.72rem;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: auto;
+}
+.status-pending   { background: #1e2a1e; color: #60d060; border: 1px solid #40a040; }
+.status-completed { background: #2a2a10; color: #e0c840; border: 1px solid #c0a030; }
+.status-claimed   { background: #2a2a2a; color: #888; border: 1px solid #555; }
+.task-star-badge {
+  color: #ff8c00;
+  font-size: 0.78rem;
+  letter-spacing: 1px;
+}
+.task-item-reward {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.reward-tag {
+  background: #2a2010;
+  color: #f0c040;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  border: 1px solid #5a4a20;
+}
+.task-item-desc {
+  font-size: 0.88rem;
+  color: #c0c0cc;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+.task-item-targets {
+  margin-bottom: 6px;
+}
+.task-target-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  padding: 2px 0;
+  color: #9090a0;
+}
+.target-desc { flex: 1; }
+.target-progress { margin-left: 8px; }
+.progress-done { color: #60d060; font-weight: bold; }
+.progress-ing  { color: #e0c840; }
+.task-item-nav {
+  font-size: 0.8rem;
+  color: #60b0f0;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-top: 4px;
+}
+.task-item-nav:hover { color: #90d0ff; }
+
+/* 交付地点提示 */
+.task-item-delivery {
+  font-size: 0.8rem;
+  color: #60d0a0;
+  cursor: pointer;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #0a1a0a;
+  border: 1px solid #40a060;
+  text-decoration: underline;
+}
+.task-item-delivery:hover { color: #90e0c0; border-color: #60c080; }
+.task-item-delivery.ready {
+  background: #0a1a12;
+  border-color: #50c890;
+  animation: pulse-green 1.5s ease-in-out infinite;
+}
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0px rgba(80, 200, 144, 0); }
+  50% { box-shadow: 0 0 6px rgba(80, 200, 144, 0.6); }
+}
+.task-item-delivery-hint {
+  font-size: 0.78rem;
+  color: #6a7a6a;
+  margin-top: 4px;
+}
 
 /* 角色面板 */
 .role-overlay {
@@ -965,6 +1335,102 @@ function handleEventClick(evt) {
   font-style: italic;
   text-align: center;
 }
+
+/* 任务卡片 */
+.task-card {
+  margin-top: 10px;
+  background: rgba(240, 192, 64, 0.06);
+  border: 1px solid rgba(240, 192, 64, 0.25);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-card-title {
+  font-size: 0.8rem;
+  color: #f0c040;
+  font-weight: bold;
+  letter-spacing: 0.05rem;
+}
+.task-card-star {
+  color: #ff8c00;
+  font-size: 0.85rem;
+}
+.task-reward-tag {
+  background: #2a2010;
+  color: #f0c040;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  border: 1px solid #5a4a20;
+  margin-right: 4px;
+}
+.task-card-body {
+  font-size: 0.88rem;
+  color: #c8c0b0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.task-label {
+  color: #8a8a9a;
+  margin-right: 2px;
+}
+.task-arrow {
+  color: #5a5a6a;
+  margin: 0 2px;
+}
+.task-loc-link {
+  color: #60b0f0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.task-loc-link:hover {
+  color: #90d0ff;
+}
+.task-mob {
+  color: #e74c3c;
+  font-weight: bold;
+}
+.task-kill {
+  color: #f0a040;
+  margin-left: 4px;
+}
+.task-card-progress {
+  font-size: 0.78rem;
+  color: #5a5a6a;
+}
+.task-card-actions {
+  margin-top: 4px;
+}
+.btn-accept-task {
+  background: linear-gradient(135deg, #c0a030, #f0c040);
+  color: #0a0a0f;
+  border: none;
+  padding: 5px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: bold;
+  transition: opacity 0.2s;
+}
+.btn-accept-task:hover { opacity: 0.85; }
+.btn-accept-task:disabled { opacity: 0.4; cursor: not-allowed; }
+.task-accepted-tip {
+  font-size: 0.8rem;
+  color: #50c080;
+  margin-top: 4px;
+}
+.task-error-tip {
+  font-size: 0.8rem;
+  color: #e05050;
+  margin-top: 4px;
+}
 .dialog-input {
   padding: 10px 12px;
   border-top: 1px solid #1a1a3e;
@@ -1028,6 +1494,24 @@ function handleEventClick(evt) {
   display: flex;
   flex-direction: column;
 }
+.backpack-money {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #2a2a3a;
+  background: #151520;
+}
+.money-icon { font-size: 1.1rem; }
+.money-value {
+  color: #f0c040;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+.money-unit {
+  color: #8a7e5a;
+  font-size: 0.82rem;
+}
 .backpack-body {
   flex: 1;
   overflow-y: auto;
@@ -1046,6 +1530,8 @@ function handleEventClick(evt) {
   padding: 10px 12px;
   border-bottom: 1px solid #222233;
   transition: background 0.2s;
+  cursor: pointer;
+  position: relative;
 }
 .backpack-item:hover {
   background: #1f1f2c;
@@ -1058,5 +1544,30 @@ function handleEventClick(evt) {
   color: #50c878;
   font-weight: bold;
   font-size: 0.9rem;
+}
+
+/* 物品悬浮信息 */
+.item-tooltip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 10;
+  background: #1a1a28;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.tooltip-name {
+  color: #f0c040;
+  font-size: 0.85rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.tooltip-desc {
+  color: #a0a0b0;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 </style>

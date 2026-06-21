@@ -16,6 +16,8 @@ export const createPlayer = (data) => api.post('/player', data)
 export const getPlayer = (id) => api.get(`/player/${id}`)
 export const updatePlayer = (id, data) => api.put(`/player/${id}`, data)
 export const updatePlayerPosition = (id, position) => api.patch(`/player/${id}/position`, { position })
+export const cultivate = (id, qiDensity) => api.post(`/player/${id}/cultivate`, { qi_density: qiDensity || 0 })
+export const breakthrough = (id) => api.post(`/player/${id}/breakthrough`)
 
 // NPC API
 export const getNpcsByLocation = (locationId) => api.get(`/npc/location/${locationId}`)
@@ -26,6 +28,7 @@ export const doTraining = (playerId, locationId) => api.post(`/location/training
 
 // Backpack API
 export const getBackpack = (playerId) => api.get('/backpack/' + playerId)
+export const sellItem = (playerId, name, count) => api.post('/backpack/' + playerId + '/sell', { name, count: count || 1 })
 
 // Task API
 export const generateTask = (locationId) => api.post('/task/generate', { location_id: locationId })

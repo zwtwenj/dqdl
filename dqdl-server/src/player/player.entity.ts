@@ -26,30 +26,32 @@ export class Player {
   @Column({ type: 'int', default: 5, comment: '运气' })
   lucky: number;
 
-  /** HP = stamina * 10（创建时计算一次，后续可能由其他维度修正） */
   @Column({ type: 'int', default: 50, comment: '生命值' })
   hp: number;
 
-  /** 斗气 = level * 20 */
   @Column({ type: 'int', default: 20, comment: '斗气值' })
   energy: number;
 
-  /** Buff 列表（buff id 数组） */
   @Column({ type: 'text', nullable: true, comment: 'Buff列表(JSON数组)' })
   buff: string | null;
+
+  /** 扩展属性 JSON，按分组存储：{ combat: {...}, life: {...}, points: {...} } */
+  @Column({ type: 'text', default: '{}', comment: '扩展属性(JSON分组)' })
+  extra_attrs: string;
 
   @Column({ type: 'int', default: 0, comment: '金币' })
   money: number;
 
-  /** 战斗经验 — 影响伤害浮动和同级别免伤/卸力 */
   @Column({ type: 'int', default: 0, comment: '战斗经验' })
   exp: number;
 
-  /** 修为 — 累积到阈值可突破升级（受功法+环境影响） */
   @Column({ type: 'int', default: 0, comment: '修为' })
   cultivation: number;
 
-  /** 当前修炼功法ID */
+  /** 当前等级最大修为（达到后修炼不再增长） */
+  @Column({ type: 'int', default: 100, comment: '当前等级修为上限' })
+  level_cultivation: number;
+
   @Column({ type: 'int', default: 1, comment: '当前修炼功法ID' })
   technique_id: number;
 
@@ -59,11 +61,9 @@ export class Player {
   @UpdateDateColumn({ comment: '更新时间' })
   updated_at: Date;
 
-  /** 玩家当前位置路径，如：斗气大陆 > 黑角域 > 天罡帝国 > 铁壁城 > 佣兵公会 */
-  @Column({ type: 'varchar', length: 512, default: '', comment: '玩家当前位置路径' })
+  @Column({ type: 'varchar', length: 512, default: '', comment: '玩家当前位置路径(JSON ID数组)' })
   position: string;
 
-  /** 用户状态: 1=正常 */
   @Column({ type: 'tinyint', default: 1, comment: '用户状态: 1=正常' })
   status: number;
 }

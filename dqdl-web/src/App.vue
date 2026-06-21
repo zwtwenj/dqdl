@@ -32,6 +32,7 @@
       <div class="role-panel" @click.stop>
         <div class="role-header">
           <span class="role-title">{{ player?.name }}</span>
+          <span class="role-level">{{ levelName(player?.level || 1) }}</span>
           <button class="role-close" @click="showRole = false">&times;</button>
         </div>
         <div class="role-tabs">
@@ -50,6 +51,17 @@
             <span class="attr-final">
               {{ player?.final_attrs?.[key] ?? player?.[key] ?? 0 }}
             </span>
+          </div>
+          <!-- 修为 -->
+          <div class="attr-cultivation">
+            <div class="attr-cult-label">修为</div>
+            <div class="attr-cult-row">
+            <div class="attr-cult-val">{{ player?.cultivation ?? 0 }} / {{ player?.level_cultivation ?? 100 }}</div>
+            <button class="btn-breakthrough" :disabled="(player?.cultivation ?? 0) < (player?.level_cultivation ?? 100)" @click="doBreakthrough">突破</button>
+          </div>
+            <div class="attr-cult-bar-wrap">
+              <div class="attr-cult-bar" :style="{ width: Math.min(100, ((player?.cultivation ?? 0) / (player?.level_cultivation || 1)) * 100) + '%' }"></div>
+            </div>
           </div>
         </div>
 
@@ -113,6 +125,28 @@
         </span>
       </div>
 
+      <!-- 修炼 -->
+      <div class="cultivate-area" v-if="currentLocation">
+        <button class="btn-cultivate" @click="doCultivate">
+          修炼
+        </button>
+        <span class="cultivate-info">
+          修为：{{ player?.cultivation ?? 0 }} / {{ player?.level_cultivation ?? 100 }}
+          <template v-if="currentLocation.qi_density > 0">
+            · 斗气浓郁度：{{ currentLocation.qi_density }}
+          </template>
+        </span>
+        <!-- 修为进度条 -->
+        <div class="cultivate-bar-wrap">
+          <div class="cultivate-bar" :style="{ width: Math.min(100, ((player?.cultivation ?? 0) / (player?.level_cultivation || 1)) * 100) + '%' }"></div>
+        </div>
+      </div>
+      <div class="cultivate-log" v-if="cultivationLog.length">
+        <div v-for="(evt, idx) in cultivationLog" :key="idx" class="cultivate-log-entry" :class="{ 'cult-critical': evt.critical, 'cult-capped': evt.capped }">
+          {{ evt.text }}
+        </div>
+      </div>
+
       <!-- 历练区域 -->
       <div class="training-area" v-if="['wild','wild2','wild3'].includes(currentLocation.loc_type)">
         <button class="btn-train" @click="doTrainingEvent" :disabled="trainingLoading">
@@ -169,6 +203,7 @@
               危险 {{ dangerLabel(sib.danger_level) }}
             </span>
           </div>
+
         </div>
       </div>
 
@@ -191,6 +226,7 @@
               斗气 {{ child.qi_density }}
             </span>
           </div>
+
         </div>
       </div>
 
@@ -404,9 +440,45 @@
             <span class="bp-item-name">{{ item.name }}</span>
             <span class="bp-item-count">&times;{{ item.count }}</span>
             <!-- 悬浮描述 -->
-            <div v-if="activeTooltip === idx && item.description" class="item-tooltip" @click.stop>
+            <div v-if="activeTooltip === idx && (item.description || item.price)" class="item-tooltip" @click.stop>
               <div class="tooltip-name">{{ item.name }}</div>
-              <div class="tooltip-desc">{{ item.description }}</div>
+              <div v-if="item.description" class="tooltip-desc">{{ item.description }}</div>
+              <div v-if="item.price" class="tooltip-price">💰 出售价格：{{ Math.floor(item.price * 0.5) }} 金币</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 交易弹窗 -->
+    <div class="role-overlay" v-if="showTrade">
+      <div class="role-panel trade-panel">
+        <div class="role-header">
+          <span class="role-title">交易</span>
+          <button class="role-close" @click="closeTrade">&times;</button>
+        </div>
+        <div class="trade-body">
+          <div class="trade-side trade-npc">
+            <div class="trade-side-title">🏪 NPC 出售</div>
+            <div class="trade-empty">暂无物品出售</div>
+          </div>
+          <div class="trade-side trade-player">
+            <div class="trade-side-title">
+              🎒 我的背包
+              <span class="trade-money">💰 {{ player?.money ?? 0 }} 金币</span>
+            </div>
+            <div v-if="backpackItems.length === 0" class="trade-empty">背包空空如也</div>
+            <div v-for="(item, idx) in backpackItems" :key="idx" class="trade-item">
+              <div class="trade-item-info">
+                <span class="ti-name">{{ item.name }}</span>
+                <span class="ti-count">&times;{{ item.count }}</span>
+                <span v-if="item.price" class="ti-sell-price">单价 {{ Math.floor(item.price * 0.5) }} 金</span>
+              </div>
+              <button
+                class="btn-sell"
+                :disabled="tradeSelling"
+                @click="sellPlayerItem(item.name, $event.shiftKey ? item.count : 1)"
+              >出售</button>
             </div>
           </div>
         </div>
@@ -417,124 +489,80 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useGame } from './game/useGame'
+import { storeToRefs } from 'pinia'
+import { usePlayerStore } from './stores/player'
+import { useMapStore } from './stores/map'
+import { useDialogStore } from './stores/dialog'
+import { useBackpackStore } from './stores/backpack'
+import { useTaskStore } from './stores/task'
+import { useGameStore } from './stores/game'
 
-const {
-  gameStarted, loading, loadingText, player,
-  breadcrumb, currentChildren, currentLocation, currentNpcs,
-  dialogNpc, dialogHistory, dialogLoading,
-  hasSave, newGame, continueGame, moveTo, openDialog, closeDialog, sendDialog,
-  trainingLog, trainingLoading, doTrainingEvent,
-  showBackpack, backpackItems, toggleBackpack,
-  tasks, taskLoading, handleDialogEvent, fetchTasks, navigateToTask, acceptCurrentTask, navigateToDelivery,
-} = useGame()
+const playerStore = usePlayerStore()
+const mapStore = useMapStore()
+const dialogStore = useDialogStore()
+const backpackStore = useBackpackStore()
+const taskStore = useTaskStore()
+const gameStore = useGameStore()
+
+const { data: player } = storeToRefs(playerStore)
+const { loading: playerLoading, loadingText: playerLoadingText } = storeToRefs(playerStore)
+const { breadcrumb, currentLocation, currentChildren, currentNpcs, currentSiblings, loading: mapLoading, loadingText: mapLoadingText } = storeToRefs(mapStore)
+const { npc: dialogNpc, history: dialogHistory, loading: dialogLoading } = storeToRefs(dialogStore)
+const { items: backpackItems, showPanel: showBackpack, showTrade, tradeSelling } = storeToRefs(backpackStore)
+const { list: tasks, loading: taskLoading } = storeToRefs(taskStore)
+const { started: gameStarted, trainingLog, cultivationLog, trainingLoading } = storeToRefs(gameStore)
+
+const loading = computed(() => playerStore.loading || playerLoading.value || mapLoading.value)
+const loadingText = computed(() => mapLoadingText.value || playerLoadingText.value)
+const hasSave = computed(() => gameStore.hasSave())
+
+function newGame() { gameStore.newGame() }
+function continueGame() { gameStore.continueGame() }
+function moveTo(loc, idx) { mapStore.moveTo(loc, idx); dialogStore.close() }
+function openDialog(npc) { dialogStore.open(npc) }
+function closeDialog() { dialogStore.close() }
+function sendDialog(msg) { dialogStore.send(msg) }
+function handleEventClick(evt) { dialogStore.handleEvent(evt) }
+function toggleBackpack() { backpackStore.toggle() }
+function closeTrade() { backpackStore.closeTrade() }
+function sellPlayerItem(name, count) { backpackStore.sell(name, count) }
+function fetchTasks() { taskStore.fetch() }
+function acceptCurrentTask(card) { taskStore.acceptCurrentTask(card) }
+function navigateToLocation(locId) { mapStore.navigateToLocation(locId); dialogStore.close() }
+function navigateToTask(path) { if (path?.length) navigateToLocation(path[path.length - 1].id) }
+function navigateToDelivery(delivery) { if (delivery?.location_path?.length) navigateToLocation(delivery.location_path[delivery.location_path.length - 1].id) }
+function doTrainingEvent() { gameStore.doTrainingEvent() }
+function doCultivate() { gameStore.doCultivate() }
+function doBreakthrough() { gameStore.doBreakthrough() }
 
 const dialogInput = ref('')
+function handleSend() { const msg = dialogInput.value.trim(); if (!msg || dialogLoading.value) return; dialogInput.value = ''; sendDialog(msg) }
 
-// 背包物品悬浮提示
-const activeTooltip = ref(-1)
-function toggleItemTooltip(idx) {
-  activeTooltip.value = activeTooltip.value === idx ? -1 : idx
-}
+const showTaskPanel = ref(false)
+function openTaskPanel() { fetchTasks(); showTaskPanel.value = true }
+const pendingTaskCount = computed(() => tasks.value.filter(t => t.status === 'pending').length)
+function taskTypeLabel(t) { return {adventurer:'佣兵',common:'普通',main:'主线',side:'支线'}[t]||t }
+function taskStatusLabel(s) { return {pending:'进行中',completed:'已完成',claimed:'已领奖'}[s]||s }
+function parseTarget(raw) { try { const a = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(a) ? a : [] } catch { return [] } }
+function getTaskPath(task) { return parseTarget(task.target)[0]?.location_path || null }
+function getTaskPathLabel(task) { const p = getTaskPath(task); return p ? p.map(x => x.name).join(' > ') : '' }
 
-// 角色面板
 const showRole = ref(false)
 const roleTab = ref('attr')
+const activeTooltip = ref(-1)
+function toggleItemTooltip(idx) { activeTooltip.value = activeTooltip.value === idx ? -1 : idx }
 
-// 任务面板
-const showTaskPanel = ref(false)
-function openTaskPanel() {
-  fetchTasks()
-  showTaskPanel.value = true
+const attrLabels = { power:'力量',intelligence:'智力',quick:'敏捷',stamina:'体质',lucky:'运气',energy:'斗气' }
+function rankLabel(rank) { const t=['天阶','地阶','玄阶','黄阶'],g=['上品','中品','下品']; return (t[Math.floor(rank/10)]||'')+(g[rank%10]||'') }
+function typeLabel(type) { return {continent:'大陆',region:'区域',empire:'帝国',city:'城市',wild:'野外',wild2:'野外深处',wild3:'野外核心',sect:'宗派',secret:'秘境',district:'区域',scene:'场景'}[type]||type }
+function levelName(lv) {
+  if (lv <= 9) return '斗之气 ' + '一二三四五六七八九'[lv - 1] + '段'
+  if (lv <= 19) return '斗者 ' + '一二三四五六七八九'[lv - 11] + '星'
+  if (lv <= 29) return '斗师 ' + '一二三四五六七八九'[lv - 21] + '星'
+  return '大斗师 ' + '一二三四五六七八九'[lv - 31] + '星'
 }
-
-const pendingTaskCount = computed(() =>
-  tasks.value.filter(t => t.status === 'pending').length
-)
-
-function taskTypeLabel(type) {
-  const map = { adventurer: '佣兵', common: '普通', main: '主线', side: '支线' }
-  return map[type] || type
-}
-
-function taskStatusLabel(status) {
-  const map = { pending: '进行中', completed: '已完成', claimed: '已领奖' }
-  return map[status] || status
-}
-
-function parseTarget(raw) {
-  if (!raw) return []
-  try {
-    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw
-    return Array.isArray(arr) ? arr : []
-  } catch { return [] }
-}
-
-function getTaskPath(task) {
-  const targets = parseTarget(task.target)
-  return targets[0]?.location_path || null
-}
-
-function getTaskPathLabel(task) {
-  const path = getTaskPath(task)
-  if (!path) return ''
-  return path.map(p => p.name).join(' > ')
-}
-
-const attrLabels = {
-  power: '力量', intelligence: '智力', quick: '敏捷',
-  stamina: '体质', lucky: '运气', energy: '斗气',
-}
-
-function rankLabel(rank) {
-  const tiers = { 1: '天阶', 2: '地阶', 3: '玄阶', 4: '黄阶' }
-  const grades = { 1: '上品', 2: '中品', 3: '下品' }
-  const t = Math.floor(rank / 10)
-  const g = rank % 10
-  return (tiers[t] || '') + (grades[g] || '')
-}
-
-// 当前层级的兄弟节点
-const currentSiblings = computed(() => {
-  if (breadcrumb.value.length < 2) return []
-  const parent = breadcrumb.value[breadcrumb.value.length - 2]
-  return parent._children || []
-})
-
-function typeLabel(type) {
-  const map = {
-    continent: '大陆', region: '区域', empire: '帝国',
-    city: '城市', wild: '野外', wild2: '野外深处', wild3: '野外核心', sect: '宗派', secret: '秘境',
-    district: '区域', scene: '场景',
-  }
-  return map[type] || type
-}
-
-function dangerLabel(level) {
-  const map = { 1: '一阶(低危)', 2: '二阶(中危)', 3: '三阶(高危)' }
-  return map[level] || level
-}
-
-function parseMobs(raw) {
-  if (!raw) return []
-  try {
-    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw
-    return Array.isArray(arr) ? arr : []
-  } catch { return [] }
-}
-
-function handleSend() {
-  const msg = dialogInput.value.trim()
-  if (!msg || dialogLoading.value) return
-  dialogInput.value = ''
-  sendDialog(msg)
-}
-
-// 快捷对话事件点击
-function handleEventClick(evt) {
-  if (dialogLoading.value || taskLoading.value) return
-  handleDialogEvent(evt)
-}
+function dangerLabel(level) { return {1:'一阶(低危)',2:'二阶(中危)',3:'三阶(高危)'}[level]||level }
+function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(a) ? a : [] } catch { return [] } }
 </script>
 
 <style scoped>
@@ -753,6 +781,44 @@ function handleEventClick(evt) {
 }
 
 /* 历练区域 */
+/* 修炼 */
+.cultivate-area {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cultivate-bar-wrap { flex: 1; height: 6px; background: #1a1a2e; border-radius: 3px; overflow: hidden; min-width: 80px; }
+.cultivate-bar { height: 100%; background: linear-gradient(90deg, #3498db, #2ecc71); border-radius: 3px; transition: width 0.3s; }
+.cultivate-log { margin-top: 6px; }
+.cultivate-log-entry { font-size: 0.8rem; color: #8a8aaa; padding: 2px 0; }
+.cult-critical { color: #f0c040; font-weight: bold; }
+.cult-capped { color: #e06060; }
+.attr-cultivation { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2a2a3a; }
+.role-level { font-size: 0.82rem; color: #f0c040; margin-left: auto; }
+.attr-cult-row { display: flex; align-items: center; gap: 8px; }
+.btn-breakthrough { padding: 3px 12px; border: 1px solid #9b59b6; background: #1a1028; color: #c39bdb; border-radius: 4px; cursor: pointer; font-size: 0.78rem; flex-shrink: 0; }
+.btn-breakthrough:hover:not(:disabled) { background: #2a1848; color: #e0b0f0; }
+.btn-breakthrough:disabled { opacity: 0.4; cursor: not-allowed; }
+.attr-cult-label { font-size: 0.82rem; color: #8a8aaa; margin-bottom: 4px; }
+.attr-cult-val { font-size: 0.85rem; color: #c0c0cc; margin-bottom: 6px; }
+.attr-cult-bar-wrap { height: 8px; background: #1a1a2e; border-radius: 4px; overflow: hidden; }
+.attr-cult-bar { height: 100%; background: linear-gradient(90deg, #9b59b6, #e74c3c); border-radius: 4px; transition: width 0.3s; }
+.btn-cultivate {
+  background: linear-gradient(135deg, #2c3e50, #3498db);
+  color: #fff;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+.cultivate-info {
+  color: #8a8aaa;
+  font-size: 0.82rem;
+}
+
 .training-area {
   margin-top: 10px;
   padding-top: 8px;
@@ -1569,5 +1635,30 @@ function handleEventClick(evt) {
   color: #a0a0b0;
   font-size: 0.8rem;
   line-height: 1.5;
+  margin-bottom: 4px;
 }
+.tooltip-price {
+  color: #f0c040;
+  font-size: 0.82rem;
+  padding-top: 4px;
+  border-top: 1px solid #3a3a5a;
+}
+
+/* 交易弹窗 */
+.trade-panel { max-height: 80vh; height: 70vh; width: 850px; max-width: 96vw; display: flex; flex-direction: column; }
+.trade-body { display: flex; flex: 1; overflow: hidden; }
+.trade-side { flex: 1; overflow-y: auto; padding: 12px; }
+.trade-npc { border-right: 1px solid #2a2a3a; }
+.trade-side-title { font-size: 0.9rem; color: #c0c0cc; font-weight: bold; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #2a2a3a; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: #15151e; z-index: 1; }
+.trade-money { font-size: 0.82rem; color: #f0c040; font-weight: normal; }
+.trade-empty { color: #5a5a6a; text-align: center; padding: 32px 0; font-size: 0.9rem; }
+.trade-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #1e1e2e; transition: background 0.15s; }
+.trade-item:hover { background: #1a1a28; }
+.trade-item-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ti-name { color: #d0c8b8; font-size: 0.88rem; }
+.ti-count { color: #50c878; font-weight: bold; font-size: 0.85rem; }
+.ti-sell-price { color: #f0c040; font-size: 0.78rem; background: #2a2010; padding: 1px 6px; border-radius: 8px; }
+.btn-sell { padding: 4px 14px; border: 1px solid #50a050; background: #1a2a1a; color: #60d060; border-radius: 4px; cursor: pointer; font-size: 0.82rem; transition: all 0.15s; flex-shrink: 0; }
+.btn-sell:hover:not(:disabled) { background: #2a4a2a; color: #80f080; }
+.btn-sell:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>

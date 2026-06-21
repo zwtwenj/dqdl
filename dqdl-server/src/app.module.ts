@@ -11,6 +11,7 @@ import { BackpackModule } from './backpack/backpack.module';
 import { TaskModule } from './task/task.module';
 import { MobModule } from './mob/mob.module';
 import { TechniqueModule } from './technique/technique.module';
+import { SkillModule } from './skill/skill.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { TechniqueModule } from './technique/technique.module';
     TaskModule,
     MobModule,
     TechniqueModule,
+    SkillModule,
   ],
   controllers: [AppController],
   providers: [AppService],

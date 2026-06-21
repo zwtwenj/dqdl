@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { getRoots, getChildren, getLocation, getTree, createPlayer, getPlayer, getNpcsByLocation, talkToNpc, doTraining, getBackpack, updatePlayerPosition, generateTask, acceptTask, completeAdventurerTasks, getPlayerTasks } from '../api'
+import { getRoots, getChildren, getLocation, getTree, createPlayer, getPlayer, getNpcsByLocation, talkToNpc, doTraining, getBackpack, sellItem, updatePlayerPosition, generateTask, acceptTask, completeAdventurerTasks, getPlayerTasks } from '../api'
 
 // 存档缓存 key
 const SAVE_KEY = 'dqdl_save'
@@ -44,9 +44,9 @@ function loadSave() {
   } catch { return null }
 }
 
-/** 写入本地存档 */
-function writeSave(playerId, locationId) {
-  localStorage.setItem(SAVE_KEY, JSON.stringify({ playerId, locationId }))
+/** 写入本地存档（只存 playerId，位置在 DB 中） */
+function writeSave(playerId) {
+  localStorage.setItem(SAVE_KEY, JSON.stringify({ playerId }))
 }
 
 /** 清除本地存档 */
@@ -54,16 +54,24 @@ function clearSave() {
   localStorage.removeItem(SAVE_KEY)
 }
 
-/** 根据面包屑构建位置路径字符串 */
+/** 根据面包屑构建位置（ID 数组 JSON，如 "[1,5,12,73]"） */
 function buildPosition(breadcrumb) {
-  return breadcrumb.map(n => n.name).join(' > ')
+  return JSON.stringify(breadcrumb.map(n => n.id))
 }
 
-/** 同步玩家位置到后端 + 本地缓存 */
-async function syncPosition(playerId, locId) {
+/** 解析位置 ID 数组，取最后一个（当前所在 locationId） */
+function parsePositionId(position) {
+  try {
+    const ids = JSON.parse(position)
+    if (Array.isArray(ids) && ids.length > 0) return ids[ids.length - 1]
+  } catch { /**/ }
+  return null
+}
+
+/** 同步玩家位置到后端 */
+function syncPosition(playerId) {
   const pos = buildPosition(breadcrumb.value)
-  writeSave(playerId, locId)
-  // 异步更新后端，不阻塞
+  writeSave(playerId)
   updatePlayerPosition(playerId, pos).catch(() => {})
 }
 
@@ -384,6 +392,32 @@ export function useGame() {
     if (showBackpack.value) fetchBackpack()
   }
 
+  // ===== 交易系统 =====
+  const showTrade = ref(false)
+  const tradeSelling = ref(false)
+
+  function openTrade() { showTrade.value = true; fetchBackpack() }
+  function closeTrade() { showTrade.value = false }
+
+  async function sellPlayerItem(itemName, count) {
+    if (!player.value || tradeSelling.value) return
+    tradeSelling.value = true
+    try {
+      const res = await sellItem(player.value.id, itemName, count)
+      if (res.data?.error) { alert(res.data.error); return }
+      // 重新拉取背包（含 price/description 富化）
+      await fetchBackpack()
+      if (player.value && res.data.money != null) {
+        player.value = { ...player.value, money: res.data.money }
+      }
+      return res.data
+    } catch (err) {
+      alert('出售失败: ' + (err.response?.data?.message || err.message))
+    } finally {
+      tradeSelling.value = false
+    }
+  }
+
   // ===== 任务系统 =====
   const tasks = ref([])
   const taskLoading = ref(false)
@@ -481,6 +515,9 @@ export function useGame() {
       } finally {
         taskLoading.value = false
       }
+    } else if (eventData.type === 'trade') {
+      // 打开交易面板
+      openTrade()
     } else {
       // 未知事件类型，走普通对话
       sendDialog(evt.text)
@@ -637,6 +674,11 @@ export function useGame() {
     backpackItems,
     fetchBackpack,
     toggleBackpack,
+    showTrade,
+    tradeSelling,
+    openTrade,
+    closeTrade,
+    sellPlayerItem,
     tasks,
     taskLoading,
     handleDialogEvent,

@@ -35,7 +35,6 @@ export class PlayerController {
     return this.playerService.remove(id);
   }
 
-  /** 更新玩家位置 */
   @Patch(':id/position')
   updatePosition(
     @Param('id', ParseIntPipe) id: number,
@@ -43,4 +42,20 @@ export class PlayerController {
   ) {
     return this.playerService.updatePosition(id, dto.position);
   }
+
+  /** 修炼 */
+  @Post(':id/cultivate')
+  async cultivate(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { qi_density: number },
+  ) {
+    return this.playerService.cultivate(id, body.qi_density || 0);
+  }
+
+  /** 突破 */
+  @Post(':id/breakthrough')
+  async breakthrough(@Param('id', ParseIntPipe) id: number) {
+    return this.playerService.breakthrough(id);
+  }
+
 }

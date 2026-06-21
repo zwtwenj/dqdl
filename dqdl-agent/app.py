@@ -478,44 +478,39 @@ def generate_training():
     location = data.get('location', {})
     won = data.get('won', True)
 
-    if won:
-        system_prompt = (
-            '你是斗气大陆的冒险叙事者。根据战斗信息生成一段简练的历练叙事文本。'
-            '文字风格参考斗破苍穹小说，生动但不啰嗦，1-3句话。'
-            '必须描述：遭遇→交锋→结果。'
-            '只输出叙事文本，不要输出JSON或其他格式。'
-        )
-        user_prompt = (
-            f'【地点】{location.get("name", "")} - {location.get("description", "")}\n'
-            f'【玩家】{player.get("name", "")}，修炼功法：{player.get("technique_name", "无")}\n'
-            f'【遭遇怪物】{mob.get("name", "")}\n'
-            f'  描述：{mob.get("description", "")}\n'
-            f'【战斗信息】\n'
-            f'  结局：胜利\n'
-            f'  胜率预估：{battle.get("win_rate", 0)}%\n'
-            f'  战斗风格：{battle.get("style", "普通")}\n'
-            f'  回合数：{battle.get("rounds", 1)}\n'
-            f'\n请根据以上信息生成叙事文本。'
-        )
-    else:
-        system_prompt = (
-            '你是斗气大陆的冒险叙事者。根据战斗信息生成一段简练的历练叙事文本。'
-            '玩家遭遇强敌，短暂交锋后逃跑。'
-            '文字风格参考斗破苍穹小说，生动但不啰嗦，1-2句话。'
-            '必须描述：遭遇→交锋→逃跑。'
-            '只输出叙事文本，不要输出JSON或其他格式。'
-        )
-        user_prompt = (
-            f'【地点】{location.get("name", "")} - {location.get("description", "")}\n'
-            f'【玩家】{player.get("name", "")}，修炼功法：{player.get("technique_name", "无")}\n'
-            f'【遭遇怪物】{mob.get("name", "")}\n'
-            f'  描述：{mob.get("description", "")}\n'
-            f'【战斗信息】\n'
-            f'  结局：逃跑\n'
-            f'  胜率预估：{battle.get("win_rate", 0)}%\n'
-            f'  战斗风格：{battle.get("style", "普通")}\n'
-            f'\n请根据以上信息生成叙事文本。'
-        )
+    def format_skills(skills):
+        if not skills:
+            return '无'
+        lines = []
+        for s in skills:
+            desc = s.get('description', '')
+            lines.append(f"- {s.get('name', '未知斗技')}（Lv.{s.get('level', 1)}）{f'：{desc}' if desc else ''}")
+        return '\n'.join(lines)
+
+    equipped_skills_text = format_skills(player.get('equipped_skills', []))
+
+    player_name = player.get('name', '旅行者')
+
+    system_prompt = (
+        '你是斗气大陆的冒险叙事者。根据战斗信息生成一段简练的历练叙事文本。'
+        '文字风格参考斗破苍穹小说，生动但不啰嗦。'
+        f'全程严格使用第三人称，主语必须是"{player_name}"，禁止出现"你"、"我"、"玩家"等第一/第二人称。'
+        '可将功法与斗技统称为招式/手段，自然融入叙事即可，不必刻意区分。'
+        '字数控制在150字以内。'
+        '只输出叙事文本，不要输出JSON或其他格式。'
+    )
+
+    outcome = '胜利' if won else '逃跑'
+    user_prompt = (
+        f'要求：严格第三人称叙事，主语只能是"{player_name}"，全文禁止出现"你"、"我"、"玩家"、"主角"等字样，违者重写。\n'
+        f'【地点】{location.get("name", "")} - {location.get("description", "")}\n'
+        f'【玩家姓名】{player_name}\n'
+        f'【可用招式】功法：{player.get("technique_name", "无")}；斗技：{equipped_skills_text}\n'
+        f'【遭遇怪物】{mob.get("name", "")}\n'
+        f'  描述：{mob.get("description", "")}\n'
+        f'【战斗信息】结局：{outcome}，战斗风格：{battle.get("style", "普通")}\n'
+        f'\n请用第三人称写一段遭遇→交锋→{outcome}的叙事，主语用"{player_name}"，不要出现"你"、"我"、"玩家"，自然提及使用的招式，不超过150字。'
+    )
 
     try:
         r = ai_client.chat.completions.create(

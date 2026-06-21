@@ -25,6 +25,12 @@ export const talkToNpc = (npcId, message, history) => api.post(`/npc/${npcId}/ta
 
 // Training API
 export const doTraining = (playerId, locationId) => api.post(`/location/training?playerId=${playerId}&locationId=${locationId}`)
+export const setPlayerStatus = (playerId, status) => api.patch(`/player/${playerId}/status`, { status })
+export const trainingStreamUrl = (playerId, locationId) => `/api/location/training/stream?playerId=${playerId}&locationId=${locationId}`
+
+// Skill API
+export const getSkills = () => api.get('/skill')
+export const updatePlayerSkills = (playerId, skillJson) => api.put(`/player/${playerId}`, { skill: skillJson })
 
 // Backpack API
 export const getBackpack = (playerId) => api.get('/backpack/' + playerId)

@@ -7,6 +7,23 @@ import { BackpackService } from '../backpack/backpack.service';
 import { ItemService } from '../item/item.service';
 import { LocationService } from './location.service';
 import { TaskService } from '../task/task.service';
+import { SkillService } from '../skill/skill.service';
+
+interface PlayerSkillEntry {
+  id: number;
+  level: number;
+  carry?: number | null;
+}
+
+interface EquippedSkill {
+  id: number;
+  name: string;
+  level: number;
+  description?: string | null;
+  attr?: string;
+  base_damage?: number;
+  rank?: number;
+}
 
 /** 怪物掉落条目（对应 mob.drops JSON 元素） */
 interface MobDrop {
@@ -44,17 +61,17 @@ export interface TrainingEvent {
     player_total: number;
     mob_total: number;
   };
-  /** 本次历练是否胜利 */
   won: boolean;
-  /** 本次历练掉落的物品（失败为空） */
   drops: DropResult[];
-  /** 被更新的任务进度（胜利且匹配时展示） */
   task_updates: TaskProgressUpdate[];
+  timestamp: string;
 }
 
 @Injectable()
 export class TrainingService {
   private readonly agentUrl: string;
+  readonly trainingInterval: number;
+  readonly trainingMaxDuration: number;
 
   constructor(
     private config: ConfigService,
@@ -65,14 +82,43 @@ export class TrainingService {
     private backpackService: BackpackService,
     private itemService: ItemService,
     private taskService: TaskService,
+    private skillService: SkillService,
   ) {
     this.agentUrl = config.get<string>('AGENT_URL', 'http://localhost:5000');
+    this.trainingInterval = config.get<number>('TRAINING_INTERVAL', 180000);
+    this.trainingMaxDuration = config.get<number>('TRAINING_MAX_DURATION', 10800000);
   }
 
   /** 总属性 = 力量+智力+敏捷+体质 */
   private totalAttrs(attrs: { power: number; intelligence: number; quick: number; stamina: number }): number {
     return attrs.power + attrs.intelligence + attrs.quick + attrs.stamina;
   }
+
+  /** 解析玩家已装备斗技 */
+  private async parseEquippedSkills(skillJson: string | null): Promise<EquippedSkill[]> {
+    if (!skillJson) return [];
+    let entries: PlayerSkillEntry[];
+    try { entries = JSON.parse(skillJson); } catch { return []; }
+    if (!Array.isArray(entries)) return [];
+
+    const equipped = entries.filter(e => e.carry && e.carry >= 1 && e.carry <= 5);
+    const result: EquippedSkill[] = [];
+    for (const e of equipped) {
+      const def = await this.skillService.findOne(e.id);
+      if (!def) continue;
+      result.push({
+        id: e.id,
+        name: def.name,
+        level: e.level,
+        description: def.description,
+        attr: def.attr,
+        base_damage: def.base_damage,
+        rank: def.rank,
+      });
+    }
+    return result;
+  }
+
   /** 根据掉落率随机计算实际掉落，通过 item_id 查 item 表获取 clean name */
   private async calcDrops(dropsJson: string | null): Promise<DropResult[]> {
     if (!dropsJson) return [];
@@ -178,11 +224,12 @@ export class TrainingService {
 
     // 7. 调 agent 生成叙事文本（胜利/失败都调用）
     const techniqueName = player.technique?.name ?? '无';
+    const equippedSkills = await this.parseEquippedSkills(player.skill);
     const resp = await fetch(`${this.agentUrl}/generate/training`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        player: { name: player.name, technique_name: techniqueName },
+        player: { name: player.name, technique_name: techniqueName, equipped_skills: equippedSkills },
         mob: { mob_id: mob.mob_id, name: mob.name, description: mob.description },
         battle: { win_rate: winRate, rounds, style, player_total: playerTotal, mob_total: mobTotal },
         location: { name: location.name, description: location.description },
@@ -194,11 +241,14 @@ export class TrainingService {
     const data = await resp.json() as any;
     const text = data.text || `你遭遇了一只${mob.name}。`;
 
+    const timestamp = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+
     return { text, mob: { mob_id: mob.mob_id, name: mob.name || '' },
       battle: { win_rate: winRate, rounds, style, player_total: playerTotal, mob_total: mobTotal },
       won,
       drops,
       task_updates,
+      timestamp,
     };
   }
 }

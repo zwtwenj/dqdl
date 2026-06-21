@@ -58,4 +58,23 @@ export class PlayerController {
     return this.playerService.breakthrough(id);
   }
 
+  /** 设置玩家状态（1=正常 2=历练中） */
+  @Patch(':id/status')
+  async setStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { status: number },
+  ) {
+    await this.playerService.setStatus(id, body.status);
+    return { success: true };
+  }
+
+  /** 部分更新玩家字段（如 hp, energy） */
+  @Patch(':id')
+  patch(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updates: Record<string, any>,
+  ) {
+    return this.playerService.patch(id, updates);
+  }
+
 }

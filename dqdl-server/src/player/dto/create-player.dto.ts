@@ -44,4 +44,8 @@ export class CreatePlayerDto {
   @IsString()
   @Length(0, 512)
   position?: string;
+
+  @IsOptional()
+  @IsString()
+  skill?: string;
 }

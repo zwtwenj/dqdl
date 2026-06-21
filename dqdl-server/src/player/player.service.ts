@@ -29,14 +29,23 @@ export class PlayerService {
   ) {}
 
   async create(dto: CreatePlayerDto): Promise<Player> {
+    const tech = await this.techniqueService.findOne(1);
+    const techBase = tech ? this.techniqueService.parseBase(tech.base) : {};
+
+    const maxHp = (dto.stamina || 5) * 10 + (techBase.hp || 0);
+    const maxEnergy = (dto.level || 1) * 20 + (techBase.energy || 0);
+
     const player = this.playerRepo.create(dto);
-    player.hp = (player.stamina || 5) * 10;
-    player.energy = (player.level || 1) * 20;
+    player.hp = maxHp;
+    player.max_hp = maxHp;
+    player.energy = maxEnergy;
+    player.max_energy = maxEnergy;
     player.buff = '[]';
     player.money = 0;
     player.exp = 0;
     player.cultivation = 0;
     player.extra_attrs = '{}';
+    player.skill = '[]';
     player.level_cultivation = calcLevelCultivation(player.level || 1);
     player.technique_id = 1;
     player.position = dto.position || '';
@@ -56,8 +65,9 @@ export class PlayerService {
       intelligence: player.intelligence + (techBase.intelligence || 0),
       quick: player.quick + (techBase.quick || 0),
       stamina: player.stamina + (techBase.stamina || 0),
+      max_hp: player.max_hp,
+      max_energy: player.max_energy,
       lucky: player.lucky + (techBase.lucky || 0),
-      energy: player.energy + (techBase.energy || 0),
     };
 
     return {
@@ -67,8 +77,21 @@ export class PlayerService {
     };
   }
 
+  /** 原始查询（不含 technique 关联） */
+  async findByIdRaw(id: number): Promise<Player | null> {
+    return this.playerRepo.findOneBy({ id });
+  }
+
   async findAll(): Promise<Player[]> {
     return this.playerRepo.find();
+  }
+
+  async setStatus(id: number, status: number): Promise<void> {
+    await this.playerRepo.update(id, { status: status as any });
+  }
+
+  async patch(id: number, updates: Record<string, any>): Promise<void> {
+    await this.playerRepo.update(id, updates as any);
   }
 
   async update(id: number, updates: Partial<CreatePlayerDto>): Promise<Player | null> {
@@ -81,6 +104,9 @@ export class PlayerService {
   }
 
   async updatePosition(id: number, position: string): Promise<void> {
+    const player = await this.playerRepo.findOneBy({ id });
+    if (!player) throw new Error('玩家不存在');
+    if (player.status === 2) throw new Error('历练中，无法移动');
     await this.playerRepo.update(id, { position: position as any });
   }
 
@@ -164,10 +190,23 @@ export class PlayerService {
 
     const newLc = calcLevelCultivation(newLevel);
     const newName = PlayerService.levelName(newLevel);
+    const techBase = tech ? this.techniqueService.parseBase(tech.base) : {};
+
+    let maxHp = player.max_hp;
+    let maxEnergy = player.max_energy;
+    if (success) {
+      maxHp = player.stamina * 10 + (techBase.hp || 0);
+      maxEnergy = newLevel * 20 + (techBase.energy || 0);
+    }
+
     await this.playerRepo.update(id, {
       level: newLevel as any,
       cultivation: newCultivation as any,
       level_cultivation: newLc as any,
+      max_hp: maxHp as any,
+      max_energy: maxEnergy as any,
+      hp: success ? maxHp : (player.hp as any),
+      energy: success ? maxEnergy : (player.energy as any),
     });
 
     // 调用 agent 生成叙事

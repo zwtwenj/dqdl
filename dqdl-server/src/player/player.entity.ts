@@ -26,11 +26,17 @@ export class Player {
   @Column({ type: 'int', default: 5, comment: '运气' })
   lucky: number;
 
-  @Column({ type: 'int', default: 50, comment: '生命值' })
+  @Column({ type: 'int', default: 50, comment: '当前生命值' })
   hp: number;
 
-  @Column({ type: 'int', default: 20, comment: '斗气值' })
+  @Column({ type: 'int', default: 50, comment: '生命上限' })
+  max_hp: number;
+
+  @Column({ type: 'int', default: 20, comment: '当前斗气值' })
   energy: number;
+
+  @Column({ type: 'int', default: 20, comment: '斗气上限' })
+  max_energy: number;
 
   @Column({ type: 'text', nullable: true, comment: 'Buff列表(JSON数组)' })
   buff: string | null;
@@ -38,6 +44,10 @@ export class Player {
   /** 扩展属性 JSON，按分组存储：{ combat: {...}, life: {...}, points: {...} } */
   @Column({ type: 'text', default: '{}', comment: '扩展属性(JSON分组)' })
   extra_attrs: string;
+
+  /** 已习得的斗技列表 [{ id, level, carry }, ...] */
+  @Column({ type: 'text', default: '[]', comment: '玩家斗技列表(JSON数组)' })
+  skill: string;
 
   @Column({ type: 'int', default: 0, comment: '金币' })
   money: number;

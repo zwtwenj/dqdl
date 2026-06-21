@@ -46,4 +46,8 @@ export class Skill {
   /** 自身附加效果 JSON数组: ["灵敏","大力","防御"] */
   @Column({ type: 'text', nullable: true, comment: '自身附加效果(JSON数组)' })
   self_effects: string | null;
+
+  /** 斗气消耗 */
+  @Column({ type: 'int', default: 10, comment: '斗气消耗' })
+  energy_cost: number;
 }

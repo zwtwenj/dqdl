@@ -24,12 +24,13 @@
           <span v-if="pendingTaskCount > 0" class="task-badge">{{ pendingTaskCount }}</span>
         </button>
         <button class="btn-role" @click="showRole = true">角色</button>
+        <button class="btn-skill" @click="openSkillPanel">斗技</button>
       </div>
     </div>
 
     <!-- 角色面板弹窗 -->
-    <div class="role-overlay" v-if="showRole" @click="showRole = false">
-      <div class="role-panel" @click.stop>
+    <div class="role-overlay" v-if="showRole">
+      <div class="role-panel">
         <div class="role-header">
           <span class="role-title">{{ player?.name }}</span>
           <span class="role-level">{{ levelName(player?.level || 1) }}</span>
@@ -42,8 +43,18 @@
 
         <!-- 人物 Tab -->
         <div class="role-body" v-if="roleTab==='attr'">
-          <div class="attr-row" v-for="(label, key) in attrLabels" :key="key">
-            <span class="attr-label">{{ label }}</span>
+          <div class="attr-vital">
+            <div class="vital-item">
+              <span class="vital-label">生命</span>
+              <span class="vital-val">{{ player?.hp ?? 0 }} / {{ player?.final_attrs?.max_hp ?? player?.max_hp ?? 100 }}</span>
+            </div>
+            <div class="vital-item">
+              <span class="vital-label">斗气</span>
+              <span class="vital-val">{{ player?.energy ?? 0 }} / {{ player?.final_attrs?.max_energy ?? player?.max_energy ?? 100 }}</span>
+            </div>
+          </div>
+          <div class="attr-row" v-for="key in baseAttrKeys" :key="key">
+            <span class="attr-label">{{ attrLabels[key] }}</span>
             <span class="attr-base">{{ player?.[key] ?? 0 }}</span>
             <span class="attr-bonus" v-if="(player?.final_attrs?.[key] ?? 0) - (player?.[key] ?? 0) > 0">
               +{{ (player?.final_attrs?.[key] ?? 0) - (player?.[key] ?? 0) }}
@@ -99,7 +110,8 @@
         <span
           v-if="idx < breadcrumb.length - 1"
           class="crumb-link"
-          @click="moveTo(node, idx)"
+          :class="{ disabled: trainingMode }"
+          @click="!trainingMode && moveTo(node, idx)"
         >{{ node.name }}</span>
         <span v-else class="crumb-current">{{ node.name }}</span>
       </template>
@@ -149,32 +161,12 @@
 
       <!-- 历练区域 -->
       <div class="training-area" v-if="['wild','wild2','wild3'].includes(currentLocation.loc_type)">
-        <button class="btn-train" @click="doTrainingEvent" :disabled="trainingLoading">
-          {{ trainingLoading ? '历练中...' : '历练' }}
+        <button class="btn-train" @click="startAutoTraining" :disabled="trainingMode">
+          {{ trainingMode ? '历练中...' : '开始历练' }}
         </button>
-        <div class="training-log" v-if="trainingLog.length">
-          <div class="log-entry" :class="{ 'log-lost': evt.won === false }" v-for="(evt, idx) in trainingLog" :key="idx">
-            <p class="log-text">{{ evt.text }}</p>
-            <div class="log-drops" v-if="evt.drops && evt.drops.length">
-              掉落：<span class="drop-item" v-for="(d, di) in evt.drops" :key="di">{{ d.name }}&times;{{ d.count }}<template v-if="di < evt.drops.length - 1">，</template></span>
-            </div>
-            <!-- 任务进度更新指示 -->
-            <div class="log-task-updates" v-if="evt.task_updates && evt.task_updates.length">
-              <span
-                v-for="(upd, ui) in evt.task_updates"
-                :key="ui"
-                class="log-task-upd"
-                :class="{ 'upd-done': upd.done }"
-              >
-                ⚔️ {{ upd.description.slice(0, 18) }}… {{ upd.current }}/{{ upd.required }}
-                <span v-if="upd.done"> ✔已完成</span>
-              </span>
-            </div>
-            <span class="log-meta" v-if="evt.battle">
-              {{ evt.mob?.name }} · {{ evt.won === false ? '逃跑' : evt.battle.style }} · {{ evt.battle.rounds }}回合 · 胜率{{ evt.battle.win_rate }}%
-            </span>
-          </div>
-        </div>
+        <button class="btn-battle" @click="openBattle" :disabled="trainingMode">
+          战斗
+        </button>
       </div>
     </div>
 
@@ -194,8 +186,8 @@
             v-for="sib in currentSiblings"
             :key="sib.id"
             class="loc-card"
-            :class="{ active: sib.id === currentLocation?.id }"
-            @click="moveTo(sib, breadcrumb.length - 1)"
+            :class="{ active: sib.id === currentLocation?.id, 'card-locked': trainingMode }"
+            @click="!trainingMode && moveTo(sib, breadcrumb.length - 1)"
           >
             <span class="card-name">{{ sib.name }}</span>
             <span class="card-type">{{ typeLabel(sib.loc_type) }}</span>
@@ -215,7 +207,8 @@
             v-for="child in currentChildren"
             :key="child.id"
             class="loc-card child-card"
-            @click="moveTo(child, breadcrumb.length)"
+            :class="{ 'card-locked': trainingMode }"
+            @click="!trainingMode && moveTo(child, breadcrumb.length)"
           >
             <span class="card-name">{{ child.name }}</span>
             <span class="card-type">{{ typeLabel(child.loc_type) }}</span>
@@ -484,6 +477,174 @@
         </div>
       </div>
     </div>
+
+    <!-- 斗技弹窗 -->
+    <div class="role-overlay" v-if="showSkillPanel" @click="showSkillPanel = false">
+      <div class="role-panel skill-panel" @click.stop>
+        <div class="role-header">
+          <span class="role-title">斗技</span>
+          <button class="role-close" @click="showSkillPanel = false">&times;</button>
+        </div>
+        <div class="skill-body">
+          <!-- 装备槽 -->
+          <div class="skill-slots">
+            <div class="skill-slots-title">已装备（右键卸下）</div>
+            <div class="skill-slots-row">
+              <div
+                v-for="slot in 5"
+                :key="slot"
+                class="skill-slot"
+                :class="{ occupied: slotSkill(slot) }"
+                @dragover.prevent
+                @drop="onDropSlot(slot, $event)"
+                @contextmenu.prevent="onRightClickSlot(slot)"
+              >
+                <template v-if="slotSkill(slot)">
+                  <div class="skill-icon">{{ slotSkill(slot).name?.[0] || '技' }}</div>
+                  <div class="skill-lv">Lv.{{ slotSkill(slot).level }}</div>
+                </template>
+                <template v-else>
+                  <div class="skill-slot-empty">{{ slot }}</div>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- 斗技列表 -->
+          <div class="skill-inventory">
+            <div class="skill-inventory-title">已习得斗技</div>
+            <div class="skill-inventory-grid">
+              <div
+                v-for="ps in inventoryList"
+                :key="ps.id"
+                class="skill-item"
+                draggable="true"
+                @dragstart="onDragStart(ps, $event)"
+              >
+                <div class="skill-icon">{{ ps.name?.[0] || '技' }}</div>
+                <div class="skill-name">{{ ps.name }}</div>
+                <div class="skill-lv">Lv.{{ ps.level }}</div>
+              </div>
+              <div v-if="inventoryList.length === 0" class="skill-empty">暂无未装备斗技</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 浮动历练卡片 -->
+    <div v-if="trainingMode" class="training-float">
+      <div class="training-float-header">
+        <span class="training-float-title">⚔ 历练中</span>
+        <button class="training-float-stop" @click="stopAutoTraining">停止历练</button>
+      </div>
+      <div class="training-float-body">
+        <div class="training-float-empty" v-if="!trainingEvents.length">
+          <div class="spinner-sm"></div>
+          <span>探寻魔兽中...</span>
+        </div>
+        <div
+          v-for="(evt, idx) in trainingEvents"
+          :key="idx"
+          class="float-log-entry"
+          :class="{ 'float-log-lost': evt.won === false }"
+        >
+          <p class="float-log-text">{{ evt.text }}</p>
+          <div class="float-log-drops" v-if="evt.drops && evt.drops.length">
+            🎁 <span class="float-drop-item" v-for="(d, di) in evt.drops" :key="di">{{ d.name }}&times;{{ d.count }}<template v-if="di < evt.drops.length - 1">，</template></span>
+          </div>
+          <div class="float-log-task" v-if="evt.task_updates && evt.task_updates.length">
+            <span
+              v-for="(upd, ui) in evt.task_updates"
+              :key="ui"
+              class="float-task-upd"
+              :class="{ 'upd-done': upd.done }"
+            >
+              📋 {{ upd.description.slice(0, 14) }}… {{ upd.current }}/{{ upd.required }}
+              <span v-if="upd.done"> ✔</span>
+            </span>
+          </div>
+          <span class="float-log-meta" v-if="evt.battle">
+            {{ evt.timestamp }}&nbsp;·&nbsp;{{ evt.mob?.name }}&nbsp;·&nbsp;{{ evt.won === false ? '逃跑' : evt.battle?.style }}&nbsp;·&nbsp;胜率{{ evt.battle?.win_rate }}%
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 战斗界面 -->
+    <div class="battle-overlay" v-if="showBattle">
+      <div class="battle-box">
+        <button class="battle-close" @click="closeBattle">&times;</button>
+        <div class="battle-field" v-if="!battleLoading">
+          <div class="battle-side player-side">
+            <div class="battle-bars">
+              <div class="battle-bar-row">
+                <span class="battle-bar-label">生命</span>
+                <div class="battle-bar-wrap"><div class="battle-bar-fill hp-fill" :style="{ width: Math.max(2, (battlePlayerHp / playerMaxHp) * 100) + '%' }"></div></div>
+                <span class="battle-bar-val hp-val">{{ battlePlayerHp }}/{{ playerMaxHp }}</span>
+              </div>
+              <div class="battle-bar-row">
+                <span class="battle-bar-label">斗气</span>
+                <div class="battle-bar-wrap"><div class="battle-bar-fill energy-fill" :style="{ width: Math.max(2, (battlePlayerEnergy / playerMaxEnergy) * 100) + '%' }"></div></div>
+                <span class="battle-bar-val energy-val">{{ battlePlayerEnergy }}/{{ playerMaxEnergy }}</span>
+              </div>
+            </div>
+            <div class="battle-avatar player-avatar">
+              <img src="./assets/hero.png" class="battle-img" />
+            </div>
+            <div class="battle-info">
+              <div class="battle-name">{{ battlePlayerName }}</div>
+              <div class="battle-level">{{ levelName(battlePlayerLevel) }}</div>
+            </div>
+          </div>
+
+          <div class="battle-vs">VS</div>
+
+          <div class="battle-side mob-side">
+            <div class="battle-bars">
+              <div class="battle-bar-row">
+                <span class="battle-bar-label">生命</span>
+                <div class="battle-bar-wrap"><div class="battle-bar-fill hp-fill" :style="{ width: Math.max(2, (battleMobHp / mobMaxHp) * 100) + '%' }"></div></div>
+                <span class="battle-bar-val hp-val">{{ battleMobHp }}/{{ mobMaxHp }}</span>
+              </div>
+            </div>
+            <div class="battle-avatar mob-avatar">
+              <div class="battle-img-dummy">?</div>
+            </div>
+            <div class="battle-info">
+              <div class="battle-name">{{ battleMobName }}</div>
+              <div class="battle-level">{{ battleMobRank }} · Lv.{{ battleMobLevel }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="battle-actions">
+          <button class="battle-btn battle-btn-attack" :disabled="battleOver || attacking" @click="battleAttack">攻击</button>
+          <div class="battle-skill-slots">
+            <div
+              v-for="(sk, idx) in equippedSkills"
+              :key="sk.id"
+              class="battle-skill-slot filled"
+              :class="{ 'skill-disabled': battleOver || attacking || (battlePlayerEnergy || 0) < sk.energyCost }"
+              @click="battleSkill(idx)"
+            >
+              <span class="bss-name">{{ sk.name }}</span>
+              <span class="bss-cost">斗气{{ sk.energyCost }}</span>
+            </div>
+            <div
+              v-for="slot in 5 - equippedSkills.length"
+              class="battle-skill-slot"
+            >
+              <span class="bss-empty">空槽</span>
+            </div>
+          </div>
+          <button class="battle-btn battle-btn-run" :disabled="attacking" @click="battleFlee">逃跑</button>
+        </div>
+        <div class="battle-log" v-if="battleLog.length">
+          <div class="battle-log-entry" v-for="(msg, idx) in battleLog" :key="idx">{{ msg }}</div>
+        </div>
+        <div class="battle-loading" v-if="battleLoading">加载中...</div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -496,6 +657,8 @@ import { useDialogStore } from './stores/dialog'
 import { useBackpackStore } from './stores/backpack'
 import { useTaskStore } from './stores/task'
 import { useGameStore } from './stores/game'
+import { useBattleStore } from './stores/battle'
+import { getSkills, updatePlayerSkills } from './api'
 
 const playerStore = usePlayerStore()
 const mapStore = useMapStore()
@@ -503,6 +666,7 @@ const dialogStore = useDialogStore()
 const backpackStore = useBackpackStore()
 const taskStore = useTaskStore()
 const gameStore = useGameStore()
+const battleStore = useBattleStore()
 
 const { data: player } = storeToRefs(playerStore)
 const { loading: playerLoading, loadingText: playerLoadingText } = storeToRefs(playerStore)
@@ -510,7 +674,8 @@ const { breadcrumb, currentLocation, currentChildren, currentNpcs, currentSiblin
 const { npc: dialogNpc, history: dialogHistory, loading: dialogLoading } = storeToRefs(dialogStore)
 const { items: backpackItems, showPanel: showBackpack, showTrade, tradeSelling } = storeToRefs(backpackStore)
 const { list: tasks, loading: taskLoading } = storeToRefs(taskStore)
-const { started: gameStarted, trainingLog, cultivationLog, trainingLoading } = storeToRefs(gameStore)
+const { started: gameStarted, trainingLog, cultivationLog, trainingLoading, trainingMode, trainingEvents } = storeToRefs(gameStore)
+const { showBattle, battleLoading, mob, playerName: battlePlayerName, playerLevel: battlePlayerLevel, playerHp: battlePlayerHp, playerMaxHp, playerEnergy: battlePlayerEnergy, playerMaxEnergy, mobName: battleMobName, mobLevel: battleMobLevel, mobRank: battleMobRank, mobMaxHp, mobHp: battleMobHp, equippedSkills, battleLog, battleOver, attacking } = storeToRefs(battleStore)
 
 const loading = computed(() => playerStore.loading || playerLoading.value || mapLoading.value)
 const loadingText = computed(() => mapLoadingText.value || playerLoadingText.value)
@@ -518,7 +683,10 @@ const hasSave = computed(() => gameStore.hasSave())
 
 function newGame() { gameStore.newGame() }
 function continueGame() { gameStore.continueGame() }
-function moveTo(loc, idx) { mapStore.moveTo(loc, idx); dialogStore.close() }
+function moveTo(loc, idx) {
+  if (trainingMode.value) return
+  mapStore.moveTo(loc, idx); dialogStore.close()
+}
 function openDialog(npc) { dialogStore.open(npc) }
 function closeDialog() { dialogStore.close() }
 function sendDialog(msg) { dialogStore.send(msg) }
@@ -528,10 +696,20 @@ function closeTrade() { backpackStore.closeTrade() }
 function sellPlayerItem(name, count) { backpackStore.sell(name, count) }
 function fetchTasks() { taskStore.fetch() }
 function acceptCurrentTask(card) { taskStore.acceptCurrentTask(card) }
-function navigateToLocation(locId) { mapStore.navigateToLocation(locId); dialogStore.close() }
+function navigateToLocation(locId) {
+  if (trainingMode.value) return
+  mapStore.navigateToLocation(locId); dialogStore.close()
+}
 function navigateToTask(path) { if (path?.length) navigateToLocation(path[path.length - 1].id) }
 function navigateToDelivery(delivery) { if (delivery?.location_path?.length) navigateToLocation(delivery.location_path[delivery.location_path.length - 1].id) }
 function doTrainingEvent() { gameStore.doTrainingEvent() }
+function startAutoTraining() { gameStore.startAutoTraining() }
+function stopAutoTraining() { gameStore.stopAutoTraining() }
+function openBattle() { battleStore.open() }
+function closeBattle() { battleStore.close() }
+function battleAttack() { battleStore.playerAttack() }
+function battleSkill(idx) { battleStore.skillAttack(idx) }
+function battleFlee() { battleStore.flee() }
 function doCultivate() { gameStore.doCultivate() }
 function doBreakthrough() { gameStore.doBreakthrough() }
 
@@ -552,7 +730,66 @@ const roleTab = ref('attr')
 const activeTooltip = ref(-1)
 function toggleItemTooltip(idx) { activeTooltip.value = activeTooltip.value === idx ? -1 : idx }
 
-const attrLabels = { power:'力量',intelligence:'智力',quick:'敏捷',stamina:'体质',lucky:'运气',energy:'斗气' }
+const showSkillPanel = ref(false)
+const skillList = ref([])
+
+function parseSkills(raw) {
+  try { const a = typeof raw === 'string' ? JSON.parse(raw || '[]') : raw; return Array.isArray(a) ? a : [] } catch { return [] }
+}
+function findSkillDef(id) { return skillList.value.find(s => s.id === id) || null }
+
+const playerSkills = computed(() => parseSkills(player.value?.skill).map(ps => ({ ...ps, _def: findSkillDef(ps.id) })))
+const equippedMap = computed(() => {
+  const map = {}
+  playerSkills.value.forEach(ps => { if (ps.carry >= 1 && ps.carry <= 5) map[ps.carry] = ps })
+  return map
+})
+const inventoryList = computed(() => playerSkills.value.filter(ps => !ps.carry).map(ps => ({ ...ps, name: ps._def?.name || '未知斗技' })))
+function slotSkill(slot) {
+  const ps = equippedMap.value[slot]
+  if (!ps) return null
+  return { ...ps, name: ps._def?.name || '未知斗技' }
+}
+
+async function openSkillPanel() {
+  showSkillPanel.value = true
+  try {
+    const res = await getSkills()
+    skillList.value = res.data || []
+  } catch (err) { console.error('获取斗技列表失败', err) }
+}
+
+function onDragStart(ps, e) {
+  e.dataTransfer.setData('text/plain', String(ps.id))
+  e.dataTransfer.effectAllowed = 'move'
+}
+function onDropSlot(slot, e) {
+  e.preventDefault()
+  const id = Number(e.dataTransfer.getData('text/plain'))
+  if (!id) return
+  const skills = parseSkills(player.value?.skill)
+  const target = skills.find(s => s.id === id)
+  if (!target) return
+  // 如果该斗技已在其他槽位，先卸下
+  skills.forEach(s => { if (s.id === id) s.carry = null })
+  // 如果目标槽位已有斗技，也卸下
+  skills.forEach(s => { if (s.carry === slot) s.carry = null })
+  target.carry = slot
+  saveSkills(skills)
+}
+function onRightClickSlot(slot) {
+  const skills = parseSkills(player.value?.skill)
+  const target = skills.find(s => s.carry === slot)
+  if (target) { target.carry = null; saveSkills(skills) }
+}
+async function saveSkills(skills) {
+  try {
+    await updatePlayerSkills(playerStore.playerId, JSON.stringify(skills))
+    playerStore.data = { ...playerStore.data, skill: JSON.stringify(skills) }
+  } catch (err) { console.error('保存斗技失败', err); alert('保存斗技失败') }
+}
+
+const attrLabels = { power:'力量',intelligence:'智力',quick:'敏捷',stamina:'体质',hp:'生命',lucky:'运气',energy:'斗气' }
 function rankLabel(rank) { const t=['天阶','地阶','玄阶','黄阶'],g=['上品','中品','下品']; return (t[Math.floor(rank/10)]||'')+(g[rank%10]||'') }
 function typeLabel(type) { return {continent:'大陆',region:'区域',empire:'帝国',city:'城市',wild:'野外',wild2:'野外深处',wild3:'野外核心',sect:'宗派',secret:'秘境',district:'区域',scene:'场景'}[type]||type }
 function levelName(lv) {
@@ -1209,6 +1446,34 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   padding: 16px;
 }
 
+/* 生命斗气 */
+.attr-vital {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #2a2a3e;
+  margin-bottom: 4px;
+}
+.vital-item {
+  flex: 1;
+  background: #0e0e1a;
+  border: 1px solid #222244;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.vital-label {
+  color: #8a8a9a;
+  font-size: 0.85rem;
+}
+.vital-val {
+  color: #e0c878;
+  font-weight: bold;
+  font-size: 1.05rem;
+}
+
 /* 属性行 */
 .attr-row {
   display: flex;
@@ -1661,4 +1926,511 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 .btn-sell { padding: 4px 14px; border: 1px solid #50a050; background: #1a2a1a; color: #60d060; border-radius: 4px; cursor: pointer; font-size: 0.82rem; transition: all 0.15s; flex-shrink: 0; }
 .btn-sell:hover:not(:disabled) { background: #2a4a2a; color: #80f080; }
 .btn-sell:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 斗技按钮 */
+.btn-skill {
+  background: #3a2020;
+  color: #e08060;
+  border: 1px solid #7a4a40;
+  padding: 4px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.btn-skill:hover { background: #4a3028; }
+
+/* 斗技弹窗 */
+.skill-panel {
+  width: 460px;
+  max-width: 95vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.skill-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+.skill-slots-title,
+.skill-inventory-title {
+  font-size: 0.85rem;
+  color: #a0a0b0;
+  margin-bottom: 10px;
+  letter-spacing: 0.05rem;
+}
+.skill-slots-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.skill-slot {
+  width: 64px;
+  height: 64px;
+  background: #151520;
+  border: 2px dashed #3a3a4a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.skill-slot.occupied {
+  border-style: solid;
+  border-color: #7a4a40;
+  background: #2a1a18;
+}
+.skill-slot:hover {
+  border-color: #e08060;
+  background: #2a1a18;
+}
+.skill-slot-empty {
+  color: #4a4a5a;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+.skill-inventory-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 80px;
+}
+.skill-item {
+  width: 64px;
+  height: 80px;
+  background: #1a1a28;
+  border: 1px solid #3a3a4a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  transition: all 0.15s;
+}
+.skill-item:hover {
+  border-color: #e08060;
+  background: #252232;
+}
+.skill-item:active { cursor: grabbing; }
+.skill-icon {
+  width: 36px;
+  height: 36px;
+  background: #3a3020;
+  border: 1px solid #5a4a30;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f0c040;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+.skill-name {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: #c0c0cc;
+  max-width: 58px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-lv {
+  font-size: 0.7rem;
+  color: #888;
+  margin-top: 2px;
+}
+.skill-empty {
+  color: #5a5a6a;
+  font-size: 0.85rem;
+  padding: 16px 0;
+  text-align: center;
+  width: 100%;
+}
+
+/* ===== 历练锁定态 ===== */
+.crumb-link.disabled {
+  color: #555;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.card-locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ===== 战斗按钮 ===== */
+.btn-battle {
+  background: linear-gradient(135deg, #2a1030, #3a1840);
+  border: 1px solid #6a3880;
+  color: #c060e0;
+  padding: 8px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  margin-left: 10px;
+}
+.btn-battle:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3a1840, #4a2060);
+  border-color: #9050b0;
+}
+.btn-battle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ===== 战斗界面 ===== */
+.battle-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.battle-box {
+  width: 700px;
+  max-width: 95vw;
+  background: linear-gradient(160deg, #0c0c18, #141428);
+  border: 1px solid #3a3a5a;
+  border-radius: 16px;
+  box-shadow: 0 0 60px rgba(100,40,180,0.2);
+  overflow: hidden;
+  position: relative;
+}
+.battle-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #6a6a8a;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 1;
+}
+.battle-field {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 30px 20px;
+  gap: 24px;
+}
+.battle-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.battle-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #3a3a5a;
+  background: #1a1a28;
+}
+.player-avatar { border-color: #5080c0; }
+.mob-avatar { border-color: #c05050; }
+.battle-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.battle-img-dummy {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: #c05050;
+  background: #1a1018;
+}
+.battle-info {
+  text-align: center;
+}
+.battle-name {
+  color: #e0e0e8;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+.battle-level {
+  color: #8a8a9a;
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+.battle-bars {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.battle-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.battle-bar-label {
+  color: #7a7a8a;
+  font-size: 0.72rem;
+  width: 28px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.battle-bar-wrap {
+  flex: 1;
+  height: 12px;
+  background: #151522;
+  border: 1px solid #2a2a3e;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.battle-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.4s;
+}
+.hp-fill { background: linear-gradient(90deg, #30a050, #50d878); }
+.energy-fill { background: linear-gradient(90deg, #3050a0, #5078d0); }
+.battle-bar-val {
+  font-size: 0.78rem;
+  font-weight: bold;
+  width: 32px;
+  flex-shrink: 0;
+  text-align: left;
+}
+.hp-val { color: #50d878; }
+.energy-val { color: #5078d0; }
+.battle-desc {
+  color: #7a7a8a;
+  font-size: 0.78rem;
+  margin-top: 6px;
+  max-width: 200px;
+}
+.battle-vs {
+  color: #c0a040;
+  font-size: 1.8rem;
+  font-weight: bold;
+  text-shadow: 0 0 12px rgba(240,192,64,0.4);
+  flex-shrink: 0;
+}
+.battle-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 16px 30px 24px;
+  border-top: 1px solid #1e1e30;
+}
+.battle-btn {
+  padding: 10px 32px;
+  border-radius: 8px;
+  border: 1px solid #3a3a5a;
+  background: #1e1e30;
+  color: #a0a0b0;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.battle-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.battle-btn-attack { border-color: #5078a0; color: #6098d0; }
+.battle-btn-skill { border-color: #9060a0; color: #a080c0; }
+.battle-btn-run { border-color: #906050; color: #c08060; }
+.battle-skill-slots {
+  display: flex;
+  gap: 6px;
+}
+.battle-skill-slot {
+  width: 72px;
+  padding: 8px 6px;
+  background: #12121e;
+  border: 1px solid #2a2a40;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: all 0.2s;
+}
+.battle-skill-slot.filled {
+  border-color: #605080;
+  background: #1a1428;
+  cursor: pointer;
+}
+.battle-skill-slot.filled:hover:not(.skill-disabled) {
+  border-color: #8068a0;
+  background: #221a32;
+}
+.battle-skill-slot.skill-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.bss-name {
+  color: #c0a0e0;
+  font-size: 0.72rem;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 66px;
+}
+.bss-cost {
+  color: #706090;
+  font-size: 0.65rem;
+}
+.bss-empty {
+  color: #3a3a4a;
+  font-size: 0.7rem;
+}
+.battle-loading {
+  text-align: center;
+  padding: 60px 0;
+  color: #6a6a8a;
+  font-size: 1rem;
+}
+.battle-log {
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 10px 30px;
+  border-top: 1px solid #1e1e30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.battle-log-entry {
+  color: #a0a0b8;
+  font-size: 0.82rem;
+  padding: 4px 0;
+}
+
+/* ===== 浮动历练卡片 ===== */
+.training-float {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 360px;
+  max-height: 480px;
+  background: linear-gradient(145deg, #12121c, #1a1a2e);
+  border: 1px solid #3a3a5a;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(240,192,64,0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow: hidden;
+}
+.training-float-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2a2a3e;
+  background: rgba(240,192,64,0.06);
+}
+.training-float-title {
+  color: #f0c040;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+.training-float-stop {
+  background: #3a2020;
+  border: 1px solid #6a3030;
+  color: #e06060;
+  padding: 4px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+.training-float-stop:hover {
+  background: #5a2828;
+  border-color: #8a4040;
+}
+.training-float-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 60px;
+}
+.training-float-body::-webkit-scrollbar {
+  width: 4px;
+}
+.training-float-body::-webkit-scrollbar-thumb {
+  background: #3a3a5a;
+  border-radius: 2px;
+}
+.training-float-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 0;
+  color: #6a6a8a;
+  font-size: 0.85rem;
+}
+.spinner-sm {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #3a3a4a;
+  border-top-color: #f0c040;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.float-log-entry {
+  padding: 10px 12px;
+  background: #0e0e18;
+  border: 1px solid #1e1e30;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.float-log-lost {
+  border-color: #3a2020;
+  background: #120a0a;
+}
+.float-log-text {
+  color: #d0d0dc;
+  margin: 0 0 4px 0;
+}
+.float-log-drops {
+  color: #50c878;
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+.float-drop-item {
+  color: #60d888;
+}
+.float-log-task {
+  margin-top: 2px;
+  font-size: 0.76rem;
+}
+.float-task-upd {
+  display: block;
+  color: #90a0c0;
+}
+.float-task-upd.upd-done {
+  color: #50c878;
+}
+.float-log-meta {
+  display: block;
+  margin-top: 4px;
+  color: #6a6a8a;
+  font-size: 0.74rem;
+}
 </style>

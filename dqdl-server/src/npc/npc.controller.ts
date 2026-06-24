@@ -1,18 +1,10 @@
 import { Controller, Get, Param, Post, Body } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { NpcService } from './npc.service';
 import { CreateNpcDto } from './dto/npc.dto';
 
 @Controller('npc')
 export class NpcController {
-  private readonly agentUrl: string;
-
-  constructor(
-    private readonly npcService: NpcService,
-    private readonly config: ConfigService,
-  ) {
-    this.agentUrl = this.config.get<string>('AGENT_URL') || 'http://localhost:5000';
-  }
+  constructor(private readonly npcService: NpcService) {}
 
   /** 查询某地点的 NPC */
   @Get('location/:locationId')
@@ -40,34 +32,6 @@ export class NpcController {
     @Param('id') id: number,
     @Body() body: { message: string; history: any[] },
   ) {
-    const npc = await this.npcService.findOne(id);
-    if (!npc) return { reply: '此人已不在原地。' };
-
-    const location = await this.npcService.getLocation(npc.location_id);
-
-    const response = await fetch(`${this.agentUrl}/generate/dialog`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        npc: {
-          name: npc.name,
-          nature_name: npc.nature_name,
-          nature_hint: npc.nature_hint,
-          role_name: npc.role_name,
-          role_hint: npc.role_hint,
-        },
-        location: {
-          name: location?.name || '',
-          loc_type: location?.loc_type || '',
-          description: location?.description || '',
-          tags: location?.tags || [],
-        },
-        player_input: body.message || '',
-        history: body.history || [],
-      }),
-    });
-
-    const data = await response.json() as any;
-    return data;
+    return this.npcService.talk(id, body.message, body.history);
   }
 }

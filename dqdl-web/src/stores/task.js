@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getPlayerTasks, acceptTask as apiAcceptTask } from '../api'
 import { usePlayerStore } from './player'
-import { useDialogStore } from './dialog'
 
 export const useTaskStore = defineStore('task', () => {
   // ── state（映射 task 表列表） ──
@@ -10,6 +9,11 @@ export const useTaskStore = defineStore('task', () => {
   const loading = ref(false)
 
   // ── actions ──
+
+  /** 供其它 store（如 dialog）切换任务相关 loading，避免直写私有字段 */
+  function setLoading(v) {
+    loading.value = v
+  }
 
   async function fetch() {
     const playerStore = usePlayerStore()
@@ -22,7 +26,6 @@ export const useTaskStore = defineStore('task', () => {
 
   async function acceptCurrentTask(taskCard) {
     const playerStore = usePlayerStore()
-    const dialogStore = useDialogStore()
     if (!playerStore.playerId) return
     loading.value = true
     try {
@@ -44,5 +47,5 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
-  return { list, loading, fetch, acceptCurrentTask }
+  return { list, loading, setLoading, fetch, acceptCurrentTask }
 })

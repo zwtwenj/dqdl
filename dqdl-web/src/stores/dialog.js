@@ -58,7 +58,7 @@ export const useDialogStore = defineStore('dialog', () => {
     const backpackStore = useBackpackStore()
 
     if (eventData.type === 'createAdventurerTask') {
-      taskStore.loading = true
+      taskStore.setLoading(true)
       try {
         const res = await generateTask(mapStore.currentLocation?.id)
         const preview = res.data
@@ -82,10 +82,10 @@ export const useDialogStore = defineStore('dialog', () => {
         })
       } catch (err) {
         history.value.push({ player: evt.text, npc: `任务生成失败：${err.response?.data?.message || err.message}` })
-      } finally { taskStore.loading = false }
+      } finally { taskStore.setLoading(false) }
 
     } else if (eventData.type === 'completeTask') {
-      taskStore.loading = true
+      taskStore.setLoading(true)
       try {
         const npcId = npc.value?.id
         const res = await completeAdventurerTasks(playerStore.playerId, npcId)
@@ -112,7 +112,7 @@ export const useDialogStore = defineStore('dialog', () => {
         }
       } catch (err) {
         history.value.push({ player: evt.text, npc: `交付失败：${err.response?.data?.message || err.message}` })
-      } finally { taskStore.loading = false }
+      } finally { taskStore.setLoading(false) }
 
     } else if (eventData.type === 'trade') {
       backpackStore.openTrade()

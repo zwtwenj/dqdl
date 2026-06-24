@@ -5,9 +5,11 @@ import { MobService } from '../mob/mob.service';
 import { TechniqueService } from '../technique/technique.service';
 import { BackpackService } from '../backpack/backpack.service';
 import { ItemService } from '../item/item.service';
-import { LocationService } from './location.service';
+import { LocationService } from '../location/location.service';
 import { TaskService } from '../task/task.service';
 import { SkillService } from '../skill/skill.service';
+import { AgentClient } from '../agent/agent.client';
+import { BattleService } from '../battle/battle.service';
 
 interface PlayerSkillEntry {
   id: number;
@@ -67,9 +69,15 @@ export interface TrainingEvent {
   timestamp: string;
 }
 
+/**
+ * 历练服务：从地点 common_mobs 随机遭遇魔兽 → 战斗结算（BattleService.resolveQuickBattle）
+ * → 掉落入背包 → 任务进度推进 → agent 叙事。
+ *
+ * 阶段 1.3：从 location/ 提升为独立 training 模块，使 LocationModule 不再为训练背负
+ * Task/Skill/Backpack/Item 等依赖，让"编排型"耦合显式归属到训练域。
+ */
 @Injectable()
 export class TrainingService {
-  private readonly agentUrl: string;
   readonly trainingInterval: number;
   readonly trainingMaxDuration: number;
 
@@ -83,15 +91,11 @@ export class TrainingService {
     private itemService: ItemService,
     private taskService: TaskService,
     private skillService: SkillService,
+    private agentClient: AgentClient,
+    private battleService: BattleService,
   ) {
-    this.agentUrl = config.get<string>('AGENT_URL', 'http://localhost:5000');
     this.trainingInterval = config.get<number>('TRAINING_INTERVAL', 180000);
     this.trainingMaxDuration = config.get<number>('TRAINING_MAX_DURATION', 10800000);
-  }
-
-  /** 总属性 = 力量+智力+敏捷+体质 */
-  private totalAttrs(attrs: { power: number; intelligence: number; quick: number; stamina: number }): number {
-    return attrs.power + attrs.intelligence + attrs.quick + attrs.stamina;
   }
 
   /** 解析玩家已装备斗技 */
@@ -175,41 +179,9 @@ export class TrainingService {
     const mob = await this.mobService.findByMobId(mobId);
     if (!mob) throw new Error(`魔兽 ${mobId} 数据未找到`);
 
-    // 4. 计算战斗
-    const playerTotal = this.totalAttrs({
-      power: player.final_attrs?.power ?? player.power,
-      intelligence: player.final_attrs?.intelligence ?? player.intelligence,
-      quick: player.final_attrs?.quick ?? player.quick,
-      stamina: player.final_attrs?.stamina ?? player.stamina,
-    });
-    const mobTotal = this.totalAttrs({
-      power: mob.power,
-      intelligence: mob.intelligence,
-      quick: mob.quick,
-      stamina: mob.stamina,
-    });
-
-    const ratio = mobTotal > 0 ? mobTotal / playerTotal : 0;
-    let winRate: number;
-    let style: string;
-
-    if (ratio < 0.5) {
-      winRate = 100; style = '随手斩杀';
-    } else if (ratio < 0.8) {
-      winRate = 75; style = '轻松获胜';
-    } else if (ratio < 1.0) {
-      winRate = 50; style = '势均力敌';
-    } else if (ratio < 1.5) {
-      winRate = 25; style = '艰难苦战';
-    } else if (ratio <= 2) {
-      winRate = 10; style = '九死一生';
-    } else {
-      winRate = 0; style = '毫无胜算';
-    }
-    const rounds = 1;
-
-    // 5. 胜率判定
-    const won = Math.random() * 100 < winRate;
+    // 4. 战斗结算（统一走 BattleService，消除重复的战斗算法）
+    const { winRate, style, won, playerTotal, mobTotal, rounds } =
+      this.battleService.resolveQuickBattle(player, mob);
 
     // 6. 胜利计算掉落并入背包，失败则无掉落
     const drops: DropResult[] = won ? await this.calcDrops(mob.drops) : [];
@@ -225,20 +197,15 @@ export class TrainingService {
     // 7. 调 agent 生成叙事文本（胜利/失败都调用）
     const techniqueName = player.technique?.name ?? '无';
     const equippedSkills = await this.parseEquippedSkills(player.skill);
-    const resp = await fetch(`${this.agentUrl}/generate/training`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        player: { name: player.name, technique_name: techniqueName, equipped_skills: equippedSkills },
-        mob: { mob_id: mob.mob_id, name: mob.name, description: mob.description },
-        battle: { win_rate: winRate, rounds, style, player_total: playerTotal, mob_total: mobTotal },
-        location: { name: location.name, description: location.description },
-        won,
-        drops: drops.map(d => ({ name: d.name, count: d.count })),
-      }),
+    const data = await this.agentClient.generateTraining({
+      player: { name: player.name, technique_name: techniqueName, equipped_skills: equippedSkills },
+      mob: { mob_id: mob.mob_id, name: mob.name, description: mob.description },
+      battle: { win_rate: winRate, rounds, style, player_total: playerTotal, mob_total: mobTotal },
+      location: { name: location.name, description: location.description },
+      won,
+      drops: drops.map(d => ({ name: d.name, count: d.count })),
     });
 
-    const data = await resp.json() as any;
     const text = data.text || `你遭遇了一只${mob.name}。`;
 
     const timestamp = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });

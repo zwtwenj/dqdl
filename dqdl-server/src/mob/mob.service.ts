@@ -52,4 +52,14 @@ export class MobService {
   async findByMobId(mobId: string): Promise<Mob | null> {
     return this.mobRepo.findOneBy({ mob_id: mobId });
   }
+
+  /** 图鉴魔兽(WB-)按等级区间检索，副本战斗幕挂魔兽用 */
+  async findWBByLevelRange(lvMin: number, lvMax: number, order: 'ASC' | 'DESC' = 'ASC'): Promise<Mob[]> {
+    return this.mobRepo
+      .createQueryBuilder('m')
+      .where('m.mob_id LIKE :p', { p: 'WB-%' })
+      .andWhere('m.level BETWEEN :min AND :max', { min: lvMin, max: lvMax })
+      .orderBy('m.level', order)
+      .getMany();
+  }
 }

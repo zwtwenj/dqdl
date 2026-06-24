@@ -20,88 +20,16 @@
       <span class="player-name">{{ player?.name }}</span>
       <div class="top-bar-right">
         <button class="btn-backpack" @click="toggleBackpack">背包</button>
-        <button class="btn-task" @click="openTaskPanel">任务
+        <button class="btn-task" @click="showTaskPanel = true">任务
           <span v-if="pendingTaskCount > 0" class="task-badge">{{ pendingTaskCount }}</span>
         </button>
         <button class="btn-role" @click="showRole = true">角色</button>
-        <button class="btn-skill" @click="openSkillPanel">斗技</button>
+        <button class="btn-skill" @click="showSkillPanel = true">斗技</button>
       </div>
     </div>
 
-    <!-- 角色面板弹窗 -->
-    <div class="role-overlay" v-if="showRole">
-      <div class="role-panel">
-        <div class="role-header">
-          <span class="role-title">{{ player?.name }}</span>
-          <span class="role-level">{{ levelName(player?.level || 1) }}</span>
-          <button class="role-close" @click="showRole = false">&times;</button>
-        </div>
-        <div class="role-tabs">
-          <div class="role-tab" :class="{active: roleTab==='attr'}" @click="roleTab='attr'">人物</div>
-          <div class="role-tab" :class="{active: roleTab==='tech'}" @click="roleTab='tech'">功法</div>
-        </div>
-
-        <!-- 人物 Tab -->
-        <div class="role-body" v-if="roleTab==='attr'">
-          <div class="attr-vital">
-            <div class="vital-item">
-              <span class="vital-label">生命</span>
-              <span class="vital-val">{{ player?.hp ?? 0 }} / {{ player?.final_attrs?.max_hp ?? player?.max_hp ?? 100 }}</span>
-            </div>
-            <div class="vital-item">
-              <span class="vital-label">斗气</span>
-              <span class="vital-val">{{ player?.energy ?? 0 }} / {{ player?.final_attrs?.max_energy ?? player?.max_energy ?? 100 }}</span>
-            </div>
-          </div>
-          <div class="attr-row" v-for="key in baseAttrKeys" :key="key">
-            <span class="attr-label">{{ attrLabels[key] }}</span>
-            <span class="attr-base">{{ player?.[key] ?? 0 }}</span>
-            <span class="attr-bonus" v-if="(player?.final_attrs?.[key] ?? 0) - (player?.[key] ?? 0) > 0">
-              +{{ (player?.final_attrs?.[key] ?? 0) - (player?.[key] ?? 0) }}
-            </span>
-            <span class="attr-final">
-              {{ player?.final_attrs?.[key] ?? player?.[key] ?? 0 }}
-            </span>
-          </div>
-          <!-- 修为 -->
-          <div class="attr-cultivation">
-            <div class="attr-cult-label">修为</div>
-            <div class="attr-cult-row">
-            <div class="attr-cult-val">{{ player?.cultivation ?? 0 }} / {{ player?.level_cultivation ?? 100 }}</div>
-            <button class="btn-breakthrough" :disabled="(player?.cultivation ?? 0) < (player?.level_cultivation ?? 100)" @click="doBreakthrough">突破</button>
-          </div>
-            <div class="attr-cult-bar-wrap">
-              <div class="attr-cult-bar" :style="{ width: Math.min(100, ((player?.cultivation ?? 0) / (player?.level_cultivation || 1)) * 100) + '%' }"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 功法 Tab -->
-        <div class="role-body" v-if="roleTab==='tech' && player?.technique">
-          <div class="tech-card">
-            <div class="tech-name">{{ player.technique.name }}</div>
-            <div class="tech-meta">
-              <span class="tech-attr">属性: {{ player.technique.attribute }}</span>
-              <span class="tech-rank">{{ rankLabel(player.technique.rank) }}</span>
-            </div>
-            <div class="tech-desc" v-if="player.technique.description">{{ player.technique.description }}</div>
-            <div class="tech-stats">
-              <span>修为速度: {{ player.technique.growth }}</span>
-              <span>最大等级: {{ player.technique.max_level }}</span>
-            </div>
-            <div class="tech-bonus" v-if="Object.keys(player.technique.base).length">
-              <span class="bonus-title">属性加成：</span>
-              <span class="bonus-item" v-for="(val, k) in player.technique.base" :key="k">
-                {{ attrLabels[k] || k }} +{{ val }}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="role-body" v-if="roleTab==='tech' && !player?.technique">
-          <p style="color:#888">未装备功法</p>
-        </div>
-      </div>
-    </div>
+    <!-- 角色面板（独立组件） -->
+    <RolePanel v-if="showRole" @close="showRole = false" />
 
     <!-- 地图导航（面包屑） -->
     <div class="breadcrumb">
@@ -166,6 +94,9 @@
         </button>
         <button class="btn-battle" @click="openBattle" :disabled="trainingMode">
           战斗
+        </button>
+        <button class="btn-dungeon" @click="openDungeon" :disabled="trainingMode">
+          副本
         </button>
       </div>
     </div>
@@ -330,84 +261,8 @@
       </div>
     </div>
 
-    <!-- 任务面板弹窗 -->
-    <div class="role-overlay" v-if="showTaskPanel" @click="showTaskPanel = false">
-      <div class="role-panel task-panel" @click.stop>
-        <div class="role-header">
-          <span class="role-title">任务列表</span>
-          <button class="role-close" @click="showTaskPanel = false">&times;</button>
-        </div>
-        <div class="task-panel-body">
-          <div v-if="tasks.length === 0" class="backpack-empty">暂无任务</div>
-          <div
-            v-for="task in tasks.filter(t => t.status === 'pending')"
-            :key="task.id"
-            class="task-item"
-            :class="'task-status-' + task.status"
-          >
-            <!-- 头部：类型标签 + 星级 + 状态 -->
-            <div class="task-item-header">
-              <span class="task-type-badge" :class="'type-' + task.type">
-                {{ taskTypeLabel(task.type) }}
-              </span>
-              <span class="task-star-badge">
-                {{ '\u2605'.repeat(task.star || 1) }}
-              </span>
-              <span class="task-status-badge" :class="'status-' + task.status">
-                {{ taskStatusLabel(task.status) }}
-              </span>
-            </div>
-            <!-- 描述 -->
-            <div class="task-item-desc">{{ task.description }}</div>
-            <!-- 奖励 -->
-            <div v-if="task.reward && task.reward.length" class="task-item-reward">
-              <span v-for="(rw, ri) in task.reward" :key="ri" class="reward-tag">
-                <template v-if="rw.type === 'money'">💰 {{ rw.value }} 金币</template>
-                <template v-else>{{ rw.name }} &times;{{ rw.count }}</template>
-              </span>
-            </div>
-            <!-- 目标进度 -->
-            <div class="task-item-targets">
-              <div
-                v-for="(tgt, ti) in parseTarget(task.target)"
-                :key="ti"
-                class="task-target-row"
-              >
-                <span class="target-desc">{{ tgt.desc }}</span>
-                <span class="target-progress">
-                  <span :class="tgt.current >= tgt.required ? 'progress-done' : 'progress-ing'">
-                    {{ tgt.current }} / {{ tgt.required }}
-                  </span>
-                </span>
-              </div>
-            </div>
-            <!-- 前往击杀地点 -->
-            <div
-              v-if="getTaskPath(task) && !parseTarget(task.target).every(t => t.current >= t.required)"
-              class="task-item-nav"
-              @click="navigateToTask(getTaskPath(task)); showTaskPanel = false"
-            >
-              📍 前往击杀：{{ getTaskPathLabel(task) }}
-            </div>
-            <!-- 达标后：展示交付地点，点击前往 -->
-            <div
-              v-if="task.delivery && parseTarget(task.target).every(t => t.current >= t.required)"
-              class="task-item-delivery ready"
-              @click="navigateToDelivery(task.delivery); showTaskPanel = false"
-            >
-              ✨ 进度已满！前往交付：{{ task.delivery.location_label }}
-            </div>
-            <!-- 进行中：提示交付地点 -->
-            <div
-              v-else-if="task.delivery && !parseTarget(task.target).every(t => t.current >= t.required)"
-              class="task-item-delivery-hint"
-            >
-              🏦 交付地点：{{ task.delivery.location_label }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- 任务面板（独立组件） -->
+    <TaskPanel v-if="showTaskPanel" @close="showTaskPanel = false" />
 
     <!-- 背包弹窗 -->
     <div class="role-overlay" v-if="showBackpack" @click="showBackpack = false; activeTooltip = -1">
@@ -432,6 +287,12 @@
           >
             <span class="bp-item-name">{{ item.name }}</span>
             <span class="bp-item-count">&times;{{ item.count }}</span>
+            <button
+              v-if="item.usable"
+              class="btn-use"
+              :disabled="usingItem"
+              @click.stop="usePlayerItem(item.name)"
+            >使用</button>
             <!-- 悬浮描述 -->
             <div v-if="activeTooltip === idx && (item.description || item.price)" class="item-tooltip" @click.stop>
               <div class="tooltip-name">{{ item.name }}</div>
@@ -478,59 +339,8 @@
       </div>
     </div>
 
-    <!-- 斗技弹窗 -->
-    <div class="role-overlay" v-if="showSkillPanel" @click="showSkillPanel = false">
-      <div class="role-panel skill-panel" @click.stop>
-        <div class="role-header">
-          <span class="role-title">斗技</span>
-          <button class="role-close" @click="showSkillPanel = false">&times;</button>
-        </div>
-        <div class="skill-body">
-          <!-- 装备槽 -->
-          <div class="skill-slots">
-            <div class="skill-slots-title">已装备（右键卸下）</div>
-            <div class="skill-slots-row">
-              <div
-                v-for="slot in 5"
-                :key="slot"
-                class="skill-slot"
-                :class="{ occupied: slotSkill(slot) }"
-                @dragover.prevent
-                @drop="onDropSlot(slot, $event)"
-                @contextmenu.prevent="onRightClickSlot(slot)"
-              >
-                <template v-if="slotSkill(slot)">
-                  <div class="skill-icon">{{ slotSkill(slot).name?.[0] || '技' }}</div>
-                  <div class="skill-lv">Lv.{{ slotSkill(slot).level }}</div>
-                </template>
-                <template v-else>
-                  <div class="skill-slot-empty">{{ slot }}</div>
-                </template>
-              </div>
-            </div>
-          </div>
-
-          <!-- 斗技列表 -->
-          <div class="skill-inventory">
-            <div class="skill-inventory-title">已习得斗技</div>
-            <div class="skill-inventory-grid">
-              <div
-                v-for="ps in inventoryList"
-                :key="ps.id"
-                class="skill-item"
-                draggable="true"
-                @dragstart="onDragStart(ps, $event)"
-              >
-                <div class="skill-icon">{{ ps.name?.[0] || '技' }}</div>
-                <div class="skill-name">{{ ps.name }}</div>
-                <div class="skill-lv">Lv.{{ ps.level }}</div>
-              </div>
-              <div v-if="inventoryList.length === 0" class="skill-empty">暂无未装备斗技</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- 斗技面板（独立组件） -->
+    <SkillPanel v-if="showSkillPanel" @close="showSkillPanel = false" />
 
     <!-- 浮动历练卡片 -->
     <div v-if="trainingMode" class="training-float">
@@ -645,6 +455,9 @@
         <div class="battle-loading" v-if="battleLoading">加载中...</div>
       </div>
     </div>
+
+    <!-- 副本界面（独立组件） -->
+    <DungeonPanel v-if="showDungeon" />
   </div>
 </template>
 
@@ -658,7 +471,12 @@ import { useBackpackStore } from './stores/backpack'
 import { useTaskStore } from './stores/task'
 import { useGameStore } from './stores/game'
 import { useBattleStore } from './stores/battle'
-import { getSkills, updatePlayerSkills } from './api'
+import { useDungeonStore } from './stores/dungeon'
+import DungeonPanel from './components/DungeonPanel.vue'
+import RolePanel from './components/RolePanel.vue'
+import TaskPanel from './components/TaskPanel.vue'
+import SkillPanel from './components/SkillPanel.vue'
+import { attrLabels, baseAttrKeys, levelName } from './game/constants'
 
 const playerStore = usePlayerStore()
 const mapStore = useMapStore()
@@ -667,15 +485,17 @@ const backpackStore = useBackpackStore()
 const taskStore = useTaskStore()
 const gameStore = useGameStore()
 const battleStore = useBattleStore()
+const dungeonStore = useDungeonStore()
 
 const { data: player } = storeToRefs(playerStore)
 const { loading: playerLoading, loadingText: playerLoadingText } = storeToRefs(playerStore)
 const { breadcrumb, currentLocation, currentChildren, currentNpcs, currentSiblings, loading: mapLoading, loadingText: mapLoadingText } = storeToRefs(mapStore)
 const { npc: dialogNpc, history: dialogHistory, loading: dialogLoading } = storeToRefs(dialogStore)
-const { items: backpackItems, showPanel: showBackpack, showTrade, tradeSelling } = storeToRefs(backpackStore)
+const { items: backpackItems, showPanel: showBackpack, showTrade, tradeSelling, usingItem } = storeToRefs(backpackStore)
 const { list: tasks, loading: taskLoading } = storeToRefs(taskStore)
 const { started: gameStarted, trainingLog, cultivationLog, trainingLoading, trainingMode, trainingEvents } = storeToRefs(gameStore)
 const { showBattle, battleLoading, mob, playerName: battlePlayerName, playerLevel: battlePlayerLevel, playerHp: battlePlayerHp, playerMaxHp, playerEnergy: battlePlayerEnergy, playerMaxEnergy, mobName: battleMobName, mobLevel: battleMobLevel, mobRank: battleMobRank, mobMaxHp, mobHp: battleMobHp, equippedSkills, battleLog, battleOver, attacking } = storeToRefs(battleStore)
+const { showDungeon } = storeToRefs(dungeonStore)
 
 const loading = computed(() => playerStore.loading || playerLoading.value || mapLoading.value)
 const loadingText = computed(() => mapLoadingText.value || playerLoadingText.value)
@@ -694,14 +514,13 @@ function handleEventClick(evt) { dialogStore.handleEvent(evt) }
 function toggleBackpack() { backpackStore.toggle() }
 function closeTrade() { backpackStore.closeTrade() }
 function sellPlayerItem(name, count) { backpackStore.sell(name, count) }
-function fetchTasks() { taskStore.fetch() }
+function usePlayerItem(name) { backpackStore.use(name) }
 function acceptCurrentTask(card) { taskStore.acceptCurrentTask(card) }
 function navigateToLocation(locId) {
   if (trainingMode.value) return
   mapStore.navigateToLocation(locId); dialogStore.close()
 }
 function navigateToTask(path) { if (path?.length) navigateToLocation(path[path.length - 1].id) }
-function navigateToDelivery(delivery) { if (delivery?.location_path?.length) navigateToLocation(delivery.location_path[delivery.location_path.length - 1].id) }
 function doTrainingEvent() { gameStore.doTrainingEvent() }
 function startAutoTraining() { gameStore.startAutoTraining() }
 function stopAutoTraining() { gameStore.stopAutoTraining() }
@@ -710,99 +529,28 @@ function closeBattle() { battleStore.close() }
 function battleAttack() { battleStore.playerAttack() }
 function battleSkill(idx) { battleStore.skillAttack(idx) }
 function battleFlee() { battleStore.flee() }
+function openDungeon() { dungeonStore.enter() }
+
 function doCultivate() { gameStore.doCultivate() }
-function doBreakthrough() { gameStore.doBreakthrough() }
 
 const dialogInput = ref('')
 function handleSend() { const msg = dialogInput.value.trim(); if (!msg || dialogLoading.value) return; dialogInput.value = ''; sendDialog(msg) }
 
 const showTaskPanel = ref(false)
-function openTaskPanel() { fetchTasks(); showTaskPanel.value = true }
 const pendingTaskCount = computed(() => tasks.value.filter(t => t.status === 'pending').length)
-function taskTypeLabel(t) { return {adventurer:'佣兵',common:'普通',main:'主线',side:'支线'}[t]||t }
-function taskStatusLabel(s) { return {pending:'进行中',completed:'已完成',claimed:'已领奖'}[s]||s }
-function parseTarget(raw) { try { const a = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(a) ? a : [] } catch { return [] } }
-function getTaskPath(task) { return parseTarget(task.target)[0]?.location_path || null }
-function getTaskPathLabel(task) { const p = getTaskPath(task); return p ? p.map(x => x.name).join(' > ') : '' }
 
 const showRole = ref(false)
-const roleTab = ref('attr')
 const activeTooltip = ref(-1)
 function toggleItemTooltip(idx) { activeTooltip.value = activeTooltip.value === idx ? -1 : idx }
 
 const showSkillPanel = ref(false)
-const skillList = ref([])
 
-function parseSkills(raw) {
-  try { const a = typeof raw === 'string' ? JSON.parse(raw || '[]') : raw; return Array.isArray(a) ? a : [] } catch { return [] }
-}
-function findSkillDef(id) { return skillList.value.find(s => s.id === id) || null }
-
-const playerSkills = computed(() => parseSkills(player.value?.skill).map(ps => ({ ...ps, _def: findSkillDef(ps.id) })))
-const equippedMap = computed(() => {
-  const map = {}
-  playerSkills.value.forEach(ps => { if (ps.carry >= 1 && ps.carry <= 5) map[ps.carry] = ps })
-  return map
-})
-const inventoryList = computed(() => playerSkills.value.filter(ps => !ps.carry).map(ps => ({ ...ps, name: ps._def?.name || '未知斗技' })))
-function slotSkill(slot) {
-  const ps = equippedMap.value[slot]
-  if (!ps) return null
-  return { ...ps, name: ps._def?.name || '未知斗技' }
-}
-
-async function openSkillPanel() {
-  showSkillPanel.value = true
-  try {
-    const res = await getSkills()
-    skillList.value = res.data || []
-  } catch (err) { console.error('获取斗技列表失败', err) }
-}
-
-function onDragStart(ps, e) {
-  e.dataTransfer.setData('text/plain', String(ps.id))
-  e.dataTransfer.effectAllowed = 'move'
-}
-function onDropSlot(slot, e) {
-  e.preventDefault()
-  const id = Number(e.dataTransfer.getData('text/plain'))
-  if (!id) return
-  const skills = parseSkills(player.value?.skill)
-  const target = skills.find(s => s.id === id)
-  if (!target) return
-  // 如果该斗技已在其他槽位，先卸下
-  skills.forEach(s => { if (s.id === id) s.carry = null })
-  // 如果目标槽位已有斗技，也卸下
-  skills.forEach(s => { if (s.carry === slot) s.carry = null })
-  target.carry = slot
-  saveSkills(skills)
-}
-function onRightClickSlot(slot) {
-  const skills = parseSkills(player.value?.skill)
-  const target = skills.find(s => s.carry === slot)
-  if (target) { target.carry = null; saveSkills(skills) }
-}
-async function saveSkills(skills) {
-  try {
-    await updatePlayerSkills(playerStore.playerId, JSON.stringify(skills))
-    playerStore.data = { ...playerStore.data, skill: JSON.stringify(skills) }
-  } catch (err) { console.error('保存斗技失败', err); alert('保存斗技失败') }
-}
-
-const attrLabels = { power:'力量',intelligence:'智力',quick:'敏捷',stamina:'体质',hp:'生命',lucky:'运气',energy:'斗气' }
-function rankLabel(rank) { const t=['天阶','地阶','玄阶','黄阶'],g=['上品','中品','下品']; return (t[Math.floor(rank/10)]||'')+(g[rank%10]||'') }
 function typeLabel(type) { return {continent:'大陆',region:'区域',empire:'帝国',city:'城市',wild:'野外',wild2:'野外深处',wild3:'野外核心',sect:'宗派',secret:'秘境',district:'区域',scene:'场景'}[type]||type }
-function levelName(lv) {
-  if (lv <= 9) return '斗之气 ' + '一二三四五六七八九'[lv - 1] + '段'
-  if (lv <= 19) return '斗者 ' + '一二三四五六七八九'[lv - 11] + '星'
-  if (lv <= 29) return '斗师 ' + '一二三四五六七八九'[lv - 21] + '星'
-  return '大斗师 ' + '一二三四五六七八九'[lv - 31] + '星'
-}
 function dangerLabel(level) { return {1:'一阶(低危)',2:'二阶(中危)',3:'三阶(高危)'}[level]||level }
 function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(a) ? a : [] } catch { return [] } }
 </script>
 
-<style scoped>
+<style>
 /* ===== 开始界面 ===== */
 .start-screen {
   min-height: 100vh;
@@ -1393,7 +1141,7 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.7);
-  z-index: 300;
+  z-index: 3000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1926,6 +1674,9 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 .btn-sell { padding: 4px 14px; border: 1px solid #50a050; background: #1a2a1a; color: #60d060; border-radius: 4px; cursor: pointer; font-size: 0.82rem; transition: all 0.15s; flex-shrink: 0; }
 .btn-sell:hover:not(:disabled) { background: #2a4a2a; color: #80f080; }
 .btn-sell:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-use { padding: 4px 14px; border: 1px solid #5070a0; background: #1a2a3a; color: #60a0e0; border-radius: 4px; cursor: pointer; font-size: 0.82rem; transition: all 0.15s; flex-shrink: 0; margin-left: auto; }
+.btn-use:hover:not(:disabled) { background: #2a3a5a; color: #80c0f0; }
+.btn-use:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* 斗技按钮 */
 .btn-skill {
@@ -2084,6 +1835,221 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 .btn-battle:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ===== 副本按钮 ===== */
+.btn-dungeon {
+  background: linear-gradient(135deg, #102a2a, #18403a);
+  border: 1px solid #388070;
+  color: #40c0a0;
+  padding: 8px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  margin-left: 10px;
+}
+.btn-dungeon:hover:not(:disabled) {
+  background: linear-gradient(135deg, #184040, #206050);
+  border-color: #50b090;
+}
+.btn-dungeon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ===== 副本界面 ===== */
+.dungeon-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.dungeon-box {
+  width: 840px;
+  max-width: 95vw;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: linear-gradient(160deg, #0a1a18, #0c1c28);
+  border: 1px solid #2a5a4a;
+  border-radius: 16px;
+  box-shadow: 0 0 60px rgba(40, 120, 100, 0.2);
+  padding: 36px 30px 28px;
+  position: relative;
+}
+.dungeon-loading {
+  text-align: center;
+  color: #6a8a7a;
+  padding: 40px 0;
+}
+.dungeon-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+.dungeon-scene-tag {
+  display: inline-block;
+  font-size: 0.78rem;
+  color: #40c0a0;
+  border: 1px solid #2a5a4a;
+  border-radius: 12px;
+  padding: 2px 12px;
+  margin-bottom: 8px;
+}
+.dungeon-title {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #d0e8e0;
+  letter-spacing: 2px;
+}
+.dungeon-progress {
+  font-size: 0.82rem;
+  color: #6a8a7a;
+  margin-top: 4px;
+}
+.dungeon-intro {
+  color: #8a9a90;
+  font-style: italic;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  border-left: 2px solid #2a5a4a;
+  padding: 6px 12px;
+  margin-bottom: 18px;
+}
+.dungeon-stage {
+  background: rgba(20, 40, 36, 0.5);
+  border: 1px solid #1f3a34;
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.dungeon-act-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.dungeon-act-title {
+  color: #c0d8d0;
+  font-size: 1.02rem;
+  font-weight: bold;
+}
+.dungeon-act-type {
+  font-size: 0.75rem;
+  color: #40c0a0;
+  border: 1px solid #2a5a4a;
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+.dungeon-narrative {
+  color: #b0c4be;
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.dungeon-stars { color: #f0c040; letter-spacing: 1px; margin-right: 6px; }
+.dungeon-reveal { margin-top: 12px; padding: 10px 14px; background: linear-gradient(90deg, #2a2010, #1a1408); border: 1px solid #6a5020; border-left: 3px solid #f0c040; border-radius: 6px; color: #f0d070; font-size: 0.95rem; letter-spacing: 0.5px; }
+/* 副本主体两栏 */
+.dungeon-main { display: flex; gap: 18px; align-items: stretch; }
+.dungeon-flow { flex: 1 1 auto; min-width: 0; }
+.dungeon-side { flex: 0 0 300px; display: flex; flex-direction: column; background: #0c1410; border: 1px solid #1e3a32; border-radius: 10px; overflow: hidden; }
+.side-tabs { display: flex; border-bottom: 1px solid #1e3a32; }
+.side-tab { flex: 1; text-align: center; padding: 9px 0; font-size: 0.88rem; color: #6f9a8a; cursor: pointer; transition: all 0.15s; }
+.side-tab.active { color: #d0f0e0; background: #14302a; border-bottom: 2px solid #40c0a0; }
+.side-body { padding: 12px; overflow-y: auto; max-height: 60vh; }
+.side-role-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #1c3028; }
+.side-role-name { color: #e0d8c8; font-size: 1rem; font-weight: bold; }
+.side-role-level { color: #40c0a0; font-size: 0.78rem; }
+.side-vital-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: #9fc8b8; padding: 3px 0; }
+.side-attr { display: flex; justify-content: space-between; font-size: 0.8rem; color: #9fc8b8; padding: 3px 0; border-top: 1px dashed #1c3028; }
+.side-attr-label { color: #7a9a8a; }
+.side-attr-val { color: #d0c8b8; }
+.side-cult { margin-top: 8px; padding-top: 8px; border-top: 1px solid #1c3028; font-size: 0.78rem; color: #6f9a8a; }
+.side-section { margin-bottom: 14px; }
+.side-section:last-child { margin-bottom: 0; }
+.side-section-title { font-size: 0.8rem; color: #8aa89c; margin-bottom: 6px; }
+.side-section-hint { color: #5a7a6e; font-size: 0.72rem; }
+.side-item { display: flex; align-items: center; gap: 6px; padding: 5px 2px; border-bottom: 1px solid #16221d; }
+.side-item:last-child { border-bottom: none; }
+.side-item-name { color: #d0c8b8; font-size: 0.82rem; flex: 1; }
+.side-item-count { color: #50c878; font-size: 0.8rem; }
+.side-empty { color: #5a7a6e; font-size: 0.8rem; padding: 8px 0; text-align: center; }
+.dungeon-dots {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.dungeon-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1a2a26;
+  border: 1px solid #2a4a44;
+}
+.dungeon-dot.done {
+  background: #2a6a58;
+  border-color: #40a088;
+}
+.dungeon-dot.cur {
+  background: #40c0a0;
+  border-color: #60e0c0;
+  box-shadow: 0 0 8px rgba(64, 192, 160, 0.6);
+}
+.dungeon-dot.boss {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+}
+.dungeon-actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+.dungeon-settle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.dungeon-btn {
+  min-width: 128px;
+  padding: 11px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid;
+}
+.dungeon-btn-primary {
+  background: linear-gradient(135deg, #18403a, #206050);
+  border-color: #40a088;
+  color: #d0f0e8;
+}
+.dungeon-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #206050, #2a8068);
+}
+.dungeon-btn-escape {
+  background: transparent;
+  border-color: #5a3a3a;
+  color: #a07070;
+  width: 50%;
+  padding: 8px 0;
+  font-size: 0.88rem;
+}
+.dungeon-btn-escape:hover:not(:disabled) {
+  background: rgba(80, 40, 40, 0.3);
+}
+.dungeon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.dungeon-settle-text {  color: #c0d8d0;
+  font-size: 1rem;
+  margin-bottom: 6px;
 }
 
 /* ===== 战斗界面 ===== */

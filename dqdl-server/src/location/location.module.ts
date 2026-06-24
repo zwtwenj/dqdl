@@ -5,19 +5,19 @@ import { LocationGenRule } from './location-gen-rule.entity';
 import { LocationService } from './location.service';
 import { LocationController } from './location.controller';
 import { MapGeneratorService } from './map-generator.service';
-import { TrainingService } from './training.service';
 import { MobModule } from '../mob/mob.module';
-import { PlayerModule } from '../player/player.module';
-import { TechniqueModule } from '../technique/technique.module';
-import { BackpackModule } from '../backpack/backpack.module';
-import { ItemModule } from '../item/item.module';
-import { TaskModule } from '../task/task.module';
-import { SkillModule } from '../skill/skill.module';
 
+/**
+ * 地点模块（阶段 1.3 瘦身后）：
+ * TrainingService 已迁出至 TrainingModule，本模块不再为训练背负
+ * Player/Technique/Backpack/Item/Task/Skill/Battle 等依赖。
+ * LocationService 仅需 MobService（野外节点生成时 findOrCreateBatch 魔兽）；
+ * MapGeneratorService 仅依赖全局 AgentClient。
+ */
 @Module({
-  imports: [TypeOrmModule.forFeature([Location, LocationGenRule]), MobModule, PlayerModule, TechniqueModule, BackpackModule, ItemModule, TaskModule, SkillModule],
+  imports: [TypeOrmModule.forFeature([Location, LocationGenRule]), MobModule],
   controllers: [LocationController],
-  providers: [LocationService, MapGeneratorService, TrainingService],
+  providers: [LocationService, MapGeneratorService],
   exports: [LocationService],
 })
 export class LocationModule {}

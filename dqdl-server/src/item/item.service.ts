@@ -37,4 +37,24 @@ export class ItemService {
     if (!itemIds.length) return [];
     return this.itemRepo.find({ where: { item_id: In(itemIds) } });
   }
+
+  /** 按物品名查找（背包出售/校验用） */
+  async findByName(name: string): Promise<Item | null> {
+    return this.itemRepo.findOneBy({ name });
+  }
+
+  /** 按名称批量查找（背包 enrichment 用） */
+  async findByNames(names: string[]): Promise<Item[]> {
+    if (!names.length) return [];
+    return this.itemRepo.find({ where: { name: In(names) } });
+  }
+
+  /** 按关键词检索某类型物品（副本魔核奖励用） */
+  async findByTypeAndNameKeyword(type: string, keyword: string): Promise<Item[]> {
+    return this.itemRepo
+      .createQueryBuilder('i')
+      .where('i.type = :t', { t: type })
+      .andWhere('i.name LIKE :k', { k: `%${keyword}%` })
+      .getMany();
+  }
 }

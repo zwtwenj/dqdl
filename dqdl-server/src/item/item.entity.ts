@@ -24,4 +24,12 @@ export class Item {
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
+
+  /** 是否可主动使用 */
+  @Column({ type: 'boolean', default: false, comment: '是否可使用' })
+  usable: boolean;
+
+  /** 使用效果描述 JSON：{ type:'instant'|'buff', fn|buff, params|scope } */
+  @Column({ type: 'text', nullable: true, comment: '使用效果描述(JSON)' })
+  use_effect: string | null;
 }

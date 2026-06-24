@@ -208,6 +208,11 @@ export class LocationService {
     return loc;
   }
 
+  /** 获取节点详情（不存在返回 null，不抛异常） */
+  async findOneOrNull(id: number): Promise<Location | null> {
+    return this.locationRepo.findOneBy({ id });
+  }
+
   /** 获取整棵子树 */
   async getTree(id: number): Promise<any> {
     const parent = await this.findOne(id);

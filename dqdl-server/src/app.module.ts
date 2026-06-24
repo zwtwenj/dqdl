@@ -12,6 +12,11 @@ import { TaskModule } from './task/task.module';
 import { MobModule } from './mob/mob.module';
 import { TechniqueModule } from './technique/technique.module';
 import { SkillModule } from './skill/skill.module';
+import { BuffModule } from './buff/buff.module';
+import { BattleModule } from './battle/battle.module';
+import { DungeonModule } from './dungeon/dungeon.module';
+import { AgentModule } from './agent/agent.module';
+import { TrainingModule } from './training/training.module';
 
 @Module({
   imports: [
@@ -27,7 +32,7 @@ import { SkillModule } from './skill/skill.module';
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_DATABASE'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true,
+        synchronize: config.get<string>('SYNC', 'true') === 'true',
       }),
     }),
     PlayerModule,
@@ -39,6 +44,11 @@ import { SkillModule } from './skill/skill.module';
     MobModule,
     TechniqueModule,
     SkillModule,
+    BuffModule,
+    BattleModule,
+    DungeonModule,
+    AgentModule,
+    TrainingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

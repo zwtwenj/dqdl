@@ -29,6 +29,10 @@ export class Skill {
   @Column({ type: 'text', comment: '倍率数组(JSON)' })
   scaling: string;
 
+  /** 按等级的命名参数表 JSON: [{level:1, params:{伤害倍率,破甲倍率,...}}, ...] */
+  @Column({ type: 'text', nullable: true, comment: '按等级命名参数表(JSON)' })
+  levels: string | null;
+
   /** 品阶编码，同功法 */
   @Column({ type: 'int', comment: '品阶: 31=玄阶上品 42=黄阶中品 ... 11=天阶上品' })
   rank: number;
@@ -39,13 +43,17 @@ export class Skill {
   @Column({ type: 'int', comment: '最大等级' })
   max_level: number;
 
-  /** 目标附加效果 JSON数组: ["虚弱","眩晕","流血"] */
-  @Column({ type: 'text', nullable: true, comment: '目标附加效果(JSON数组)' })
+  /** 目标附加效果 JSON数组: 命中投递给目标的buff key ["burn","bleed"] */
+  @Column({ type: 'text', nullable: true, comment: '命中投递给目标的buff key(JSON数组)' })
   target_effects: string | null;
 
-  /** 自身附加效果 JSON数组: ["灵敏","大力","防御"] */
-  @Column({ type: 'text', nullable: true, comment: '自身附加效果(JSON数组)' })
+  /** 自身附加效果 JSON数组: 自身挂的buff key ["power_surge"] */
+  @Column({ type: 'text', nullable: true, comment: '自身挂的buff key(JSON数组)' })
   self_effects: string | null;
+
+  /** 携带型效果 JSON数组: 骑在本次攻击上的buff key ["pojia"] */
+  @Column({ type: 'text', nullable: true, comment: '携带型效果buff key(JSON数组)' })
+  carried: string | null;
 
   /** 斗气消耗 */
   @Column({ type: 'int', default: 10, comment: '斗气消耗' })

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getBackpack, sellItem, getPlayer } from '../api'
+import { getBackpack, sellItem, useItem, getPlayer } from '../api'
 import { usePlayerStore } from './player'
 
 export const useBackpackStore = defineStore('backpack', () => {
@@ -9,6 +9,7 @@ export const useBackpackStore = defineStore('backpack', () => {
   const showPanel = ref(false)
   const showTrade = ref(false)
   const tradeSelling = ref(false)
+  const usingItem = ref(false)
 
   // ── actions ──
 
@@ -51,8 +52,27 @@ export const useBackpackStore = defineStore('backpack', () => {
     }
   }
 
+  async function use(itemName) {
+    const playerStore = usePlayerStore()
+    if (!playerStore.playerId || usingItem.value) return
+    usingItem.value = true
+    try {
+      const res = await useItem(playerStore.playerId, itemName)
+      if (res.data?.error) { alert(res.data.error); return }
+      // 使用成功：刷新背包 + 同步玩家状态(hp/energy/buff/money)
+      await fetch()
+      if (res.data.player) playerStore.patch(res.data.player)
+      if (res.data.used?.message) alert(res.data.used.message)
+      return res.data
+    } catch (err) {
+      alert('使用失败: ' + (err.response?.data?.message || err.message))
+    } finally {
+      usingItem.value = false
+    }
+  }
+
   return {
-    items, showPanel, showTrade, tradeSelling,
-    fetch, toggle, openTrade, closeTrade, sell,
+    items, showPanel, showTrade, tradeSelling, usingItem,
+    fetch, toggle, openTrade, closeTrade, sell, use,
   }
 })

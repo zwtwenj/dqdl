@@ -18,6 +18,12 @@ export class SkillService {
     return this.repo.findOneBy({ id });
   }
 
+  /** 按 id 批量查询（供战斗引擎解析已装备斗技） */
+  async findByIds(ids: number[]): Promise<Skill[]> {
+    if (!ids.length) return [];
+    return this.repo.find({ where: ids.map((id) => ({ id }) as any) });
+  }
+
   async create(data: Partial<Skill>): Promise<Skill> {
     return this.repo.save(this.repo.create(data));
   }

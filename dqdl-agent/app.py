@@ -1,9 +1,11 @@
 """
 dqdl-agent: AI 生成服务
-- POST /generate/map    地图子节点生成
-- POST /rag/search      RAG 语义检索
-- POST /generate/dialog NPC 对话生成
-- GET  /health          健康检查
+- POST /generate/map      地图子节点生成
+- POST /rag/search        RAG 语义检索
+- POST /generate/dialog   NPC 对话生成
+- POST /generate/training 历练叙事生成
+- POST /generate/dungeon  箱庭副本五幕蓝图生成
+- GET  /health            健康检查
 """
 import os
 import re
@@ -589,6 +591,148 @@ def generate_breakthrough():
         traceback.print_exc()
         fallback = '你感到体内斗气翻涌，成功突破了修炼瓶颈！' if success else '你冲击瓶颈失败，体内斗气紊乱，修为受损。'
         return jsonify({'text': fallback})
+
+
+# ============================================================
+#  箱庭副本生成
+# ============================================================
+
+DUNGEON_SCENES = {
+    '山洞': '幽深曲折的地下洞穴，石壁湿冷、光线昏暗，可能有石钟乳、地下河、狭窄甬道、岔路',
+    '密林': '遮天蔽日的原始森林，藤蔓缠绕、兽吼鸟鸣，潮湿闷热，有古树、灌木丛、溪流',
+    '山谷': '两侧峭壁夹峙的幽谷，云雾缭绕，谷底有乱石、溪流、回声震荡',
+    '浅滩': '水波拍岸的河海浅滩，礁石密布、淤泥湿滑，潮汐涨落、水汽弥漫',
+}
+
+
+def _parse_json_object(content):
+    """从 AI 回复中提取 JSON 对象（dict）"""
+    json_str = content
+    m = re.search(r'```(?:json)?\s*([\s\S]*?)```', content)
+    if m:
+        json_str = m.group(1).strip()
+    m = re.search(r'\{[\s\S]*\}', json_str)
+    if m:
+        json_str = m.group(0)
+    obj = json.loads(json_str)
+    if not isinstance(obj, dict):
+        raise ValueError('Expected JSON object')
+    return obj
+
+
+def _normalize_dungeon(bp, scene_type):
+    """校验并补全副本蓝图，确保五幕结构完整"""
+    VALID_TYPES = {'combat', 'sneak', 'modifier', 'explore', 'boss', 'item'}
+    acts = bp.get('acts')
+    if not isinstance(acts, list) or len(acts) < 5:
+        raise ValueError('acts 缺失或不足 5 幕')
+    norm_acts = []
+    for i in range(5):
+        a = acts[i] if i < len(acts) else {}
+        t = str(a.get('type', 'combat'))
+        if t not in VALID_TYPES:
+            t = 'combat'
+        if i == 4:
+            t = 'boss'  # 第五幕强制 boss
+        norm_acts.append({
+            'index': i + 1,
+            'type': t,
+            'title': str(a.get('title', f'第{i + 1}幕'))[:32],
+            'narrative': str(a.get('narrative', ''))[:300],
+        })
+    return {
+        'title': str(bp.get('title', f'{scene_type}秘境'))[:32],
+        'scene_type': scene_type,
+        'intro': str(bp.get('intro', ''))[:300],
+        'acts': norm_acts,
+    }
+
+
+def _fallback_dungeon(scene_type):
+    """降级副本蓝图（AI 失败时）"""
+    titles = {
+        '山洞': '幽冥石洞', '密林': '迷雾密林',
+        '山谷': '回声幽谷', '浅滩': '潮汐暗滩',
+    }
+    intros = {
+        '山洞': '你拨开荆棘，发现一处幽深山洞，洞口隐隐传来低沉的喘息声。',
+        '密林': '你踏入一片遮天蔽日的密林，四周静谧得有些诡异。',
+        '山谷': '你沿着峭壁走入一道幽谷，谷底回荡着空旷的风声。',
+        '浅滩': '你来到一片湿滑的浅滩，礁石间似有什么在游动。',
+    }
+    return {
+        'title': titles.get(scene_type, f'{scene_type}秘境'),
+        'scene_type': scene_type,
+        'intro': intros.get(scene_type, f'你进入了一处{scene_type}。'),
+        'acts': [
+            {'index': 1, 'type': 'sneak', 'title': '入口守卫', 'narrative': f'你刚踏入{scene_type}，一个黑影挡住了去路。'},
+            {'index': 2, 'type': 'modifier', 'title': '环境突变', 'narrative': f'前方的{scene_type}地势变得更加险恶。'},
+            {'index': 3, 'type': 'combat', 'title': '深处遭遇', 'narrative': f'{scene_type}深处，一只凶兽正向你逼近。'},
+            {'index': 4, 'type': 'explore', 'title': '岔路抉择', 'narrative': f'你发现{scene_type}中一处可疑的角落。'},
+            {'index': 5, 'type': 'boss', 'title': '最终之敌', 'narrative': f'{scene_type}尽头，强敌现身，决一死战！'},
+        ],
+    }
+
+
+@app.route('/generate/dungeon', methods=['POST'])
+def generate_dungeon():
+    """
+    生成五幕箱庭副本蓝图
+    Body: { scene_type?: string (山洞/密林/山谷/浅滩), player_level?: number }
+    Returns: { title, scene_type, intro, acts: [{ index, type, title, narrative }] }
+    """
+    data = request.get_json(force=True)
+    scene_type = data.get('scene_type') or random.choice(list(DUNGEON_SCENES.keys()))
+    if scene_type not in DUNGEON_SCENES:
+        scene_type = random.choice(list(DUNGEON_SCENES.keys()))
+    scene_desc = DUNGEON_SCENES[scene_type]
+    player_level = data.get('player_level')
+    difficulty = data.get('difficulty') or 1
+    tier_word = {1: '一阶', 2: '二阶', 3: '三阶'}.get(int(difficulty), '一阶')
+
+    system_prompt = (
+        '你是斗气大陆（斗破苍穹）世界观的箱庭副本设计师。'
+        '负责设计一个由五幕组成的线性箱庭副本（类似地下城堡/杀戮尖塔的单人秘境）。'
+        '严格遵循斗破苍穹世界观（斗气、魔兽、佣兵、丹药等），不要出现现实事物。'
+        '只输出 JSON，不要输出任何其他内容。'
+    )
+    level_line = f'【玩家等阶参考】{player_level}（用于安排遭遇强度）\n' if player_level else ''
+    difficulty_line = f'【副本难度】{int(difficulty)}星 —— 副本内只会出现{tier_word}魔兽、{tier_word}魔核等，不得出现更高或更低等阶的事物\n'
+    user_prompt = (
+        '请设计一个五幕箱庭副本。\n'
+        f'【场景类型】{scene_type} —— {scene_desc}\n'
+        f'{level_line}'
+        f'{difficulty_line}'
+        '【结构要求】\n'
+        '- 共 5 幕，严格线性推进（第一幕 → 第二幕 → … → 第五幕）\n'
+        '- 第五幕固定为 BOSS 战\n'
+        '- 前四幕类型从以下选取并尽量多样：combat(战斗遭遇)、sneak(可战斗或绕过)、modifier(环境改变，如狭窄/黑暗/毒雾)、explore(探索风险/奖励)、item(发现散落的魔核等物品)\n'
+        '- item 幕：描写发现宝物(如发光的魔核)的氛围与感官细节(光影/气息/声响)，营造发现的惊喜感，但不要写出具体物品名与数量（由系统按难度填入）\n'
+        '- 每幕需有独立的标题和叙事文本（第二人称"你"，30-80字），描述玩家在此幕的遭遇\n'
+        '【输出格式】严格如下 JSON（不要 markdown，不要多余文字）：\n'
+        '{\n'
+        f'  "title": "副本名称（6-12字，契合{scene_type}场景）",\n'
+        f'  "scene_type": "{scene_type}",\n'
+        '  "intro": "入口处引导叙事（第二人称，40-80字）",\n'
+        '  "acts": [\n'
+        '    {"index": 1, "type": "sneak", "title": "本幕标题", "narrative": "本幕叙事"},\n'
+        '    {"index": 2, "type": "item", "title": "本幕标题", "narrative": "本幕叙事"},\n'
+        '    {"index": 3, "type": "combat", "title": "本幕标题", "narrative": "本幕叙事"},\n'
+        '    {"index": 4, "type": "explore", "title": "本幕标题", "narrative": "本幕叙事"},\n'
+        '    {"index": 5, "type": "boss", "title": "本幕标题", "narrative": "本幕叙事"}\n'
+        '  ]\n'
+        '}'
+    )
+
+    app.logger.info(f'副本生成请求: scene={scene_type}, level={player_level}, difficulty={difficulty}')
+    try:
+        content = call_deepseek(system_prompt, user_prompt, temperature=0.95, max_tokens=1200)
+        blueprint = _normalize_dungeon(_parse_json_object(content), scene_type)
+        app.logger.info(f'副本生成成功: {blueprint["title"]} ({scene_type})')
+        return jsonify(blueprint)
+    except Exception as e:
+        app.logger.error(f'副本生成失败: {e}，使用降级方案')
+        return jsonify(_fallback_dungeon(scene_type)), 200
 
 
 # ============================================================

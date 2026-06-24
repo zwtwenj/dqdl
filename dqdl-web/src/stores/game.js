@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getRoots, getChildren, doTraining as apiTraining, cultivate as apiCultivate, breakthrough as apiBreakthrough, setPlayerStatus, trainingStreamUrl } from '../api'
+import { getRoots, getChildren, doTraining as apiTraining } from '../api'
 import { usePlayerStore } from './player'
 import { useMapStore } from './map'
 import { useBackpackStore } from './backpack'
 import { useTaskStore } from './task'
+import { startAutoTraining, stopAutoTraining } from '../services/trainingSession'
 
 const SAVE_KEY = 'dqdl_save'
 
@@ -15,11 +16,10 @@ export const useGameStore = defineStore('game', () => {
   const cultivationLog = ref([])
   const trainingLoading = ref(false)
 
-  // ── 自动历练模式 ──
+  // ── 自动历练模式（SSE 连接由 services/trainingSession.js 持有）──
   const trainingMode = ref(false)
   const trainingEvents = ref([])
   const trainingInterval = ref(0)
-  let trainingSSE = null
 
   // ── 存档 ──
   function hasSave() {
@@ -104,7 +104,6 @@ export const useGameStore = defineStore('game', () => {
     const playerStore = usePlayerStore()
     const mapStore = useMapStore()
     const taskStore = useTaskStore()
-    const backpackStore = useBackpackStore()
 
     playerStore.loading = true
     const save = loadSave()
@@ -159,6 +158,7 @@ export const useGameStore = defineStore('game', () => {
     trainingLoading.value = false
   }
 
+  /** 修炼：玩家数据更新由 player store 负责，本 store 只负责 UI 日志 */
   async function doCultivate() {
     const playerStore = usePlayerStore()
     const mapStore = useMapStore()
@@ -168,9 +168,7 @@ export const useGameStore = defineStore('game', () => {
       return
     }
     try {
-      const res = await apiCultivate(playerStore.playerId, qi)
-      const d = res.data
-      playerStore.data = { ...playerStore.data, cultivation: d.newCultivation, level_cultivation: d.level_cultivation }
+      const d = await playerStore.cultivate(qi)
       let msg = '修炼完成！(+' + d.gained + ' 修为'
       if (d.critical) msg += '，暴击x3!'
       if (d.capped) msg += '，已达上限'
@@ -181,82 +179,16 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  /** 突破：玩家数据更新由 player store 负责，本 store 只负责 UI 日志/提示 */
   async function doBreakthrough() {
     const playerStore = usePlayerStore()
     if (!playerStore.playerId) return
     try {
-      const res = await apiBreakthrough(playerStore.playerId)
-      const d = res.data
-      playerStore.data = { ...playerStore.data, level: d.newLevel, cultivation: d.newCultivation, level_cultivation: d.level_cultivation }
+      const d = await playerStore.breakthrough()
       cultivationLog.value.unshift({ text: d.narrative, gained: d.gained, critical: d.success, capped: !d.success })
       alert(d.narrative)
     } catch (err) {
       cultivationLog.value.unshift({ text: '突破失败: ' + (err.response?.data?.message || err.message), gained: 0, critical: false, capped: false })
-    }
-  }
-
-  // ── 自动历练 ──
-
-  function startAutoTraining() {
-    const playerStore = usePlayerStore()
-    const mapStore = useMapStore()
-    const backpackStore = useBackpackStore()
-    const taskStore = useTaskStore()
-    const pid = playerStore.playerId
-    const lid = mapStore.currentLocation?.id
-    if (!pid || !lid) return
-
-    trainingMode.value = true
-    trainingEvents.value = []
-    trainingLoading.value = true
-    setPlayerStatus(pid, 2).catch(() => {})
-
-    const url = trainingStreamUrl(pid, lid)
-    trainingSSE = new EventSource(url)
-
-    trainingSSE.addEventListener('init', (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        trainingInterval.value = data.interval || 0
-      } catch { /* ignore */ }
-    })
-
-    trainingSSE.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        trainingEvents.value.unshift(data)
-        if (data.drops?.length > 0) backpackStore.fetch()
-        if (data.task_updates?.length > 0) taskStore.fetch()
-      } catch { /* ignore */ }
-    }
-
-    trainingSSE.addEventListener('error', (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        trainingEvents.value.unshift({ text: data.message || '历练遇到意外...', mob: null, battle: null, drops: [], task_updates: [] })
-      } catch { /* ignore */ }
-    })
-
-    trainingSSE.addEventListener('stop', () => {
-      stopAutoTraining()
-    })
-
-    trainingSSE.onerror = () => {
-      trainingEvents.value.unshift({ text: '与历练之地的感应中断了...', mob: null, battle: null, drops: [], task_updates: [] })
-      stopAutoTraining()
-    }
-
-    trainingLoading.value = false
-  }
-
-  function stopAutoTraining() {
-    trainingMode.value = false
-    trainingLoading.value = false
-    const playerStore = usePlayerStore()
-    setPlayerStatus(playerStore.playerId, 1).catch(() => {})
-    if (trainingSSE) {
-      trainingSSE.close()
-      trainingSSE = null
     }
   }
 

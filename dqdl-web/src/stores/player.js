@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { createPlayer, getPlayer } from '../api'
+import { createPlayer, getPlayer, cultivate as apiCultivate, breakthrough as apiBreakthrough } from '../api'
 
 export const usePlayerStore = defineStore('player', () => {
   // ── state（映射 player 表） ──
@@ -61,9 +61,32 @@ export const usePlayerStore = defineStore('player', () => {
     if (data.value) data.value.money = amount
   }
 
+  /** 合并部分字段到 local player（使用物品后同步 hp/energy/buff 等） */
+  function patch(partial) {
+    if (data.value && partial) data.value = { ...data.value, ...partial }
+  }
+
+  /** 修炼：调 API 并更新自身 cultivation/level_cultivation，返回结果供 UI 编排 */
+  async function cultivate(qi) {
+    if (!playerId.value || qi <= 0) return null
+    const res = await apiCultivate(playerId.value, qi)
+    const d = res.data
+    data.value = { ...data.value, cultivation: d.newCultivation, level_cultivation: d.level_cultivation }
+    return d
+  }
+
+  /** 突破：调 API 并更新自身 level/cultivation，返回结果（含 narrative）供 UI 编排 */
+  async function breakthrough() {
+    if (!playerId.value) return null
+    const res = await apiBreakthrough(playerId.value)
+    const d = res.data
+    data.value = { ...data.value, level: d.newLevel, cultivation: d.newCultivation, level_cultivation: d.level_cultivation }
+    return d
+  }
+
   return {
     data, loading, loadingText,
     playerId, money, hasSave, positionIds, currentLocationId,
-    newGame, loadPlayer, patchMoney,
+    newGame, loadPlayer, patchMoney, patch, cultivate, breakthrough,
   }
 })

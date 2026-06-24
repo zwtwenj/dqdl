@@ -4,4 +4,6 @@ export class CreateItemDto {
   type: string;
   price?: number;
   description?: string;
+  usable?: boolean;
+  use_effect?: string;
 }

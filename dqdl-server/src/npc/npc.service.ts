@@ -6,7 +6,9 @@ import { Nature } from './nature.entity';
 import { NpcRole } from './npc-role.entity';
 import { DialogEvent } from './dialog-event.entity';
 import { Location } from '../location/location.entity';
+import { LocationService } from '../location/location.service';
 import { CreateNpcDto } from './dto/npc.dto';
+import { AgentClient } from '../agent/agent.client';
 
 @Injectable()
 export class NpcService {
@@ -21,8 +23,8 @@ export class NpcService {
     private readonly roleRepo: Repository<NpcRole>,
     @InjectRepository(DialogEvent)
     private readonly eventRepo: Repository<DialogEvent>,
-    @InjectRepository(Location)
-    private readonly locationRepo: Repository<Location>,
+    private readonly locationService: LocationService,
+    private readonly agentClient: AgentClient,
   ) {}
 
   /** 查询某个地点的所有 NPC */
@@ -50,7 +52,7 @@ export class NpcService {
 
   /** 为某个地点自动生成 NPC（根据 loc_type 匹配 required_in_loc_type） */
   async generateNpcsForLocation(locationId: number): Promise<StaticNpc[]> {
-    const location = await this.locationRepo.findOneBy({ id: locationId });
+    const location = await this.locationService.findOneOrNull(locationId);
     if (!location) return [];
 
     // 野外类型不生成静态NPC
@@ -109,7 +111,12 @@ export class NpcService {
 
   /** 获取地点信息 */
   async getLocation(locationId: number): Promise<Location | null> {
-    return this.locationRepo.findOneBy({ id: locationId });
+    return this.locationService.findOneOrNull(locationId);
+  }
+
+  /** 取某地点下首个 NPC（原始数据，任务交付点解析用） */
+  async findOneRawByLocation(locationId: number): Promise<StaticNpc | null> {
+    return this.npcRepo.findOneBy({ location_id: locationId });
   }
 
   /** 随机年龄段 */
@@ -159,5 +166,30 @@ export class NpcService {
       role_name: role?.name || '',
       role_hint: role?.prompt_hint || '',
     };
+  }
+
+  /** 与 NPC 对话：调用 agent 生成回复（Controller 不再直接接触 HTTP） */
+  async talk(id: number, message: string, history: any[]): Promise<any> {
+    const npc = await this.findOne(id);
+    if (!npc) return { reply: '此人已不在原地。' };
+
+    const location = await this.getLocation(npc.location_id);
+    return this.agentClient.generateDialog({
+      npc: {
+        name: npc.name,
+        nature_name: npc.nature_name,
+        nature_hint: npc.nature_hint,
+        role_name: npc.role_name,
+        role_hint: npc.role_hint,
+      },
+      location: {
+        name: location?.name || '',
+        loc_type: location?.loc_type || '',
+        description: location?.description || '',
+        tags: location?.tags || [],
+      },
+      player_input: message || '',
+      history: history || [],
+    });
   }
 }

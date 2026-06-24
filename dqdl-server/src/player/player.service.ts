@@ -4,9 +4,10 @@ import { Repository } from 'typeorm';
 import { Player } from './player.entity';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { TechniqueService } from '../technique/technique.service';
+import { AgentClient } from '../agent/agent.client';
 
 /** 等阶 K 常量：1-9=100, 11-19=200, 21-29=300, 31-39=400 */
-function getLevelK(level: number): number {
+export function getLevelK(level: number): number {
   if (level >= 31) return 400;
   if (level >= 21) return 300;
   if (level >= 11) return 200;
@@ -14,7 +15,7 @@ function getLevelK(level: number): number {
 }
 
 /** level_cultivation = K * level^2 */
-function calcLevelCultivation(level: number): number {
+export function calcLevelCultivation(level: number): number {
   return getLevelK(level) * level * level;
 }
 
@@ -26,13 +27,15 @@ export class PlayerService {
     @InjectRepository(Player)
     private readonly playerRepo: Repository<Player>,
     private readonly techniqueService: TechniqueService,
+    private readonly agentClient: AgentClient,
   ) {}
 
   async create(dto: CreatePlayerDto): Promise<Player> {
     const tech = await this.techniqueService.findOne(1);
     const techBase = tech ? this.techniqueService.parseBase(tech.base) : {};
 
-    const maxHp = (dto.stamina || 5) * 10 + (techBase.hp || 0);
+    const finalStamina = (dto.stamina || 5) + (techBase.stamina || 0);
+    const maxHp = finalStamina * 10 + (techBase.hp || 0);
     const maxEnergy = (dto.level || 1) * 20 + (techBase.energy || 0);
 
     const player = this.playerRepo.create(dto);
@@ -92,6 +95,12 @@ export class PlayerService {
 
   async patch(id: number, updates: Record<string, any>): Promise<void> {
     await this.playerRepo.update(id, updates as any);
+  }
+
+  /** 原子加金币（任务奖励/出售等统一入口，取代跨表原生 SQL） */
+  async grantMoney(id: number, amount: number): Promise<void> {
+    if (!amount) return;
+    await this.playerRepo.increment({ id }, 'money', amount);
   }
 
   async update(id: number, updates: Partial<CreatePlayerDto>): Promise<Player | null> {
@@ -195,7 +204,8 @@ export class PlayerService {
     let maxHp = player.max_hp;
     let maxEnergy = player.max_energy;
     if (success) {
-      maxHp = player.stamina * 10 + (techBase.hp || 0);
+      const finalStamina = player.stamina + (techBase.stamina || 0);
+      maxHp = finalStamina * 10 + (techBase.hp || 0);
       maxEnergy = newLevel * 20 + (techBase.energy || 0);
     }
 
@@ -212,19 +222,15 @@ export class PlayerService {
     // 调用 agent 生成叙事
     let narrative = '';
     try {
-      const agentUrl = process.env['AGENT_URL'] || 'http://localhost:5000';
-      const resp = await fetch(agentUrl + '/generate/breakthrough', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          player: { name: player.name, level: oldLevel, level_name: success ? newName : oldName, technique_name: tech?.name || '' },
-          success,
-          location: { name: '' },
-        }),
+      const data = await this.agentClient.generateBreakthrough({
+        player: { name: player.name, level: oldLevel, level_name: success ? newName : oldName, technique_name: tech?.name || '' },
+        success,
+        location: { name: '' },
       });
-      const data = await resp.json() as any;
       narrative = data?.text || '';
-    } catch { narrative = success ? '你感到体内斗气翻涌，成功突破了修炼瓶颈！' : '你冲击瓶颈失败，体内斗气紊乱，修为受损。'; }
+    } catch {
+      narrative = success ? '你感到体内斗气翻涌，成功突破了修炼瓶颈！' : '你冲击瓶颈失败，体内斗气紊乱，修为受损。';
+    }
 
     this.logger.log('玩家 ' + id + ' 突破：' + (success ? '成功' : '失败') + ' ' + oldName + ' -> ' + newName);
     return { success, narrative, newLevel, newCultivation, level_cultivation: newLc, levelName: newName, oldLevel, gained };

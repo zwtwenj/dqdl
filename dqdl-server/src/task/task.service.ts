@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from './task.entity';
 import { Location } from '../location/location.entity';
+import { PlayerService } from '../player/player.service';
+import { NpcService } from '../npc/npc.service';
 
 export interface TaskTarget {
   desc: string;
@@ -26,6 +28,8 @@ export class TaskService {
     private readonly taskRepo: Repository<Task>,
     @InjectRepository(Location)
     private readonly locationRepo: Repository<Location>,
+    private readonly playerService: PlayerService,
+    private readonly npcService: NpcService,
   ) {}
 
   parse<T>(json: string): T[] {
@@ -164,13 +168,8 @@ export class TaskService {
       if (!cursor.parent_id || cursor.loc_type === 'empire') break;
       cursor = await this.locationRepo.findOneBy({ id: cursor.parent_id });
     }
-    // 查找当前地点下的 NPC
-    const guildNpc = await this.locationRepo.manager
-      .createQueryBuilder()
-      .select(['sn.id AS id', 'sn.name AS name'])
-      .from('static_npc', 'sn')
-      .where('sn.location_id = :locId', { locId: locationId })
-      .getRawOne();
+    // 查找当前地点下的 NPC（通过 NpcService，不再跨表原生 SQL）
+    const guildNpc = await this.npcService.findOneRawByLocation(locationId);
 
     // 佣兵公会交付信息
     const delivery: any = {
@@ -300,13 +299,9 @@ export class TaskService {
       }
     }
 
-    // 一次性发放金币
+    // 一次性发放金币（通过 PlayerService，不再跨表原生 SQL）
     if (totalMoney > 0) {
-      await this.locationRepo.manager
-        .createQueryBuilder()
-        .update('player', { money: () => `money + ${totalMoney}` })
-        .where('id = :id', { id: playerId })
-        .execute();
+      await this.playerService.grantMoney(playerId, totalMoney);
       this.logger.log(`玩家 ${playerId} 获得任务奖励金币: ${totalMoney}`);
     }
 

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Location } from './location.entity';
 import { LocationGenRule } from './location-gen-rule.entity';
+import { AgentClient } from '../agent/agent.client';
 
 export interface GenerateInput {
   parent: Location;
@@ -31,11 +31,8 @@ export interface GeneratedLocation {
 @Injectable()
 export class MapGeneratorService {
   private readonly logger = new Logger(MapGeneratorService.name);
-  private readonly agentUrl: string;
 
-  constructor(private readonly config: ConfigService) {
-    this.agentUrl = this.config.get<string>('AGENT_URL') || 'http://localhost:5000';
-  }
+  constructor(private readonly agentClient: AgentClient) {}
 
   async generate(input: GenerateInput): Promise<GeneratedLocation[]> {
     const { parent, rule, count, existingNames } = input;
@@ -43,38 +40,28 @@ export class MapGeneratorService {
     this.logger.log(`请求 agent 生成 [${parent.name}] 的 ${count} 个子节点...`);
 
     try {
-      const response = await fetch(`${this.agentUrl}/generate/map`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          parent: {
-            id: parent.id,
-            name: parent.name,
-            loc_type: parent.loc_type,
-            description: parent.description,
-            depth: parent.depth,
-          },
-          rule: {
-            depth: rule.depth,
-            loc_type: rule.loc_type,
-            gen_prompt: rule.gen_prompt,
-            naming_style: rule.naming_style,
-            danger_range: rule.danger_range,
-            world_constraints: rule.world_constraints,
-            min_children: rule.min_children,
-            max_children: rule.max_children,
-          },
-          count,
-          existingNames,
-          seed: parent.seed,
-        }),
+      const data = await this.agentClient.generateMap({
+        parent: {
+          id: parent.id,
+          name: parent.name,
+          loc_type: parent.loc_type,
+          description: parent.description,
+          depth: parent.depth,
+        },
+        rule: {
+          depth: rule.depth,
+          loc_type: rule.loc_type,
+          gen_prompt: rule.gen_prompt,
+          naming_style: rule.naming_style,
+          danger_range: rule.danger_range,
+          world_constraints: rule.world_constraints,
+          min_children: rule.min_children,
+          max_children: rule.max_children,
+        },
+        count,
+        existingNames,
+        seed: parent.seed,
       });
-
-      if (!response.ok) {
-        throw new Error(`Agent 返回 ${response.status}`);
-      }
-
-      const data = await response.json() as any[];
 
       return data.map((item: any) => ({
         name: String(item.name || ''),
@@ -88,7 +75,7 @@ export class MapGeneratorService {
         common_mobs: Array.isArray(item.common_mobs) ? item.common_mobs : null,
       }));
     } catch (err) {
-      this.logger.error(`Agent 生成失败: ${err.message}，使用降级方案`);
+      this.logger.error(`Agent 生成失败: ${(err as Error).message}，使用降级方案`);
       return this.fallbackGenerate(parent, count);
     }
   }

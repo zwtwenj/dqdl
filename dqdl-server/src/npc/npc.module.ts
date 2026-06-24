@@ -4,12 +4,12 @@ import { StaticNpc } from './static-npc.entity';
 import { Nature } from './nature.entity';
 import { NpcRole } from './npc-role.entity';
 import { DialogEvent } from './dialog-event.entity';
-import { Location } from '../location/location.entity';
 import { NpcService } from './npc.service';
 import { NpcController } from './npc.controller';
+import { LocationModule } from '../location/location.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StaticNpc, Nature, NpcRole, DialogEvent, Location])],
+  imports: [TypeOrmModule.forFeature([StaticNpc, Nature, NpcRole, DialogEvent]), LocationModule],
   controllers: [NpcController],
   providers: [NpcService],
   exports: [NpcService],

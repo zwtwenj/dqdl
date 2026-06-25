@@ -95,6 +95,7 @@ export interface BuffDef {
   name: string;
   icon: string;
   type: string;
+  description?: string | null;
   duration: number;
   stackRule: string;
   maxStack: number;

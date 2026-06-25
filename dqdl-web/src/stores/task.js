@@ -31,6 +31,7 @@ export const useTaskStore = defineStore('task', () => {
     try {
       const res = await apiAcceptTask(
         playerStore.playerId,
+        taskCard.name,
         taskCard.description,
         taskCard.target,
         taskCard.reward,

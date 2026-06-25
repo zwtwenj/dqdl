@@ -6,7 +6,6 @@ import { battleStart, battleAction } from '../api'
 export const useBattleStore = defineStore('battle', () => {
   const showBattle = ref(false)
   const battleLoading = ref(false)
-  const battleLog = ref([])
   const battleOver = ref(false)
   const attacking = ref(false)
 
@@ -19,6 +18,15 @@ export const useBattleStore = defineStore('battle', () => {
 
   const mob = ref(null)
   const equippedSkills = ref([])
+  const playerBuffs = ref([])
+  const mobBuffs = ref([])
+
+  // 浮动伤害数字 + 受击抖动
+  const floaters = ref([])
+  const playerHurt = ref(false)
+  const mobHurt = ref(false)
+  let evtPtr = 0
+  let fid = 0
 
   const playerStore = usePlayerStore()
 
@@ -41,6 +49,9 @@ export const useBattleStore = defineStore('battle', () => {
   })
   const mobMaxHp = computed(() => mobMaxHpRef.value)
 
+  const playerFloaters = computed(() => floaters.value.filter(f => f.side === 'player'))
+  const mobFloaters = computed(() => floaters.value.filter(f => f.side === 'mob'))
+
   function applySnapshot(s) {
     if (!s) return
     curPlayerHp.value = s.player.hp
@@ -53,21 +64,52 @@ export const useBattleStore = defineStore('battle', () => {
     equippedSkills.value = (s.skills || []).map(sk => ({
       id: sk.id, name: sk.name, energyCost: sk.energyCost, attr: sk.attr,
     }))
-    battleLog.value = [...(s.log || [])].reverse()
+    playerBuffs.value = s.player.buffs || []
+    mobBuffs.value = s.mob.buffs || []
     battleOver.value = !!s.over
+  }
+
+  /** 从事件日志解析新增的伤害事件 → 浮动数字 + 受击抖动 */
+  function spawnFloaters(eventLog, pName, mName) {
+    if (!Array.isArray(eventLog)) return
+    const fresh = eventLog.slice(evtPtr)
+    evtPtr = eventLog.length
+    const trigger = (side) => {
+      const r = side === 'mob' ? mobHurt : playerHurt
+      r.value = false
+      requestAnimationFrame(() => { r.value = true })
+      setTimeout(() => { r.value = false }, 430)
+    }
+    for (const e of fresh) {
+      if (e.t === 'damage' && e.amount > 0) {
+        const side = e.to === mName ? 'mob' : (e.to === pName ? 'player' : null)
+        if (!side) continue
+        const id = ++fid
+        const dx = Math.round((Math.random() - 0.5) * 26)
+        floaters.value.push({ id, side, text: '-' + e.amount, kind: e.crit ? 'crit' : 'dmg', dx })
+        setTimeout(() => { floaters.value = floaters.value.filter(f => f.id !== id) }, 950)
+        trigger(side)
+      }
+    }
   }
 
   async function open(mobId = 'WB-004') {
     showBattle.value = true
     battleLoading.value = true
     battleOver.value = false
-    battleLog.value = []
+    floaters.value = []
+    playerBuffs.value = []
+    mobBuffs.value = []
+    playerHurt.value = false
+    mobHurt.value = false
     const pid = playerStore.playerId
     try {
       const res = await battleStart(pid, mobId)
       applySnapshot(res.data)
+      evtPtr = 0
     } catch (e) {
-      battleLog.value = [`战斗启动失败: ${e.response?.data?.message || e.message}`]
+      battleLoading.value = false
+      return
     }
     battleLoading.value = false
   }
@@ -75,9 +117,13 @@ export const useBattleStore = defineStore('battle', () => {
   function close() {
     showBattle.value = false
     mob.value = null
-    battleLog.value = []
     battleOver.value = false
     equippedSkills.value = []
+    floaters.value = []
+    playerBuffs.value = []
+    mobBuffs.value = []
+    playerHurt.value = false
+    mobHurt.value = false
   }
 
   async function act(body) {
@@ -86,8 +132,9 @@ export const useBattleStore = defineStore('battle', () => {
     try {
       const res = await battleAction(playerStore.playerId, body)
       applySnapshot(res.data)
+      spawnFloaters(res.data.eventLog, res.data.player?.name, res.data.mob?.name)
     } catch (e) {
-      battleLog.value = [`行动失败: ${e.response?.data?.message || e.message}`]
+      /* 错误静默 */
     }
     attacking.value = false
     if (battleOver.value) savePlayerState()
@@ -109,11 +156,12 @@ export const useBattleStore = defineStore('battle', () => {
   }
 
   return {
-    showBattle, battleLoading, mob, battleLog, battleOver, attacking,
+    showBattle, battleLoading, mob, battleOver, attacking,
     playerName, playerLevel, playerPower, playerStamina,
     playerHp: curPlayerHp, playerMaxHp, playerEnergy: curPlayerEnergy, playerMaxEnergy,
     mobName, mobLevel, mobRank, mobMaxHp, mobHp: curMobHp,
-    equippedSkills,
+    equippedSkills, playerBuffs, mobBuffs,
+    playerHurt, mobHurt, playerFloaters, mobFloaters,
     open, close, playerAttack, skillAttack, flee,
   }
 })

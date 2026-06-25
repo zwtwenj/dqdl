@@ -39,6 +39,7 @@ export class TaskService {
   /** 创建任务 */
   async create(
     playerId: number,
+    name: string,
     description: string,
     target: TaskTarget[],
     reward: TaskReward[],
@@ -48,6 +49,7 @@ export class TaskService {
   ): Promise<Task> {
     const task = this.taskRepo.create({
       player_id: playerId,
+      name: name || '任务',
       description,
       target: JSON.stringify(target),
       reward: JSON.stringify(reward),
@@ -107,6 +109,7 @@ export class TaskService {
    *  返回任务数据供前端展示，玩家点击接受后才入库
    */
   async previewBattleTask(locationId: number): Promise<{
+    name: string;
     description: string;
     target: any[];
     reward: TaskReward[];
@@ -179,7 +182,7 @@ export class TaskService {
       location_path: pathNodes,
     };
 
-    return { description, target, reward: [{ type: 'money', value: star * 10000 }], delivery, star };
+    return { name: '猎杀魔兽', description, target, reward: [{ type: 'money', value: star * 10000 }], delivery, star };
   }
 
   /** 玩家接受佣兵公会战斗任务（入库）
@@ -187,6 +190,7 @@ export class TaskService {
    */
   async acceptBattleTask(
     playerId: number,
+    name: string,
     description: string,
     target: any[],
     reward: TaskReward[],
@@ -200,8 +204,8 @@ export class TaskService {
     if (pendingCount >= 3) {
       throw new BadRequestException('佣兵公会任务已达上限（3个），请先完成现有任务');
     }
-    this.logger.log(`玩家 ${playerId} 接受任务: ${description}`);
-    return this.create(playerId, description, target, reward, 'adventurer', delivery, star);
+    this.logger.log(`玩家 ${playerId} 接受任务: ${name}`);
+    return this.create(playerId, name, description, target, reward, 'adventurer', delivery, star);
   }
 
   /** 向上查找指定 loc_type 的祖先节点 */

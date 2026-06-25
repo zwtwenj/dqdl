@@ -15,6 +15,10 @@ export class Task {
   @Column({ type: 'int' })
   player_id: number;
 
+  /** 任务名称（简短标题，如"猎杀魔兽"） */
+  @Column({ type: 'varchar', length: 64, default: '任务', comment: '任务名称' })
+  name: string;
+
   /** 任务描述 */
   @Column({ type: 'varchar', length: 255 })
   description: string;

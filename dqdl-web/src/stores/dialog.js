@@ -68,6 +68,7 @@ export const useDialogStore = defineStore('dialog', () => {
           npc: '本公会有以下任务，你是否接受？',
           taskCard: {
             preview: true,
+            name: preview.name || '猎杀魔兽',
             description: preview.description,
             target: preview.target,
             reward: preview.reward,

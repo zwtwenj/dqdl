@@ -39,7 +39,7 @@ export const useItem = (playerId, name) => api.post('/backpack/' + playerId + '/
 
 // Task API
 export const generateTask = (locationId) => api.post('/task/generate', { location_id: locationId })
-export const acceptTask = (playerId, description, target, reward, delivery, star) => api.post('/task/accept', { player_id: playerId, description, target, reward: reward || [], delivery: delivery || null, star: star || 1 })
+export const acceptTask = (playerId, name, description, target, reward, delivery, star) => api.post('/task/accept', { player_id: playerId, name, description, target, reward: reward || [], delivery: delivery || null, star: star || 1 })
 export const completeAdventurerTasks = (playerId, npcId) => api.post('/task/complete-adventurer', { player_id: playerId, npc_id: npcId })
 export const getPlayerTasks = (playerId) => api.get('/task/player/' + playerId)
 

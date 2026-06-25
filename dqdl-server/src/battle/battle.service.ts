@@ -9,6 +9,7 @@ import {
   runTurn,
   loadDefs,
   getBuffDef,
+  describeBuff,
   applyBuff,
   normalizeEntries,
 } from './battle-engine';
@@ -46,7 +47,7 @@ export function classifyQuickBattle(
   return { ratio, winRate, style };
 }
 
-export interface BuffSnapshot { icon: string; name: string; remaining: number | string; stacks: number }
+export interface BuffSnapshot { icon: string; name: string; desc: string; remaining: number | string; stacks: number }
 export interface SideSnapshot {
   name: string; level: number;
   hp: number; maxHp: number; energy: number; maxEnergy: number;
@@ -249,6 +250,7 @@ export class BattleService implements OnModuleInit {
         return {
           icon: def?.icon || '◇',
           name: def?.name || ab.key,
+          desc: describeBuff(ab),
           remaining: ab.remaining === Infinity ? '∞' : ab.remaining,
           stacks: ab.stacks,
         };

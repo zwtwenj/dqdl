@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { usePlayerStore } from './player'
 import { useBackpackStore } from './backpack'
 import { enterDungeon, getCurrentDungeon, nextDungeonAct, pickDungeonAct, useDungeonTempItem, escapeDungeon } from '../api'
+import { Message } from '../utils/message'
 
 export const useDungeonStore = defineStore('dungeon', () => {
   const showDungeon = ref(false)
@@ -98,12 +99,12 @@ export const useDungeonStore = defineStore('dungeon', () => {
     const pid = playerStore.playerId
     try {
       const res = await useDungeonTempItem(pid, name)
-      if (res.data?.error) { alert(res.data.error); return }
+      if (res.data?.error) { Message.error(res.data.error); return }
       if (res.data.instance) instance.value = res.data.instance
       if (res.data.player) playerStore.patch(res.data.player)
-      if (res.data.used?.message) alert(res.data.used.message)
+      if (res.data.used?.message) Message.success(res.data.used.message)
     } catch (e) {
-      alert('使用失败')
+      Message.error('使用失败')
     }
     acting.value = false
   }

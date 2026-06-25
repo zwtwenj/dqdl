@@ -31,16 +31,6 @@
           </span>
           <span class="attr-final">{{ player?.final_attrs?.[key] ?? player?.[key] ?? 0 }}</span>
         </div>
-        <div class="attr-cultivation">
-          <div class="attr-cult-label">修为</div>
-          <div class="attr-cult-row">
-            <div class="attr-cult-val">{{ player?.cultivation ?? 0 }} / {{ player?.level_cultivation ?? 100 }}</div>
-            <button class="btn-breakthrough" :disabled="(player?.cultivation ?? 0) < (player?.level_cultivation ?? 100)" @click="doBreakthrough">突破</button>
-          </div>
-          <div class="attr-cult-bar-wrap">
-            <div class="attr-cult-bar" :style="{ width: Math.min(100, ((player?.cultivation ?? 0) / (player?.level_cultivation || 1)) * 100) + '%' }"></div>
-          </div>
-        </div>
       </div>
 
       <!-- 功法 Tab -->

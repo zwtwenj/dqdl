@@ -125,18 +125,18 @@ function lv(dmg: number[], extra: Record<string, number[]> = {}) {
 }
 
 const SEED_BUFFS: SeedBuff[] = [
-  { key: 'bleed', name: '撕裂', icon: '🩸', type: 'dot', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: true, priority: 0, description: '受者每回合损失生命，按施法者力量结算' },
-  { key: 'burn', name: '灼烧', icon: '🔥', type: 'dot', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: true, priority: 0, description: '每回合灼烧伤害，按施法者智力结算' },
-  { key: 'trauma', name: '内伤', icon: '💢', type: 'dot', duration: 4, stack_rule: 'stack', max_stack: 3, snapshot: true, priority: 0, description: '可叠层的内伤，每层加深伤害' },
-  { key: 'weak', name: '虚弱', icon: '🥀', type: 'debuff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '力量-25%' },
-  { key: 'slow', name: '减速', icon: '🐌', type: 'debuff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '敏捷-25%' },
-  { key: 'stun', name: '眩晕', icon: '💫', type: 'status', duration: 1, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, tags: ['stun'], description: '跳过下一回合' },
-  { key: 'power_surge', name: '刚猛', icon: '💪', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '力量+30%' },
-  { key: 'shield', name: '护盾', icon: '🛡', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '受击伤害-40%' },
-  { key: 'evasion', name: '闪避', icon: '👻', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '受击时40%概率闪避' },
-  { key: 'vampire', name: '吸血', icon: '🦇', type: 'buff', duration: 5, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '造成伤害时吸取12%' },
-  { key: 'thorns', name: '荆棘', icon: '🌵', type: 'buff', duration: 5, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '受击时反伤25%' },
-  { key: 'pojia', name: '破甲', icon: '⚔', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '攻击携带破甲，按力量无视减伤(携带型两段式)' },
+  { key: 'bleed', name: '撕裂', icon: '🩸', type: 'dot', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: true, priority: 0, description: '每回合流失生命' },
+  { key: 'burn', name: '灼烧', icon: '🔥', type: 'dot', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: true, priority: 0, description: '每回合受到灼烧伤害' },
+  { key: 'trauma', name: '内伤', icon: '💢', type: 'dot', duration: 4, stack_rule: 'stack', max_stack: 3, snapshot: true, priority: 0, description: '每回合受到内伤伤害，可叠加加深' },
+  { key: 'weak', name: '虚弱', icon: '🥀', type: 'debuff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '力量降低25%' },
+  { key: 'slow', name: '减速', icon: '🐌', type: 'debuff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '敏捷降低25%' },
+  { key: 'stun', name: '眩晕', icon: '💫', type: 'status', duration: 1, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, tags: ['stun'], description: '眩晕，无法行动' },
+  { key: 'power_surge', name: '刚猛', icon: '💪', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '力量提升30%' },
+  { key: 'shield', name: '护盾', icon: '🛡', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '受到的伤害降低40%' },
+  { key: 'evasion', name: '闪避', icon: '👻', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '有40%概率闪避攻击' },
+  { key: 'vampire', name: '吸血', icon: '🦇', type: 'buff', duration: 5, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '造成伤害时吸取生命' },
+  { key: 'thorns', name: '荆棘', icon: '🌵', type: 'buff', duration: 5, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '受到攻击时反弹伤害' },
+  { key: 'pojia', name: '破甲', icon: '⚔', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '下次攻击无视对方部分减伤' },
 ];
 
 const SEED_EFFECTS: SeedEffect[] = [

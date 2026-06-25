@@ -23,10 +23,11 @@ export class TaskController {
   /** 创建任务 */
   @Post()
   async create(
-    @Body() body: { player_id: number; description: string; target: any[]; reward: any[] },
+    @Body() body: { player_id: number; name?: string; description: string; target: any[]; reward: any[] },
   ) {
     const task = await this.taskService.create(
       body.player_id,
+      body.name || '任务',
       body.description,
       body.target,
       body.reward,
@@ -80,10 +81,11 @@ export class TaskController {
   /** 玩家接受任务（入库） */
   @Post('accept')
   async acceptTask(
-    @Body() body: { player_id: number; description: string; target: any[]; reward: any[]; delivery?: any; star?: number },
+    @Body() body: { player_id: number; name?: string; description: string; target: any[]; reward: any[]; delivery?: any; star?: number },
   ) {
     const task = await this.taskService.acceptBattleTask(
       body.player_id,
+      body.name || '猎杀魔兽',
       body.description,
       body.target,
       body.reward || [],

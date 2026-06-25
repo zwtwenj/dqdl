@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getBackpack, sellItem, useItem, getPlayer } from '../api'
 import { usePlayerStore } from './player'
+import { Message } from '../utils/message'
 
 export const useBackpackStore = defineStore('backpack', () => {
   // ── state（映射 backpack 表） ──
@@ -39,14 +40,14 @@ export const useBackpackStore = defineStore('backpack', () => {
     tradeSelling.value = true
     try {
       const res = await sellItem(playerStore.playerId, itemName, count)
-      if (res.data?.error) { alert(res.data.error); return }
+      if (res.data?.error) { Message.error(res.data.error); return }
       await fetch()
       if (res.data.money != null) {
         playerStore.patchMoney(res.data.money)
       }
       return res.data
     } catch (err) {
-      alert('出售失败: ' + (err.response?.data?.message || err.message))
+      Message.error('出售失败: ' + (err.response?.data?.message || err.message))
     } finally {
       tradeSelling.value = false
     }
@@ -58,14 +59,14 @@ export const useBackpackStore = defineStore('backpack', () => {
     usingItem.value = true
     try {
       const res = await useItem(playerStore.playerId, itemName)
-      if (res.data?.error) { alert(res.data.error); return }
+      if (res.data?.error) { Message.error(res.data.error); return }
       // 使用成功：刷新背包 + 同步玩家状态(hp/energy/buff/money)
       await fetch()
       if (res.data.player) playerStore.patch(res.data.player)
-      if (res.data.used?.message) alert(res.data.used.message)
+      if (res.data.used?.message) Message.success(res.data.used.message)
       return res.data
     } catch (err) {
-      alert('使用失败: ' + (err.response?.data?.message || err.message))
+      Message.error('使用失败: ' + (err.response?.data?.message || err.message))
     } finally {
       usingItem.value = false
     }

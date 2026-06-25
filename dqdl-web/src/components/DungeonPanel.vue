@@ -24,39 +24,34 @@
         <div class="dq-main">
           <!-- 左：秘境流程 -->
           <section class="dq-flow">
-            <p v-if="intro" class="dq-intro">{{ intro }}</p>
+            <div class="dq-flow-scroll">
+              <p v-if="intro" class="dq-intro">{{ intro }}</p>
 
-            <div v-if="activeAct" class="dq-stage">
-              <div class="dq-act-head">
-                <span class="dq-act-title">第{{ currentAct }}幕 · {{ activeAct.title }}</span>
-                <span class="dq-act-tag">{{ actTypeLabel(activeAct.type) }}</span>
+              <div v-if="activeAct" class="dq-stage">
+                <div class="dq-act-head">
+                  <span class="dq-act-title">第{{ currentAct }}幕 · {{ activeAct.title }}</span>
+                  <span class="dq-act-tag">{{ actTypeLabel(activeAct.type) }}</span>
+                </div>
+                <p class="dq-narrative">{{ activeAct.narrative }}</p>
+                <div v-if="activeAct.reveal" class="dq-reveal">✦ {{ activeAct.reveal }}</div>
               </div>
-              <p class="dq-narrative">{{ activeAct.narrative }}</p>
-              <div v-if="activeAct.reveal" class="dq-reveal">✦ {{ activeAct.reveal }}</div>
             </div>
 
-            <div class="dq-dots">
-              <span
-                v-for="a in acts"
-                :key="a.index"
-                class="dq-dot"
-                :class="{ done: a.index < currentAct || isCompleted, cur: a.index === currentAct && !isCompleted, boss: a.type === 'boss' }"
-              ></span>
-            </div>
+            <div class="dq-flow-foot">
+              <div v-if="isCompleted" class="dq-settle">
+                <div class="dq-settle-text">{{ status === 'completed' ? '秘境通关，机缘已得' : '你已撤出秘境，此行收获尽失' }}</div>
+                <button class="dq-btn primary" @click="close">离去</button>
+              </div>
 
-            <div v-if="isCompleted" class="dq-settle">
-              <div class="dq-settle-text">{{ status === 'completed' ? '秘境通关，机缘已得' : '你已撤出秘境，此行收获尽失' }}</div>
-              <button class="dq-btn primary" @click="close">离去</button>
-            </div>
-
-            <div v-else class="dq-actions">
-              <template v-if="activeAct && activeAct.type === 'item'">
-                <button class="dq-btn primary" :disabled="acting || activeAct.picked" @click="pick">拾取</button>
-                <button class="dq-btn" :disabled="acting" @click="next">前进</button>
-              </template>
-              <button v-else class="dq-btn primary" :disabled="acting" @click="next">
-                {{ isLastAct ? '通关结算' : '前进' }}
-              </button>
+              <div v-else class="dq-actions">
+                <template v-if="activeAct && activeAct.type === 'item'">
+                  <button class="dq-btn primary" :disabled="acting || activeAct.picked" @click="pick">拾取</button>
+                  <button class="dq-btn" :disabled="acting" @click="next">前进</button>
+                </template>
+                <button v-else class="dq-btn primary" :disabled="acting" @click="next">
+                  {{ isLastAct ? '通关结算' : '前进' }}
+                </button>
+              </div>
             </div>
           </section>
 
@@ -68,38 +63,58 @@
             </div>
 
             <div class="dq-side-body">
-              <!-- 人物 -->
+              <!-- 人物（与人物弹框渲染一致） -->
               <div v-if="tab === 'role'" class="dq-role">
                 <div class="dq-role-head">
                   <span class="dq-role-name">{{ player?.name }}</span>
                   <span class="dq-role-lv">{{ levelName(player?.level || 1) }}</span>
                 </div>
-                <div class="dq-vital"><span>气血</span><span>{{ player?.hp ?? 0 }} / {{ player?.final_attrs?.max_hp ?? player?.max_hp ?? 100 }}</span></div>
-                <div class="dq-vital"><span>斗气</span><span>{{ player?.energy ?? 0 }} / {{ player?.final_attrs?.max_energy ?? player?.max_energy ?? 100 }}</span></div>
-                <div class="dq-attr" v-for="k in baseAttrKeys" :key="k">
-                  <span>{{ attrLabels[k] }}</span>
-                  <span>{{ player?.final_attrs?.[k] ?? player?.[k] ?? 0 }}</span>
+                <div class="attr-vital">
+                  <div class="vital-item">
+                    <span class="vital-label">生命</span>
+                    <span class="vital-val">{{ player?.hp ?? 0 }} / {{ player?.final_attrs?.max_hp ?? player?.max_hp ?? 100 }}</span>
+                  </div>
+                  <div class="vital-item">
+                    <span class="vital-label">斗气</span>
+                    <span class="vital-val">{{ player?.energy ?? 0 }} / {{ player?.final_attrs?.max_energy ?? player?.max_energy ?? 100 }}</span>
+                  </div>
+                </div>
+                <div class="attr-row" v-for="k in baseAttrKeys" :key="k">
+                  <span class="attr-label">{{ attrLabels[k] }}</span>
+                  <span class="attr-base">{{ player?.[k] ?? 0 }}</span>
+                  <span class="attr-bonus" v-if="(player?.final_attrs?.[k] ?? 0) - (player?.[k] ?? 0) > 0">+{{ (player?.final_attrs?.[k] ?? 0) - (player?.[k] ?? 0) }}</span>
+                  <span class="attr-final">{{ player?.final_attrs?.[k] ?? player?.[k] ?? 0 }}</span>
                 </div>
                 <div class="dq-cult">修为 {{ player?.cultivation ?? 0 }} / {{ player?.level_cultivation ?? 100 }}</div>
               </div>
 
-              <!-- 行囊 -->
+              <!-- 行囊（与背包弹框渲染一致） -->
               <div v-else class="dq-pack">
                 <div v-if="tempItems.length" class="dq-pack-sec">
                   <div class="dq-pack-title">秘境所得 <span>通关方入囊中</span></div>
-                  <div class="dq-pack-row" v-for="(it, i) in tempItems" :key="'t' + i">
-                    <span class="dq-pn">{{ it.name }}</span>
-                    <span class="dq-pc">×{{ it.count }}</span>
-                    <button v-if="it.usable" class="dq-use" :disabled="acting" @click="useTemp(it.name)">用</button>
+                  <div class="bp-grid">
+                    <div v-for="(it, i) in tempItems" :key="'t' + i"
+                      class="bp-slot" :class="{ 'is-usable': it.usable }"
+                      @mouseenter="showItemTip(it, $event)" @mouseleave="hideItemTip"
+                      @contextmenu.prevent="it.usable && !acting && useTemp(it.name)">
+                      <div class="bp-slot__icon">📦</div>
+                      <div class="bp-slot__name">{{ it.name }}</div>
+                      <span v-if="it.count > 1" class="bp-slot__count">{{ it.count }}</span>
+                    </div>
                   </div>
                 </div>
                 <div class="dq-pack-sec">
                   <div class="dq-pack-title">随身行囊</div>
                   <div v-if="!backpackItems.length" class="dq-empty">囊中空空</div>
-                  <div class="dq-pack-row" v-for="(it, i) in backpackItems" :key="'b' + i">
-                    <span class="dq-pn">{{ it.name }}</span>
-                    <span class="dq-pc">×{{ it.count }}</span>
-                    <button v-if="it.usable" class="dq-use" :disabled="acting" @click="useMain(it.name)">用</button>
+                  <div v-else class="bp-grid">
+                    <div v-for="(it, i) in backpackItems" :key="'b' + i"
+                      class="bp-slot" :class="{ 'is-usable': it.usable }"
+                      @mouseenter="showItemTip(it, $event)" @mouseleave="hideItemTip"
+                      @contextmenu.prevent="it.usable && !acting && useMain(it.name)">
+                      <div class="bp-slot__icon">📦</div>
+                      <div class="bp-slot__name">{{ it.name }}</div>
+                      <span v-if="it.count > 1" class="bp-slot__count">{{ it.count }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -111,6 +126,16 @@
       <div v-else class="dq-center">
         <div class="dq-center-text">秘境凝聚失败，请重试</div>
       </div>
+
+      <!-- 物品悬浮（fixed + Teleport，脱离侧栏滚动容器裁切，与背包弹框一致） -->
+      <Teleport to="body">
+        <div v-if="itemTooltip" class="item-tip" :style="itemTooltip.pos">
+          <div class="tooltip-name">{{ itemTooltip.item.name }}</div>
+          <div v-if="itemTooltip.item.description" class="tooltip-desc">{{ itemTooltip.item.description }}</div>
+          <div v-if="itemTooltip.item.price" class="tooltip-price">💰 出售 {{ Math.floor(itemTooltip.item.price * 0.5) }} 金币</div>
+          <div v-if="itemTooltip.item.usable" class="tooltip-hint">右键使用</div>
+        </div>
+      </Teleport>
     </div>
   </div>
 </template>
@@ -147,6 +172,17 @@ function useMain(name) {
   backpackStore.use(name)
 }
 
+// 物品悬浮（与背包弹框一致：fixed + Teleport，脱离侧栏滚动容器裁切）
+const itemTooltip = ref(null)
+function showItemTip(item, e) {
+  const r = e.currentTarget.getBoundingClientRect()
+  const tipW = 230
+  let left = r.left + r.width / 2 - tipW / 2
+  left = Math.max(8, Math.min(window.innerWidth - tipW - 8, left))
+  itemTooltip.value = { item, pos: { left: left + 'px', top: r.bottom + 8 + 'px', width: tipW + 'px' } }
+}
+function hideItemTip() { itemTooltip.value = null }
+
 function actTypeLabel(t) {
   return { combat: '战斗', sneak: '遭遇', modifier: '异变', explore: '探索', item: '机缘', boss: 'BOSS' }[t] || t
 }
@@ -167,9 +203,9 @@ function actTypeLabel(t) {
 
 .dq-box {
   position: relative;
-  width: 880px;
+  width: 90vw;
   max-width: 95vw;
-  max-height: 92vh;
+  height: 88vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -273,12 +309,28 @@ function actTypeLabel(t) {
 }
 .dq-flow {
   flex: 1 1 auto;
-  min-width: 0;
-  padding: 22px 28px;
+  min-width: 460px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* 上区：叙事/进度，仅纵向滚动，横向裁切（避免双滚动条） */
+.dq-flow-scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding: 22px 28px 8px;
+  overflow-wrap: break-word;
+}
+/* 下区：按钮固定贴底，不随文本滚动 */
+.dq-flow-foot {
+  flex: 0 0 auto;
+  padding: 14px 28px 22px;
+  border-top: 1px solid #1d2e26;
 }
 .dq-side {
-  flex: 0 0 290px;
+  flex: 0 0 360px;
   display: flex;
   flex-direction: column;
   border-left: 1px solid #1d2e26;
@@ -300,6 +352,7 @@ function actTypeLabel(t) {
 .dq-act-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -336,30 +389,7 @@ function actTypeLabel(t) {
   border-radius: 4px;
 }
 
-.dq-dots {
-  display: flex;
-  justify-content: center;
-  gap: 14px;
-  margin: 22px 0;
-}
-.dq-dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: #1a2a24;
-  border: 1px solid #2a4038;
-  transition: all 0.25s;
-}
-.dq-dot.done { background: #2a5448; border-color: #3a6a58; }
-.dq-dot.cur {
-  background: #6fbfa8;
-  border-color: #8fdac0;
-  box-shadow: 0 0 10px rgba(111, 191, 168, 0.7);
-  transform: scale(1.2);
-}
-.dq-dot.boss { width: 14px; height: 14px; border-radius: 3px; }
-.dq-dot.boss.cur { background: #d4af6a; border-color: #f0d080; box-shadow: 0 0 12px rgba(212, 175, 106, 0.8); }
-
-.dq-settle { text-align: center; padding: 14px 0; }
+.dq-settle { text-align: center; padding: 0; }
 .dq-settle-text {
   font-size: 1rem;
   color: #d4af6a;
@@ -426,6 +456,7 @@ function actTypeLabel(t) {
 }
 .dq-side-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 16px 20px;
 }

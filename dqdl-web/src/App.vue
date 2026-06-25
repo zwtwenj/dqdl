@@ -1,15 +1,21 @@
 <template>
   <!-- 开始界面 -->
   <div v-if="!gameStarted" class="start-screen">
-    <div class="title-glow">斗气大陆</div>
-    <p class="subtitle">AI 文字冒险</p>
-    <template v-if="!loading">
-      <button v-if="hasSave" class="btn-start continue-btn" @click="continueGame">继续游戏</button>
-      <button class="btn-start" :class="{ 'new-btn': hasSave }" @click="newGame">新游戏</button>
-    </template>
-    <div v-else class="loading-box">
-      <div class="spinner"></div>
-      <p class="loading-text">{{ loadingText }}</p>
+    <div class="start-overlay"></div>
+    <div class="start-content">
+      <div class="title-glow">斗气大陆</div>
+      <div class="title-divider"></div>
+      <p class="subtitle">AI 文字冒险</p>
+      <template v-if="!loading">
+        <div class="start-buttons">
+          <button v-if="hasSave" class="btn btn--success btn--lg btn--block" @click="continueGame">继续游戏</button>
+          <button class="btn btn--lg btn--block" :class="hasSave ? 'btn--ghost' : 'btn--primary'" @click="newGame">新游戏</button>
+        </div>
+      </template>
+      <div v-else class="loading-box">
+        <div class="spinner"></div>
+        <p class="loading-text">{{ loadingText }}</p>
+      </div>
     </div>
   </div>
 
@@ -19,12 +25,13 @@
     <div class="top-bar">
       <span class="player-name">{{ player?.name }}</span>
       <div class="top-bar-right">
-        <button class="btn-backpack" @click="toggleBackpack">背包</button>
-        <button class="btn-task" @click="showTaskPanel = true">任务
-          <span v-if="pendingTaskCount > 0" class="task-badge">{{ pendingTaskCount }}</span>
+        <button class="btn btn--sm btn--success" @click="toggleBackpack">背包</button>
+        <button class="btn btn--sm btn--info" @click="showTaskPanel = true">
+          任务
+          <span v-if="pendingTaskCount > 0" class="badge task-badge">{{ pendingTaskCount }}</span>
         </button>
-        <button class="btn-role" @click="showRole = true">角色</button>
-        <button class="btn-skill" @click="showSkillPanel = true">斗技</button>
+        <button class="btn btn--sm btn--primary" @click="showRole = true">角色</button>
+        <button class="btn btn--sm btn--warning" @click="showSkillPanel = true">斗技</button>
       </div>
     </div>
 
@@ -33,8 +40,9 @@
 
     <!-- 地图导航（面包屑） -->
     <div class="breadcrumb">
+      <span class="crumb-compass">🧭</span>
       <template v-for="(node, idx) in breadcrumb" :key="node.id">
-        <span class="sep" v-if="idx > 0"> &gt; </span>
+        <span class="sep" v-if="idx > 0">❯</span>
         <span
           v-if="idx < breadcrumb.length - 1"
           class="crumb-link"
@@ -46,58 +54,47 @@
     </div>
 
     <!-- 当前地点信息 -->
-    <div class="location-info" v-if="currentLocation">
+    <div class="location-info" :class="typeClass(currentLocation.loc_type)" v-if="currentLocation">
+      <!-- 标题簇：图标 + 地名 + 类型（紧凑 inline，不再浮右） -->
       <div class="loc-header">
-        <span class="loc-name">{{ currentLocation.name }}</span>
+        <span class="loc-glyph">{{ typeIcon(currentLocation.loc_type) }}</span>
+        <h2 class="loc-name">{{ currentLocation.name }}</h2>
         <span class="loc-type-badge">{{ typeLabel(currentLocation.loc_type) }}</span>
-        <span class="loc-danger" v-if="currentLocation.danger_level > 0">
-          危险度 {{ dangerLabel(currentLocation.danger_level) }}
+      </div>
+
+      <!-- 属性条：危险 / 斗气 / 魔兽种数 单行排布 -->
+      <div
+        class="loc-stats"
+        v-if="currentLocation.danger_level > 0 || currentLocation.qi_density > 0 || parseMobs(currentLocation.common_mobs).length"
+      >
+        <span class="stat stat--danger" v-if="currentLocation.danger_level > 0">
+          <i>⚔</i>危险 {{ dangerLabel(currentLocation.danger_level) }}
         </span>
-        <span class="loc-qi" v-if="currentLocation.qi_density > 0">
-          斗气浓郁度 {{ currentLocation.qi_density }}
+        <span class="stat stat--qi" v-if="currentLocation.qi_density > 0">
+          <i>✦</i>斗气 {{ currentLocation.qi_density }}
+        </span>
+        <span class="stat stat--mob" v-if="parseMobs(currentLocation.common_mobs).length">
+          <i>🐺</i>{{ parseMobs(currentLocation.common_mobs).length }} 种魔兽
         </span>
       </div>
+
       <p class="loc-desc" v-if="currentLocation.description">{{ currentLocation.description }}</p>
+
+      <!-- 魔兽名条 -->
       <div class="loc-mobs" v-if="parseMobs(currentLocation.common_mobs).length">
-        <span class="mobs-label">常见怪物：</span>
         <span class="mob-tag" v-for="mob in parseMobs(currentLocation.common_mobs)" :key="mob.mob_id">
-          {{ mob.name }}<template v-if="mob.rank">（{{ mob.rank }}）</template>
+          <span class="mob-name">{{ mob.name }}</span>
+          <span class="mob-rank" v-if="mob.rank">{{ mob.rank }}</span>
         </span>
       </div>
 
-      <!-- 修炼 -->
-      <div class="cultivate-area" v-if="currentLocation">
-        <button class="btn-cultivate" @click="doCultivate">
-          修炼
-        </button>
-        <span class="cultivate-info">
-          修为：{{ player?.cultivation ?? 0 }} / {{ player?.level_cultivation ?? 100 }}
-          <template v-if="currentLocation.qi_density > 0">
-            · 斗气浓郁度：{{ currentLocation.qi_density }}
-          </template>
-        </span>
-        <!-- 修为进度条 -->
-        <div class="cultivate-bar-wrap">
-          <div class="cultivate-bar" :style="{ width: Math.min(100, ((player?.cultivation ?? 0) / (player?.level_cultivation || 1)) * 100) + '%' }"></div>
-        </div>
-      </div>
-      <div class="cultivate-log" v-if="cultivationLog.length">
-        <div v-for="(evt, idx) in cultivationLog" :key="idx" class="cultivate-log-entry" :class="{ 'cult-critical': evt.critical, 'cult-capped': evt.capped }">
-          {{ evt.text }}
-        </div>
-      </div>
-
-      <!-- 历练区域 -->
-      <div class="training-area" v-if="['wild','wild2','wild3'].includes(currentLocation.loc_type)">
-        <button class="btn-train" @click="startAutoTraining" :disabled="trainingMode">
+      <!-- 行动栏（仅野外） -->
+      <div class="loc-actions" v-if="['wild','wild2','wild3'].includes(currentLocation.loc_type)">
+        <button class="btn btn--success" @click="startAutoTraining" :disabled="trainingMode">
           {{ trainingMode ? '历练中...' : '开始历练' }}
         </button>
-        <button class="btn-battle" @click="openBattle" :disabled="trainingMode">
-          战斗
-        </button>
-        <button class="btn-dungeon" @click="openDungeon" :disabled="trainingMode">
-          副本
-        </button>
+        <button class="btn btn--danger" @click="openBattle" :disabled="trainingMode">战斗</button>
+        <button class="btn btn--warning" @click="openDungeon" :disabled="trainingMode">副本</button>
       </div>
     </div>
 
@@ -111,57 +108,60 @@
     <div class="map-area" v-if="!loading">
       <!-- 兄弟节点（同级可跳转） -->
       <div class="section" v-if="breadcrumb.length >= 2">
-        <div class="section-title">附近地点</div>
+        <div class="section-title">邻近之地</div>
         <div class="loc-grid">
           <div
             v-for="sib in currentSiblings"
             :key="sib.id"
             class="loc-card"
-            :class="{ active: sib.id === currentLocation?.id, 'card-locked': trainingMode }"
+            :class="[typeClass(sib.loc_type), { active: sib.id === currentLocation?.id, 'card-locked': trainingMode }]"
             @click="!trainingMode && moveTo(sib, breadcrumb.length - 1)"
           >
-            <span class="card-name">{{ sib.name }}</span>
-            <span class="card-type">{{ typeLabel(sib.loc_type) }}</span>
-            <span class="card-danger" v-if="sib.danger_level > 0">
-              危险 {{ dangerLabel(sib.danger_level) }}
-            </span>
+            <div class="loc-card__icon">{{ typeIcon(sib.loc_type) }}</div>
+            <div class="loc-card__body">
+              <span class="card-name">{{ sib.name }}</span>
+              <span class="card-type">{{ typeLabel(sib.loc_type) }}</span>
+            </div>
+            <div class="loc-card__tags">
+              <span class="tag tag--danger" v-if="sib.danger_level > 0">⚔ {{ dangerShort(sib.danger_level) }}</span>
+              <span class="tag tag--qi" v-if="sib.qi_density > 0">✦ {{ sib.qi_density }}</span>
+            </div>
           </div>
-
         </div>
       </div>
 
       <!-- 子节点（向下探索） -->
       <div class="section" v-if="currentChildren.length > 0">
-        <div class="section-title">可前往的区域</div>
+        <div class="section-title">可达之所</div>
         <div class="loc-grid">
           <div
             v-for="child in currentChildren"
             :key="child.id"
-            class="loc-card child-card"
-            :class="{ 'card-locked': trainingMode }"
+            class="loc-card"
+            :class="[typeClass(child.loc_type), { 'card-locked': trainingMode }]"
             @click="!trainingMode && moveTo(child, breadcrumb.length)"
           >
-            <span class="card-name">{{ child.name }}</span>
-            <span class="card-type">{{ typeLabel(child.loc_type) }}</span>
-            <span class="card-danger" v-if="child.danger_level > 0">
-              危险 {{ dangerLabel(child.danger_level) }}
-            </span>
-            <span class="card-qi" v-if="child.qi_density > 0">
-              斗气 {{ child.qi_density }}
-            </span>
+            <div class="loc-card__icon">{{ typeIcon(child.loc_type) }}</div>
+            <div class="loc-card__body">
+              <span class="card-name">{{ child.name }}</span>
+              <span class="card-type">{{ typeLabel(child.loc_type) }}</span>
+            </div>
+            <div class="loc-card__tags">
+              <span class="tag tag--danger" v-if="child.danger_level > 0">⚔ {{ dangerShort(child.danger_level) }}</span>
+              <span class="tag tag--qi" v-if="child.qi_density > 0">✦ {{ child.qi_density }}</span>
+            </div>
           </div>
-
         </div>
       </div>
 
       <!-- 空提示 -->
       <div class="section" v-if="currentChildren.length === 0 && currentSiblings.length <= 1">
-        <p class="empty-hint">这里没有更深处的区域了。</p>
+        <p class="empty-hint">此地已无更深之处，前路尽头的风云等你去掀开。</p>
       </div>
 
       <!-- NPC 列表 -->
       <div class="section" v-if="currentNpcs.length > 0">
-        <div class="section-title">此处的NPC</div>
+        <div class="section-title">此地之人</div>
         <div class="loc-grid">
           <div
             v-for="npc in currentNpcs"
@@ -169,9 +169,12 @@
             class="loc-card npc-card"
             @click="openDialog(npc)"
           >
-            <span class="card-name">{{ npc.name }}</span>
-            <span class="card-type">{{ npc.gender }} · {{ npc.age }}</span>
-            <span class="card-nature">{{ npc.role_name }} · {{ npc.nature_name }}</span>
+            <div class="loc-card__icon">🧙</div>
+            <div class="loc-card__body">
+              <span class="card-name">{{ npc.name }}</span>
+              <span class="card-type">{{ npc.role_name }} · {{ npc.nature_name }}</span>
+            </div>
+            <span class="card-gender">{{ npc.gender }} · {{ npc.age }}</span>
           </div>
         </div>
       </div>
@@ -193,7 +196,7 @@
               {{ msg.npc }}
               <!-- 任务卡片 -->
               <div v-if="msg.taskCard" class="task-card">
-                <div class="task-card-title">⚔️ 战斗任务 <span class="task-card-star">{{ '\u2605'.repeat(msg.taskCard.star || 1) }}</span></div>
+                <div class="task-card-title">⚔️ {{ msg.taskCard.name || '战斗任务' }} <span class="task-card-star">{{ '\u2605'.repeat(msg.taskCard.star || 1) }}</span></div>
                 <div class="task-card-body">
                   <span class="task-label">前往：</span>
                   <template v-for="(loc, li) in msg.taskCard.location_path" :key="loc.id">
@@ -222,7 +225,7 @@
                 <!-- 接受按鈕区域 -->
                 <div class="task-card-actions" v-if="msg.taskCard.preview && !msg.taskCard.accepted">
                   <button
-                    class="btn-accept-task"
+                    class="btn btn--sm btn--success"
                     :disabled="taskLoading"
                     @click="acceptCurrentTask(msg.taskCard)"
                   >接受任务</button>
@@ -256,7 +259,7 @@
             @keyup.enter="handleSend"
             :disabled="dialogLoading"
           />
-          <button @click="handleSend" :disabled="dialogLoading || !dialogInput.trim()">发送</button>
+          <button class="btn btn--sm btn--primary" @click="handleSend" :disabled="dialogLoading || !dialogInput.trim()">发送</button>
         </div>
       </div>
     </div>
@@ -265,11 +268,11 @@
     <TaskPanel v-if="showTaskPanel" @close="showTaskPanel = false" />
 
     <!-- 背包弹窗 -->
-    <div class="role-overlay" v-if="showBackpack" @click="showBackpack = false; activeTooltip = -1">
+    <div class="role-overlay" v-if="showBackpack" @click="showBackpack = false">
       <div class="role-panel backpack-panel" @click.stop>
         <div class="role-header">
           <span class="role-title">背包</span>
-          <button class="role-close" @click="showBackpack = false; activeTooltip = -1">&times;</button>
+          <button class="role-close" @click="showBackpack = false">&times;</button>
         </div>
         <!-- 金币 -->
         <div class="backpack-money">
@@ -278,26 +281,20 @@
           <span class="money-unit">金币</span>
         </div>
         <div class="backpack-body">
-          <div v-if="backpackItems.length === 0" class="backpack-empty">背包空空如也</div>
-          <div
-            v-for="(item, idx) in backpackItems"
-            :key="idx"
-            class="backpack-item"
-            @click="toggleItemTooltip(idx)"
-          >
-            <span class="bp-item-name">{{ item.name }}</span>
-            <span class="bp-item-count">&times;{{ item.count }}</span>
-            <button
-              v-if="item.usable"
-              class="btn-use"
-              :disabled="usingItem"
-              @click.stop="usePlayerItem(item.name)"
-            >使用</button>
-            <!-- 悬浮描述 -->
-            <div v-if="activeTooltip === idx && (item.description || item.price)" class="item-tooltip" @click.stop>
-              <div class="tooltip-name">{{ item.name }}</div>
-              <div v-if="item.description" class="tooltip-desc">{{ item.description }}</div>
-              <div v-if="item.price" class="tooltip-price">💰 出售价格：{{ Math.floor(item.price * 0.5) }} 金币</div>
+          <div v-if="backpackItems.length === 0" class="backpack-empty">行囊空空如也</div>
+          <div class="bp-grid" v-else>
+            <div
+              v-for="(item, idx) in backpackItems"
+              :key="idx"
+              class="bp-slot"
+              :class="{ 'is-usable': item.usable }"
+              @mouseenter="showItemTip(item, $event)"
+              @mouseleave="hideItemTip"
+              @contextmenu.prevent="item.usable && !usingItem && usePlayerItem(item.name)"
+            >
+              <div class="bp-slot__icon">📦</div>
+              <div class="bp-slot__name">{{ item.name }}</div>
+              <span v-if="item.count > 1" class="bp-slot__count">{{ item.count }}</span>
             </div>
           </div>
         </div>
@@ -329,7 +326,7 @@
                 <span v-if="item.price" class="ti-sell-price">单价 {{ Math.floor(item.price * 0.5) }} 金</span>
               </div>
               <button
-                class="btn-sell"
+                class="btn btn--sm btn--success"
                 :disabled="tradeSelling"
                 @click="sellPlayerItem(item.name, $event.shiftKey ? item.count : 1)"
               >出售</button>
@@ -386,49 +383,73 @@
       <div class="battle-box">
         <button class="battle-close" @click="closeBattle">&times;</button>
         <div class="battle-field" v-if="!battleLoading">
-          <div class="battle-side player-side">
-            <div class="battle-bars">
-              <div class="battle-bar-row">
-                <span class="battle-bar-label">生命</span>
-                <div class="battle-bar-wrap"><div class="battle-bar-fill hp-fill" :style="{ width: Math.max(2, (battlePlayerHp / playerMaxHp) * 100) + '%' }"></div></div>
-                <span class="battle-bar-val hp-val">{{ battlePlayerHp }}/{{ playerMaxHp }}</span>
+          <!-- 玩家舞台：立绘作背景，状态悬浮其上 -->
+          <div class="fighter fighter--player" :class="{ hurt: battlePlayerHurt }">
+            <img src="/image/hero-char.webp" class="fighter-bg" alt="角色" />
+            <div class="fighter-shade"></div>
+            <div class="fighter-hud">
+              <div class="stat-line">
+                <div class="bar-cap">
+                  <span class="stat-ico ico-hp">❤</span>
+                  <span class="bar-num">{{ battlePlayerHp }}/{{ playerMaxHp }}</span>
+                </div>
+                <div class="bar"><i class="fill-hp" :style="{ width: pct(battlePlayerHp, playerMaxHp) + '%' }"></i></div>
               </div>
-              <div class="battle-bar-row">
-                <span class="battle-bar-label">斗气</span>
-                <div class="battle-bar-wrap"><div class="battle-bar-fill energy-fill" :style="{ width: Math.max(2, (battlePlayerEnergy / playerMaxEnergy) * 100) + '%' }"></div></div>
-                <span class="battle-bar-val energy-val">{{ battlePlayerEnergy }}/{{ playerMaxEnergy }}</span>
+              <div class="stat-line">
+                <div class="bar-cap">
+                  <span class="stat-ico ico-energy">✦</span>
+                  <span class="bar-num">{{ battlePlayerEnergy }}/{{ playerMaxEnergy }}</span>
+                </div>
+                <div class="bar"><i class="fill-energy" :style="{ width: pct(battlePlayerEnergy, playerMaxEnergy) + '%' }"></i></div>
+              </div>
+              <div class="buff-row">
+                <span v-for="b in battlePlayerBuffs" :key="b.name + b.stacks" class="buff"
+                  @mouseenter="showBuffTip(b, $event)" @mouseleave="hideBuffTip">
+                  {{ b.icon }}<em v-if="b.stacks > 1">×{{ b.stacks }}</em>
+                </span>
               </div>
             </div>
-            <div class="battle-avatar player-avatar">
-              <img src="./assets/hero.png" class="battle-img" />
+            <div class="floaters">
+              <span v-for="f in battlePlayerFloaters" :key="f.id" class="floater" :class="f.kind" :style="{ left: (50 + (f.dx || 0)) + '%' }">{{ f.text }}</span>
             </div>
-            <div class="battle-info">
-              <div class="battle-name">{{ battlePlayerName }}</div>
-              <div class="battle-level">{{ levelName(battlePlayerLevel) }}</div>
-            </div>
+            <div class="fighter-name">{{ battlePlayerName }} · {{ levelName(battlePlayerLevel) }}</div>
           </div>
 
-          <div class="battle-vs">VS</div>
+          <div class="battle-vs">⚔</div>
 
-          <div class="battle-side mob-side">
-            <div class="battle-bars">
-              <div class="battle-bar-row">
-                <span class="battle-bar-label">生命</span>
-                <div class="battle-bar-wrap"><div class="battle-bar-fill hp-fill" :style="{ width: Math.max(2, (battleMobHp / mobMaxHp) * 100) + '%' }"></div></div>
-                <span class="battle-bar-val hp-val">{{ battleMobHp }}/{{ mobMaxHp }}</span>
+          <!-- 怪物舞台 -->
+          <div class="fighter fighter--mob" :class="{ hurt: battleMobHurt }">
+            <div class="fighter-bg fighter-bg--mob">🐲</div>
+            <div class="fighter-shade"></div>
+            <div class="fighter-hud">
+              <div class="stat-line">
+                <div class="bar-cap">
+                  <span class="stat-ico ico-hp">❤</span>
+                  <span class="bar-num">{{ battleMobHp }}/{{ mobMaxHp }}</span>
+                </div>
+                <div class="bar"><i class="fill-hp" :style="{ width: pct(battleMobHp, mobMaxHp) + '%' }"></i></div>
+              </div>
+              <!-- 怪物无斗气槽：等高占位，使双方 buff 栏垂直对齐 -->
+              <div class="stat-line stat-line--ghost" aria-hidden="true">
+                <div class="bar-cap"><span class="stat-ico">✦</span></div>
+                <div class="bar"></div>
+              </div>
+              <div class="buff-row">
+                <span v-for="b in battleMobBuffs" :key="b.name + b.stacks" class="buff"
+                  @mouseenter="showBuffTip(b, $event)" @mouseleave="hideBuffTip">
+                  {{ b.icon }}<em v-if="b.stacks > 1">×{{ b.stacks }}</em>
+                </span>
               </div>
             </div>
-            <div class="battle-avatar mob-avatar">
-              <div class="battle-img-dummy">?</div>
+            <div class="floaters">
+              <span v-for="f in battleMobFloaters" :key="f.id" class="floater" :class="f.kind" :style="{ left: (50 + (f.dx || 0)) + '%' }">{{ f.text }}</span>
             </div>
-            <div class="battle-info">
-              <div class="battle-name">{{ battleMobName }}</div>
-              <div class="battle-level">{{ battleMobRank }} · Lv.{{ battleMobLevel }}</div>
-            </div>
+            <div class="fighter-name">{{ battleMobName }} · {{ battleMobRank }} Lv.{{ battleMobLevel }}</div>
           </div>
         </div>
+
         <div class="battle-actions">
-          <button class="battle-btn battle-btn-attack" :disabled="battleOver || attacking" @click="battleAttack">攻击</button>
+          <button class="btn btn--danger" :disabled="battleOver || attacking" @click="battleAttack">攻击</button>
           <div class="battle-skill-slots">
             <div
               v-for="(sk, idx) in equippedSkills"
@@ -440,17 +461,11 @@
               <span class="bss-name">{{ sk.name }}</span>
               <span class="bss-cost">斗气{{ sk.energyCost }}</span>
             </div>
-            <div
-              v-for="slot in 5 - equippedSkills.length"
-              class="battle-skill-slot"
-            >
+            <div v-for="slot in 5 - equippedSkills.length" class="battle-skill-slot" :key="'empty' + slot">
               <span class="bss-empty">空槽</span>
             </div>
           </div>
-          <button class="battle-btn battle-btn-run" :disabled="attacking" @click="battleFlee">逃跑</button>
-        </div>
-        <div class="battle-log" v-if="battleLog.length">
-          <div class="battle-log-entry" v-for="(msg, idx) in battleLog" :key="idx">{{ msg }}</div>
+          <button class="btn btn--ghost" :disabled="attacking" @click="battleFlee">逃跑</button>
         </div>
         <div class="battle-loading" v-if="battleLoading">加载中...</div>
       </div>
@@ -458,7 +473,27 @@
 
     <!-- 副本界面（独立组件） -->
     <DungeonPanel v-if="showDungeon" />
+
+    <!-- buff 悬浮组件（fixed + Teleport，脱离战斗框 overflow:hidden） -->
+    <Teleport to="body">
+      <div v-if="buffTooltip" class="buff-tooltip" :style="buffTooltip.pos">
+        <span class="bt-name">{{ buffTooltip.b.name }}</span><span class="bt-stack" v-if="buffTooltip.b.stacks > 1"> ×{{ buffTooltip.b.stacks }}</span><span class="bt-sep">：</span>{{ buffTooltip.b.desc }}<span class="bt-dur">（{{ buffTooltip.b.remaining === '∞' ? '永久' : buffTooltip.b.remaining + '回合' }}）</span>
+      </div>
+    </Teleport>
+
+    <!-- 物品悬浮组件（fixed + Teleport，脱离背包滚动容器裁切） -->
+    <Teleport to="body">
+      <div v-if="itemTooltip" class="item-tip" :style="itemTooltip.pos">
+        <div class="tooltip-name">{{ itemTooltip.item.name }}</div>
+        <div v-if="itemTooltip.item.description" class="tooltip-desc">{{ itemTooltip.item.description }}</div>
+        <div v-if="itemTooltip.item.price" class="tooltip-price">💰 出售 {{ Math.floor(itemTooltip.item.price * 0.5) }} 金币</div>
+        <div v-if="itemTooltip.item.usable" class="tooltip-hint">右键使用</div>
+      </div>
+    </Teleport>
   </div>
+
+  <!-- 全局消息提示（ElMessage 风格，基础组件，挂载一次） -->
+  <MessageToast />
 </template>
 
 <script setup>
@@ -476,6 +511,7 @@ import DungeonPanel from './components/DungeonPanel.vue'
 import RolePanel from './components/RolePanel.vue'
 import TaskPanel from './components/TaskPanel.vue'
 import SkillPanel from './components/SkillPanel.vue'
+import MessageToast from './components/MessageToast.vue'
 import { attrLabels, baseAttrKeys, levelName } from './game/constants'
 
 const playerStore = usePlayerStore()
@@ -494,7 +530,7 @@ const { npc: dialogNpc, history: dialogHistory, loading: dialogLoading } = store
 const { items: backpackItems, showPanel: showBackpack, showTrade, tradeSelling, usingItem } = storeToRefs(backpackStore)
 const { list: tasks, loading: taskLoading } = storeToRefs(taskStore)
 const { started: gameStarted, trainingLog, cultivationLog, trainingLoading, trainingMode, trainingEvents } = storeToRefs(gameStore)
-const { showBattle, battleLoading, mob, playerName: battlePlayerName, playerLevel: battlePlayerLevel, playerHp: battlePlayerHp, playerMaxHp, playerEnergy: battlePlayerEnergy, playerMaxEnergy, mobName: battleMobName, mobLevel: battleMobLevel, mobRank: battleMobRank, mobMaxHp, mobHp: battleMobHp, equippedSkills, battleLog, battleOver, attacking } = storeToRefs(battleStore)
+const { showBattle, battleLoading, mob, playerName: battlePlayerName, playerLevel: battlePlayerLevel, playerHp: battlePlayerHp, playerMaxHp, playerEnergy: battlePlayerEnergy, playerMaxEnergy, mobName: battleMobName, mobLevel: battleMobLevel, mobRank: battleMobRank, mobMaxHp, mobHp: battleMobHp, equippedSkills, battleOver, attacking, playerBuffs: battlePlayerBuffs, mobBuffs: battleMobBuffs, playerHurt: battlePlayerHurt, mobHurt: battleMobHurt, playerFloaters: battlePlayerFloaters, mobFloaters: battleMobFloaters } = storeToRefs(battleStore)
 const { showDungeon } = storeToRefs(dungeonStore)
 
 const loading = computed(() => playerStore.loading || playerLoading.value || mapLoading.value)
@@ -531,6 +567,20 @@ function battleSkill(idx) { battleStore.skillAttack(idx) }
 function battleFlee() { battleStore.flee() }
 function openDungeon() { dungeonStore.enter() }
 
+// 战斗 UI 辅助
+function pct(cur, max) { const m = max || 1; return Math.max(0, Math.min(100, (cur / m) * 100)) }
+
+// buff 悬浮组件：定位到所指向的 buff 下方，并夹紧在视口内（脱离战斗框 overflow 裁切）
+const buffTooltip = ref(null)
+function showBuffTip(b, e) {
+  const r = e.currentTarget.getBoundingClientRect()
+  const tipW = 210
+  let left = r.left + r.width / 2 - tipW / 2
+  left = Math.max(8, Math.min(window.innerWidth - tipW - 8, left))
+  buffTooltip.value = { b, pos: { left: left + 'px', top: r.bottom + 8 + 'px', width: tipW + 'px' } }
+}
+function hideBuffTip() { buffTooltip.value = null }
+
 function doCultivate() { gameStore.doCultivate() }
 
 const dialogInput = ref('')
@@ -540,79 +590,112 @@ const showTaskPanel = ref(false)
 const pendingTaskCount = computed(() => tasks.value.filter(t => t.status === 'pending').length)
 
 const showRole = ref(false)
-const activeTooltip = ref(-1)
-function toggleItemTooltip(idx) { activeTooltip.value = activeTooltip.value === idx ? -1 : idx }
+
+// 物品悬浮组件：定位到所指向的格子下方，并夹紧在视口内（脱离背包滚动容器裁切）
+const itemTooltip = ref(null)
+function showItemTip(item, e) {
+  const r = e.currentTarget.getBoundingClientRect()
+  const tipW = 230
+  let left = r.left + r.width / 2 - tipW / 2
+  left = Math.max(8, Math.min(window.innerWidth - tipW - 8, left))
+  itemTooltip.value = { item, pos: { left: left + 'px', top: r.bottom + 8 + 'px', width: tipW + 'px' } }
+}
+function hideItemTip() { itemTooltip.value = null }
 
 const showSkillPanel = ref(false)
 
 function typeLabel(type) { return {continent:'大陆',region:'区域',empire:'帝国',city:'城市',wild:'野外',wild2:'野外深处',wild3:'野外核心',sect:'宗派',secret:'秘境',district:'区域',scene:'场景'}[type]||type }
 function dangerLabel(level) { return {1:'一阶(低危)',2:'二阶(中危)',3:'三阶(高危)'}[level]||level }
+function dangerShort(level) { return { 1: '一阶', 2: '二阶', 3: '三阶' }[level] || level }
 function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(a) ? a : [] } catch { return [] } }
+
+// 地点类型 → 图标（玄幻辨识）
+function typeIcon(type) {
+  return { continent: '🌏', region: '🧭', empire: '🏛', city: '🏯', district: '🏮', scene: '📍', wild: '🌲', wild2: '🌲', wild3: '🌲', sect: '⛩️', secret: '✨' }[type] || '📍'
+}
+// 地点类型 → 配色族（卡片左边强调色 / 悬停光晕）
+function typeClass(type) {
+  if (['wild', 'wild2', 'wild3'].includes(type)) return 'is-wild'
+  if (type === 'city' || type === 'district') return 'is-city'
+  if (type === 'sect') return 'is-sect'
+  if (type === 'secret') return 'is-secret'
+  if (type === 'empire' || type === 'continent' || type === 'region') return 'is-realm'
+  return 'is-place'
+}
 </script>
 
 <style>
 /* ===== 开始界面 ===== */
 .start-screen {
+  position: relative;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #0a0a0f;
   color: #e0d6c2;
+  overflow: hidden;
+  background: #0a0a0f url('/image/bg-continent.webp') center center / cover no-repeat;
+}
+
+/* 暗色遮罩：保证文字在任何背景图上都清晰可读 */
+.start-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, rgba(10, 10, 15, 0.30) 0%, rgba(10, 10, 15, 0.80) 70%, rgba(10, 10, 15, 0.95) 100%),
+    linear-gradient(to bottom, rgba(10, 10, 15, 0.55), rgba(10, 10, 15, 0.88));
+}
+
+.start-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 20px;
+  animation: startFadeIn 1s ease both;
 }
 
 .title-glow {
-  font-size: 4rem;
-  font-weight: bold;
-  letter-spacing: 1rem;
-  color: #f0c040;
-  text-shadow: 0 0 30px rgba(240, 192, 64, 0.4), 0 0 60px rgba(240, 192, 64, 0.2);
-  margin-bottom: 0.5rem;
+  font-size: clamp(2.8rem, 8vw, 5.5rem);
+  font-weight: 900;
+  letter-spacing: 0.5rem;
+  /* 视口过窄时收缩字间距，避免溢出 */
+  padding-left: 0.5rem;
+  color: #f3c969;
+  margin: 0;
+  text-shadow:
+    0 0 20px rgba(240, 192, 64, 0.6),
+    0 0 50px rgba(240, 192, 64, 0.35),
+    0 2px 4px rgba(0, 0, 0, 0.85);
+  animation: titlePulse 3.2s ease-in-out infinite;
+}
+
+.title-divider {
+  width: 140px;
+  height: 2px;
+  margin: 1.3rem 0 0.9rem;
+  background: linear-gradient(90deg, transparent, #f0c040, transparent);
+  box-shadow: 0 0 12px rgba(240, 192, 64, 0.5);
 }
 
 .subtitle {
-  font-size: 1.2rem;
-  color: #8a7e6a;
+  font-size: 1.15rem;
+  color: #c9b896;
   margin-bottom: 3rem;
-  letter-spacing: 0.5rem;
+  letter-spacing: 0.6rem;
+  padding-left: 0.6rem;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
 }
 
-.btn-start {
-  padding: 14px 48px;
-  font-size: 1.2rem;
-  background: transparent;
-  color: #f0c040;
-  border: 2px solid #f0c040;
-  cursor: pointer;
-  letter-spacing: 0.3rem;
-  transition: all 0.3s;
-  margin: 8px 0;
-  display: block;
-  width: 260px;
-}
-
-.btn-start:hover {
-  background: #f0c040;
-  color: #0a0a0f;
-}
-
-.continue-btn {
-  border-color: #60c080;
-  color: #60c080;
-}
-
-.continue-btn:hover {
-  background: #60c080;
-  color: #0a0a0f;
-}
-
-.new-btn {
-  border-color: #8a7e6a;
-  color: #8a7e6a;
-  font-size: 0.95rem;
-  padding: 10px 36px;
-  letter-spacing: 0.2rem;
+.start-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 280px;
+  max-width: 90vw;
 }
 
 .loading-box {
@@ -620,15 +703,17 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 }
 
 .loading-text {
-  color: #8a7e6a;
+  color: #c9b896;
   margin-top: 1rem;
   font-size: 1.1rem;
+  letter-spacing: 0.15rem;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #333;
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(240, 192, 64, 0.2);
   border-top: 3px solid #f0c040;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -636,6 +721,14 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes startFadeIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes titlePulse {
+  0%, 100% { text-shadow: 0 0 20px rgba(240, 192, 64, 0.6), 0 0 50px rgba(240, 192, 64, 0.35), 0 2px 4px rgba(0, 0, 0, 0.85); }
+  50% { text-shadow: 0 0 30px rgba(240, 192, 64, 0.85), 0 0 75px rgba(240, 192, 64, 0.5), 0 2px 4px rgba(0, 0, 0, 0.85); }
+}
 
 /* ===== 游戏界面 ===== */
 .game-screen {
@@ -651,12 +744,12 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid #1a1a2e;
+  border-bottom: 1px solid var(--border);
   margin-bottom: 12px;
 }
 
 .player-name {
-  color: #f0c040;
+  color: var(--gold);
   font-weight: bold;
   font-size: 1.1rem;
 }
@@ -674,95 +767,154 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 
 /* 面包屑 */
 .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 10px 0;
   font-size: 0.95rem;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  color: var(--text-muted);
 }
+
+.crumb-compass { font-size: 1.05rem; opacity: 0.85; }
 
 .crumb-link {
-  color: #7a9ec2;
+  color: var(--text-muted);
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  transition: color var(--transition);
 }
-
-.crumb-link:hover {
-  color: #a0c4e8;
-}
+.crumb-link:hover { color: var(--gold); }
+.crumb-link.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
 .crumb-current {
-  color: #f0c040;
-  font-weight: bold;
+  color: var(--gold);
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(240, 192, 64, 0.4);
 }
 
-.sep {
-  color: #3a3a4a;
-  margin: 0 4px;
-}
+.sep { color: var(--text-dim); margin: 0 2px; font-size: 0.8em; }
 
-/* 地点信息 */
+/* —— 地点类型配色族（卡片与地点头共用 --accent）—— */
+.is-wild { --accent: #e74c3c; }
+.is-city { --accent: var(--gold); }
+.is-sect { --accent: var(--purple); }
+.is-secret { --accent: var(--teal); }
+.is-realm { --accent: var(--gold-soft); }
+.is-place { --accent: #6a6a8a; }
+
+/* 地点信息（当前所在 · 氛围头） */
 .location-info {
-  background: #111122;
-  border: 1px solid #1a1a3e;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent, var(--gold)) 10%, var(--bg-elev-1)), var(--bg-elev-1));
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent, var(--gold));
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-panel);
 }
 
 .loc-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.loc-glyph {
+  font-size: 1.9rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 10px var(--accent, var(--gold)));
 }
 
 .loc-name {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #e8dcc8;
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.04em;
 }
 
 .loc-type-badge {
-  background: #1a1a3e;
-  color: #7a9ec2;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  padding: 3px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  color: var(--accent, var(--gold));
+  background: color-mix(in srgb, var(--accent, var(--gold)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, var(--gold)) 40%, transparent);
 }
 
-.loc-danger {
-  color: #c04040;
-  font-size: 0.85rem;
+.loc-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
-.loc-qi {
-  color: #40a0c0;
-  font-size: 0.85rem;
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
+.stat i { font-style: normal; font-size: 0.95rem; }
+.stat--danger { color: #e8a89c; }
+.stat--danger i { color: var(--danger); }
+.stat--qi { color: #9fd8c8; }
+.stat--qi i { color: var(--teal); }
+.stat--mob { color: var(--text-muted); }
+.stat--mob i { color: #f0a08c; }
+
+.chip {
+  font-size: 0.78rem;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid;
+}
+.chip--danger { color: var(--danger); border-color: rgba(231, 76, 60, 0.4); background: rgba(231, 76, 60, 0.1); }
+.chip--qi { color: var(--teal); border-color: rgba(64, 192, 160, 0.4); background: rgba(64, 192, 160, 0.1); }
 
 .loc-desc {
-  color: #8a8a9a;
+  color: var(--text-muted);
   font-size: 0.95rem;
-  line-height: 1.6;
+  line-height: 1.7;
+  font-style: italic;
 }
 
 .loc-mobs {
-  margin-top: 6px;
+  margin-top: 12px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
 }
 .mobs-label {
-  color: #e74c3c;
-  font-size: 0.85rem;
-  font-weight: bold;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  margin-right: 2px;
 }
 .mob-tag {
-  background: rgba(231, 76, 60, 0.15);
-  color: #e74c3c;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  color: #f0a08c;
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid rgba(231, 76, 60, 0.35);
+}
+.mob-name { font-weight: 500; }
+.mob-rank {
+  font-size: 0.68rem;
+  color: var(--danger);
+  opacity: 0.85;
 }
 
 /* 历练区域 */
@@ -780,7 +932,7 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 .cult-critical { color: #f0c040; font-weight: bold; }
 .cult-capped { color: #e06060; }
 .attr-cultivation { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2a2a3a; }
-.role-level { font-size: 0.82rem; color: #f0c040; margin-left: auto; }
+.role-level { font-size: 0.82rem; color: var(--gold); margin-left: auto; }
 .attr-cult-row { display: flex; align-items: center; gap: 8px; }
 .btn-breakthrough { padding: 3px 12px; border: 1px solid #9b59b6; background: #1a1028; color: #c39bdb; border-radius: 4px; cursor: pointer; font-size: 0.78rem; flex-shrink: 0; }
 .btn-breakthrough:hover:not(:disabled) { background: #2a1848; color: #e0b0f0; }
@@ -789,38 +941,19 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 .attr-cult-val { font-size: 0.85rem; color: #c0c0cc; margin-bottom: 6px; }
 .attr-cult-bar-wrap { height: 8px; background: #1a1a2e; border-radius: 4px; overflow: hidden; }
 .attr-cult-bar { height: 100%; background: linear-gradient(90deg, #9b59b6, #e74c3c); border-radius: 4px; transition: width 0.3s; }
-.btn-cultivate {
-  background: linear-gradient(135deg, #2c3e50, #3498db);
-  color: #fff;
-  border: none;
-  padding: 6px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: bold;
-}
 .cultivate-info {
   color: #8a8aaa;
   font-size: 0.82rem;
 }
 
-.training-area {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid #2a2a3a;
+.loc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
-.btn-train {
-  background: linear-gradient(135deg, #c0392b, #e74c3c);
-  color: #fff;
-  border: none;
-  padding: 6px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: bold;
-}
-.btn-train:hover { background: linear-gradient(135deg, #e74c3c, #ff6b6b); }
-.btn-train:disabled { opacity: 0.5; cursor: not-allowed; }
 .training-log {
   margin-top: 8px;
   max-height: 200px;
@@ -890,130 +1023,131 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 }
 
 .section-title {
-  font-size: 0.85rem;
-  color: #5a5a6a;
-  margin-bottom: 10px;
-  letter-spacing: 0.1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  margin-bottom: 12px;
+}
+.section-title::before {
+  content: '';
+  width: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--gold), transparent);
 }
 
 .loc-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
 }
 
 .loc-card {
-  background: #111122;
-  border: 1px solid #1e1e3e;
-  border-radius: 6px;
-  padding: 12px 18px;
-  cursor: pointer;
-  transition: all 0.2s;
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 120px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  min-width: 190px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent, var(--border-strong));
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform var(--transition), border-color var(--transition),
+    background var(--transition), box-shadow var(--transition);
 }
 
 .loc-card:hover {
-  border-color: #f0c040;
-  background: #161630;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent, var(--gold)) 12%, var(--bg-elev-2));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
 .loc-card.active {
-  border-color: #f0c040;
-  background: #1a1a30;
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 14%, var(--bg-elev-2));
 }
 
-.child-card {
-  border-left: 3px solid #3a5a3a;
+/* 历练锁定态：不可点击、弱化 */
+.loc-card.card-locked,
+.loc-card.card-locked:hover {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
+  box-shadow: none;
 }
 
-.child-card:hover {
-  border-left-color: #5a8a5a;
+.loc-card__icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px var(--accent, var(--gold)));
+}
+
+.loc-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
 }
 
 .card-name {
-  font-size: 1rem;
-  color: #d0c8b8;
-  font-weight: 500;
+  font-size: 1.02rem;
+  color: var(--text);
+  font-weight: 600;
 }
 
 .card-type {
-  font-size: 0.75rem;
-  color: #5a5a7a;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
 }
 
-.card-danger {
-  font-size: 0.75rem;
-  color: #8a4040;
+.loc-card__tags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
 }
-.card-qi {
-  font-size: 0.75rem;
-  color: #40808a;
+
+.tag {
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.tag--danger { color: var(--danger); background: rgba(231, 76, 60, 0.14); }
+.tag--qi { color: var(--teal); background: rgba(64, 192, 160, 0.14); }
+
+.card-gender {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .empty-hint {
-  color: #4a4a5a;
+  color: var(--text-dim);
   font-style: italic;
+  letter-spacing: 0.04em;
 }
 
 /* 角色按钮 */
-.btn-role {
-  background: #3a3020;
-  color: #d4b060;
-  border: 1px solid #5a4a30;
-  padding: 4px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-.btn-role:hover { background: #4a4030; }
-
 .top-bar-right {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-.btn-backpack {
-  background: #2a3a3a;
-  color: #60c0a0;
-  border: 1px solid #3a5a5a;
-  padding: 4px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-.btn-backpack:hover { background: #3a4a4a; }
-
-/* 任务按钮 */
-.btn-task {
-  position: relative;
-  padding: 5px 12px;
-  background: #2a2040;
-  border: 1px solid #5a4a80;
-  border-radius: 4px;
-  color: #c0a0f0;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-.btn-task:hover { background: #3a2a50; }
+/* 任务按钮角标：外观走 .badge，这里只管定位 */
 .task-badge {
   position: absolute;
   top: -5px;
   right: -5px;
-  background: #e05050;
-  color: #fff;
-  font-size: 0.65rem;
-  border-radius: 50%;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
+  border: 1px solid var(--bg-elev-1);
 }
 
 /* 任务面板 */
@@ -1139,20 +1273,24 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 /* 角色面板 */
 .role-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.7);
+  inset: 0;
   z-index: 3000;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: var(--space-5);
+  background: rgba(5, 5, 12, 0.7);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 .role-panel {
-  background: #1a1a24;
-  border: 1px solid #3a3a4a;
-  border-radius: 8px;
-  width: 420px;
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+  width: 540px;
   max-width: 95vw;
-  color: #d0d0d8;
+  color: var(--text);
 }
 .role-header {
   display: flex;
@@ -1164,7 +1302,7 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 .role-title {
   font-size: 1.1rem;
   font-weight: bold;
-  color: #e0c878;
+  color: var(--gold);
 }
 .role-close {
   background: none;
@@ -1175,49 +1313,53 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 }
 .role-tabs {
   display: flex;
-  border-bottom: 1px solid #2a2a3a;
+  border-bottom: 1px solid var(--border);
 }
 .role-tab {
   flex: 1;
   text-align: center;
-  padding: 8px 0;
+  padding: 10px 0;
   cursor: pointer;
-  color: #888;
-  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  letter-spacing: 0.12em;
   border-bottom: 2px solid transparent;
+  transition: color var(--transition), border-color var(--transition);
 }
+.role-tab:hover { color: var(--text); }
 .role-tab.active {
-  color: #e0c878;
-  border-bottom-color: #e0c878;
+  color: var(--gold);
+  border-bottom-color: var(--gold);
 }
 .role-body {
   padding: 16px;
 }
 
-/* 生命斗气 */
+/* 生命斗气 · 状态格 */
 .attr-vital {
   display: flex;
   gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid #2a2a3e;
-  margin-bottom: 4px;
+  padding: 4px 0 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
 }
 .vital-item {
   flex: 1;
-  background: #0e0e1a;
-  border: 1px solid #222244;
-  border-radius: 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 10px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 .vital-label {
-  color: #8a8a9a;
+  color: var(--text-muted);
   font-size: 0.85rem;
+  letter-spacing: 0.05em;
 }
 .vital-val {
-  color: #e0c878;
+  color: var(--gold);
   font-weight: bold;
   font-size: 1.05rem;
 }
@@ -1227,42 +1369,42 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   display: flex;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid #222233;
+  border-bottom: 1px solid var(--border);
 }
 .attr-label {
-  width: 50px;
-  color: #8a8a9a;
+  width: 52px;
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 .attr-base {
-  color: #c0c0c8;
+  color: var(--text);
   font-size: 0.95rem;
   width: 40px;
   text-align: right;
 }
 .attr-bonus {
-  color: #40c060;
+  color: var(--green);
   font-size: 0.8rem;
-  margin-left: 4px;
+  margin-left: 5px;
 }
 .attr-final {
   margin-left: auto;
-  color: #e0c878;
+  color: var(--gold);
   font-weight: bold;
-  font-size: 1rem;
+  font-size: 1.02rem;
 }
 
 /* 功法卡片 */
 .tech-card {
-  background: #20202c;
-  border: 1px solid #3a3a4a;
-  border-radius: 6px;
-  padding: 14px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 14px 16px;
 }
 .tech-name {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: bold;
-  color: #e0c878;
+  color: var(--gold);
 }
 .tech-meta {
   margin-top: 6px;
@@ -1270,20 +1412,21 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   gap: 12px;
   font-size: 0.85rem;
 }
-.tech-attr { color: #e74c3c; }
-.tech-rank { color: #9b59b6; }
+.tech-attr { color: var(--danger); }
+.tech-rank { color: var(--purple); }
 .tech-desc {
   margin-top: 8px;
-  color: #8a8a9a;
+  color: var(--text-muted);
   font-size: 0.85rem;
-  line-height: 1.5;
+  line-height: 1.55;
+  font-style: italic;
 }
 .tech-stats {
   margin-top: 8px;
   display: flex;
   gap: 16px;
   font-size: 0.85rem;
-  color: #7a7a8a;
+  color: var(--text-muted);
 }
 .tech-bonus {
   margin-top: 10px;
@@ -1293,14 +1436,14 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   align-items: center;
 }
 .bonus-title {
-  color: #8a8a9a;
+  color: var(--text-muted);
   font-size: 0.85rem;
 }
 .bonus-item {
-  background: rgba(64, 192, 96, 0.12);
-  color: #40c060;
-  padding: 2px 8px;
-  border-radius: 3px;
+  background: rgba(80, 200, 120, 0.12);
+  color: var(--green);
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
   font-size: 0.8rem;
 }
 
@@ -1317,39 +1460,35 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   color: #8a7e6a;
 }
 
-/* NPC 卡片 */
-.npc-card {
-  border-left: 3px solid #c0a040 !important;
-  cursor: pointer;
-}
-.npc-card:hover {
-  border-left-color: #f0d060 !important;
-}
-.card-nature {
-  font-size: 0.7rem;
-  color: #7a6a5a;
-}
+/* NPC 卡片（友好 · 绿色族） */
+.npc-card { --accent: var(--green); }
+.card-nature { font-size: 0.7rem; color: var(--text-muted); }
 
 /* 对话弹窗 */
 .dialog-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  inset: 0;
   z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: var(--space-5);
+  background: rgba(5, 5, 12, 0.7);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 .dialog-box {
   width: 500px;
   max-width: 90vw;
   max-height: 80vh;
-  background: #111122;
-  border: 1px solid #2a2a4e;
-  border-radius: 10px;
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  color: var(--text);
 }
 .dialog-header {
   padding: 12px 16px;
@@ -1360,7 +1499,7 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   gap: 10px;
 }
 .dialog-npc-name {
-  color: #f0c040;
+  color: var(--gold);
   font-weight: bold;
   font-size: 1.1rem;
 }
@@ -1487,19 +1626,6 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 .task-card-actions {
   margin-top: 4px;
 }
-.btn-accept-task {
-  background: linear-gradient(135deg, #c0a030, #f0c040);
-  color: #0a0a0f;
-  border: none;
-  padding: 5px 18px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: bold;
-  transition: opacity 0.2s;
-}
-.btn-accept-task:hover { opacity: 0.85; }
-.btn-accept-task:disabled { opacity: 0.4; cursor: not-allowed; }
 .task-accepted-tip {
   font-size: 0.8rem;
   color: #50c080;
@@ -1569,7 +1695,9 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 
 /* 背包弹窗 */
 .backpack-panel {
-  max-height: 70vh;
+  width: 760px;
+  max-width: 96vw;
+  max-height: 86vh;
   display: flex;
   flex-direction: column;
 }
@@ -1578,83 +1706,128 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
-  border-bottom: 1px solid #2a2a3a;
-  background: #151520;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev-2);
 }
 .money-icon { font-size: 1.1rem; }
 .money-value {
-  color: #f0c040;
+  color: var(--gold);
   font-weight: bold;
   font-size: 1.1rem;
 }
 .money-unit {
-  color: #8a7e5a;
+  color: var(--text-muted);
   font-size: 0.82rem;
 }
 .backpack-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 14px 16px;
 }
 .backpack-empty {
-  color: #5a5a6a;
+  color: var(--text-dim);
   text-align: center;
-  padding: 24px 0;
+  padding: 32px 0;
   font-size: 0.95rem;
-}
-.backpack-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
-  border-bottom: 1px solid #222233;
-  transition: background 0.2s;
-  cursor: pointer;
-  position: relative;
-}
-.backpack-item:hover {
-  background: #1f1f2c;
-}
-.bp-item-name {
-  color: #d0c8b8;
-  font-size: 0.9rem;
-}
-.bp-item-count {
-  color: #50c878;
-  font-weight: bold;
-  font-size: 0.9rem;
+  font-style: italic;
 }
 
-/* 物品悬浮信息 */
-.item-tooltip {
+/* RPG 格子背包 */
+.bp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+}
+.bp-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 4px 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  user-select: none;
+  transition: transform var(--transition), border-color var(--transition), background var(--transition);
+}
+.bp-slot:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 10%, var(--bg-elev-2));
+}
+/* 可使用物品：绿色描边暗示可右键使用 */
+.bp-slot.is-usable { border-color: rgba(80, 200, 120, 0.45); }
+.bp-slot.is-usable:hover {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 12%, var(--bg-elev-2));
+}
+.bp-slot__icon {
+  font-size: 2.3rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+.bp-slot__name {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 右下角数量徽标（仅 count>1 显示） */
+.bp-slot__count {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  z-index: 10;
-  background: #1a1a28;
-  border: 1px solid #3a3a5a;
-  border-radius: 6px;
-  padding: 8px 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  right: 3px;
+  bottom: 3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.72);
+  border-radius: var(--radius-pill);
+  text-align: center;
+  line-height: 17px;
+}
+
+/* 物品悬浮信息（fixed + Teleport，脱离背包滚动容器裁切） */
+.item-tip {
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-panel);
 }
 .tooltip-name {
-  color: #f0c040;
-  font-size: 0.85rem;
+  color: var(--gold);
+  font-size: 0.88rem;
   font-weight: bold;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 .tooltip-desc {
-  color: #a0a0b0;
+  color: var(--text-muted);
   font-size: 0.8rem;
-  line-height: 1.5;
-  margin-bottom: 4px;
+  line-height: 1.55;
+  margin-bottom: 5px;
 }
 .tooltip-price {
-  color: #f0c040;
-  font-size: 0.82rem;
-  padding-top: 4px;
-  border-top: 1px solid #3a3a5a;
+  color: var(--gold);
+  font-size: 0.8rem;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+}
+.tooltip-hint {
+  margin-top: 5px;
+  font-size: 0.74rem;
+  color: var(--green);
+  letter-spacing: 0.05em;
 }
 
 /* 交易弹窗 */
@@ -1671,25 +1844,9 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 .ti-name { color: #d0c8b8; font-size: 0.88rem; }
 .ti-count { color: #50c878; font-weight: bold; font-size: 0.85rem; }
 .ti-sell-price { color: #f0c040; font-size: 0.78rem; background: #2a2010; padding: 1px 6px; border-radius: 8px; }
-.btn-sell { padding: 4px 14px; border: 1px solid #50a050; background: #1a2a1a; color: #60d060; border-radius: 4px; cursor: pointer; font-size: 0.82rem; transition: all 0.15s; flex-shrink: 0; }
-.btn-sell:hover:not(:disabled) { background: #2a4a2a; color: #80f080; }
-.btn-sell:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-use { padding: 4px 14px; border: 1px solid #5070a0; background: #1a2a3a; color: #60a0e0; border-radius: 4px; cursor: pointer; font-size: 0.82rem; transition: all 0.15s; flex-shrink: 0; margin-left: auto; }
-.btn-use:hover:not(:disabled) { background: #2a3a5a; color: #80c0f0; }
-.btn-use:disabled { opacity: 0.4; cursor: not-allowed; }
+/* btn-sell / btn-use → 统一使用 .btn 基类 */
 
 /* 斗技按钮 */
-.btn-skill {
-  background: #3a2020;
-  color: #e08060;
-  border: 1px solid #7a4a40;
-  padding: 4px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-.btn-skill:hover { background: #4a3028; }
-
 /* 斗技弹窗 */
 .skill-panel {
   width: 460px;
@@ -1804,59 +1961,7 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
   width: 100%;
 }
 
-/* ===== 历练锁定态 ===== */
-.crumb-link.disabled {
-  color: #555;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-.card-locked {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-/* ===== 战斗按钮 ===== */
-.btn-battle {
-  background: linear-gradient(135deg, #2a1030, #3a1840);
-  border: 1px solid #6a3880;
-  color: #c060e0;
-  padding: 8px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  transition: all 0.2s;
-  margin-left: 10px;
-}
-.btn-battle:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3a1840, #4a2060);
-  border-color: #9050b0;
-}
-.btn-battle:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ===== 副本按钮 ===== */
-.btn-dungeon {
-  background: linear-gradient(135deg, #102a2a, #18403a);
-  border: 1px solid #388070;
-  color: #40c0a0;
-  padding: 8px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  transition: all 0.2s;
-  margin-left: 10px;
-}
-.btn-dungeon:hover:not(:disabled) {
-  background: linear-gradient(135deg, #184040, #206050);
-  border-color: #50b090;
-}
-.btn-dungeon:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+/* 战斗/副本按钮 → 统一使用 .btn 基类 */
 
 /* ===== 副本界面 ===== */
 .dungeon-overlay {
@@ -2056,231 +2161,258 @@ function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(r
 .battle-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
+  z-index: 2000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  padding: var(--space-5);
+  background: rgba(5, 5, 12, 0.8);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 .battle-box {
-  width: 700px;
-  max-width: 95vw;
-  background: linear-gradient(160deg, #0c0c18, #141428);
-  border: 1px solid #3a3a5a;
-  border-radius: 16px;
-  box-shadow: 0 0 60px rgba(100,40,180,0.2);
+  width: 880px;
+  max-width: 96vw;
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
   overflow: hidden;
   position: relative;
+  color: var(--text);
 }
 .battle-close {
   position: absolute;
-  top: 10px;
-  right: 14px;
+  top: 12px;
+  right: 16px;
   background: none;
   border: none;
-  color: #6a6a8a;
-  font-size: 1.5rem;
+  color: var(--text-muted);
+  font-size: 1.6rem;
   cursor: pointer;
-  z-index: 1;
+  z-index: 2;
 }
+.battle-close:hover { color: var(--text); }
+
+/* ===== 战斗舞台：玩家/怪物同结构，立绘作背景，状态悬浮其上 ===== */
 .battle-field {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  padding: 40px 30px 20px;
-  gap: 24px;
+  padding: 28px 28px 22px;
+  gap: 22px;
 }
-.battle-side {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-.battle-avatar {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
+
+.fighter {
+  position: relative;
+  width: 310px;
+  height: 400px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 3px solid #3a3a5a;
-  background: #1a1a28;
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  background: #0c0c16;
 }
-.player-avatar { border-color: #5080c0; }
-.mob-avatar { border-color: #c05050; }
-.battle-img {
+
+/* 背景：图片 / 占位铺满整个舞台 */
+.fighter-bg {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center top;
 }
-.battle-img-dummy {
-  width: 100%;
-  height: 100%;
+.fighter-bg--mob {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3rem;
-  color: #c05050;
-  background: #1a1018;
+  font-size: 9rem;
+  background: radial-gradient(circle at 50% 42%, #2a1424 0%, #120c18 70%, #0a0a12 100%);
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6));
 }
-.battle-info {
-  text-align: center;
+
+/* 遮罩：压暗顶部（保证状态可读）与底部（保证名牌可读） */
+.fighter-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.12) 28%, rgba(0, 0, 0, 0) 48%, rgba(0, 0, 0, 0.1) 62%, rgba(0, 0, 0, 0.8) 100%);
 }
-.battle-name {
-  color: #e0e0e8;
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-.battle-level {
-  color: #8a8a9a;
-  font-size: 0.85rem;
-  margin-top: 2px;
-}
-.battle-bars {
-  width: 100%;
+
+/* 悬浮状态层：左上角、左对齐（不居中） */
+.fighter-hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 2;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 6px;
-  margin-bottom: 4px;
 }
-.battle-bar-row {
+.stat-line {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  max-width: 252px;
+}
+.stat-line--ghost { opacity: 0; pointer-events: none; }
+.bar-cap {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
+  width: 100%;
 }
-.battle-bar-label {
-  color: #7a7a8a;
-  font-size: 0.72rem;
-  width: 28px;
-  flex-shrink: 0;
-  text-align: right;
-}
-.battle-bar-wrap {
-  flex: 1;
+.stat-ico { font-size: 0.85rem; width: 13px; text-align: center; flex-shrink: 0; }
+.ico-hp { color: #ff6b6b; }
+.ico-energy { color: #7aa0e8; }
+.bar {
+  position: relative;
+  width: 100%;
   height: 12px;
-  background: #151522;
-  border: 1px solid #2a2a3e;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 6px;
   overflow: hidden;
 }
-.battle-bar-fill {
-  height: 100%;
+.bar i { display: block; height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+.fill-hp { background: linear-gradient(90deg, #c0392b, #ff6b6b); box-shadow: 0 0 8px rgba(255, 107, 107, 0.5); }
+.fill-energy { background: linear-gradient(90deg, #2a4a8a, #6ea0e8); box-shadow: 0 0 8px rgba(110, 160, 232, 0.45); }
+.bar-num {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f0f0f5;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* buff 行（悬浮组件看名称 + 效果） */
+.buff-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.buff {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 1.02rem;
+  padding: 2px 5px;
   border-radius: 5px;
-  transition: width 0.4s;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  line-height: 1;
+  cursor: help;
+  transition: border-color 0.12s ease, background 0.12s ease;
 }
-.hp-fill { background: linear-gradient(90deg, #30a050, #50d878); }
-.energy-fill { background: linear-gradient(90deg, #3050a0, #5078d0); }
-.battle-bar-val {
-  font-size: 0.78rem;
-  font-weight: bold;
-  width: 32px;
-  flex-shrink: 0;
-  text-align: left;
+.buff:hover { background: rgba(0, 0, 0, 0.75); border-color: rgba(255, 210, 74, 0.6); }
+.buff em { font-style: normal; font-size: 0.62rem; color: #ffd24a; }
+
+/* buff 悬浮组件（fixed，脱离战斗框 overflow:hidden） */
+.buff-tooltip {
+  position: fixed;
+  z-index: 9999;
+  padding: 7px 10px;
+  background: rgba(15, 15, 22, 0.97);
+  border: 1px solid rgba(255, 210, 74, 0.5);
+  border-radius: 7px;
+  font-size: 0.74rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: #e8e2d0;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
 }
-.hp-val { color: #50d878; }
-.energy-val { color: #5078d0; }
-.battle-desc {
-  color: #7a7a8a;
-  font-size: 0.78rem;
-  margin-top: 6px;
-  max-width: 200px;
+.buff-tooltip .bt-name { color: #ffd24a; font-weight: 700; }
+.buff-tooltip .bt-stack { color: #ffd24a; }
+.buff-tooltip .bt-dur { color: #9fb4e0; }
+
+/* 受击：整舞台立体抖动 + 背景红闪 */
+.fighter.hurt { animation: hurtShake 0.42s ease; }
+.fighter.hurt .fighter-bg { filter: brightness(1.5) sepia(0.6) hue-rotate(-25deg) saturate(2.2); }
+@keyframes hurtShake {
+  0%   { transform: translate(0, 0) rotate(0) scale(1); }
+  15%  { transform: translate(-10px, 3px) rotate(-4deg) scale(1.02); }
+  30%  { transform: translate(9px, -3px) rotate(4deg) scale(1.02); }
+  45%  { transform: translate(-7px, 2px) rotate(-3deg); }
+  60%  { transform: translate(5px, -2px) rotate(2deg); }
+  75%  { transform: translate(-3px, 1px) rotate(-1deg); }
+  100% { transform: translate(0, 0) rotate(0) scale(1); }
 }
+
+/* 浮动伤害数字 */
+.floaters { position: absolute; inset: 0; pointer-events: none; overflow: visible; z-index: 3; }
+.floater {
+  position: absolute;
+  top: 36%;
+  transform: translateX(-50%);
+  font-weight: 800;
+  font-size: 1.9rem;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9);
+  animation: floatUp 0.95s ease-out forwards;
+  white-space: nowrap;
+}
+.floater.crit { color: #ffd24a; font-size: 2.4rem; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95), 0 0 12px rgba(255, 210, 74, 0.85); }
+.floater.heal { color: #6ee89a; }
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translate(-50%, 16px) scale(0.5); }
+  18%  { opacity: 1; transform: translate(-50%, -10px) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -90px) scale(1); }
+}
+
+/* 名牌（底部左对齐） */
+.fighter-name {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 2;
+  color: #f0f0f5;
+  font-weight: 700;
+  font-size: 1.02rem;
+  text-shadow: 0 1px 4px #000, 0 0 6px rgba(0, 0, 0, 0.8);
+}
+
 .battle-vs {
-  color: #c0a040;
-  font-size: 1.8rem;
-  font-weight: bold;
-  text-shadow: 0 0 12px rgba(240,192,64,0.4);
+  align-self: center;
   flex-shrink: 0;
+  color: var(--gold);
+  font-size: 1.8rem;
+  filter: drop-shadow(0 0 10px rgba(240, 192, 64, 0.55));
 }
+
+
 .battle-actions {
   display: flex;
   gap: 16px;
   justify-content: center;
-  padding: 16px 30px 24px;
-  border-top: 1px solid #1e1e30;
+  align-items: center;
+  padding: 18px 30px 24px;
+  border-top: 1px solid var(--border);
 }
-.battle-btn {
-  padding: 10px 32px;
-  border-radius: 8px;
-  border: 1px solid #3a3a5a;
-  background: #1e1e30;
-  color: #a0a0b0;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.battle-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.battle-btn-attack { border-color: #5078a0; color: #6098d0; }
-.battle-btn-skill { border-color: #9060a0; color: #a080c0; }
-.battle-btn-run { border-color: #906050; color: #c08060; }
-.battle-skill-slots {
-  display: flex;
-  gap: 6px;
-}
+/* battle-btn* → 统一使用 .btn 基类 */
+
+.battle-skill-slots { display: flex; gap: 6px; }
 .battle-skill-slot {
-  width: 72px;
+  width: 78px;
   padding: 8px 6px;
-  background: #12121e;
-  border: 1px solid #2a2a40;
-  border-radius: 6px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  transition: all 0.2s;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
 }
-.battle-skill-slot.filled {
-  border-color: #605080;
-  background: #1a1428;
-  cursor: pointer;
-}
-.battle-skill-slot.filled:hover:not(.skill-disabled) {
-  border-color: #8068a0;
-  background: #221a32;
-}
-.battle-skill-slot.skill-disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.bss-name {
-  color: #c0a0e0;
-  font-size: 0.72rem;
-  font-weight: bold;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 66px;
-}
-.bss-cost {
-  color: #706090;
-  font-size: 0.65rem;
-}
-.bss-empty {
-  color: #3a3a4a;
-  font-size: 0.7rem;
-}
-.battle-loading {
-  text-align: center;
-  padding: 60px 0;
-  color: #6a6a8a;
-  font-size: 1rem;
-}
-.battle-log {
-  max-height: 120px;
-  overflow-y: auto;
-  padding: 10px 30px;
-  border-top: 1px solid #1e1e30;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.battle-log-entry {
-  color: #a0a0b8;
-  font-size: 0.82rem;
-  padding: 4px 0;
-}
+.battle-skill-slot.filled { border-color: rgba(192,160,240,0.5); background: rgba(192,160,240,0.08); cursor: pointer; }
+.battle-skill-slot.filled:hover:not(.skill-disabled) { border-color: var(--purple); background: rgba(192,160,240,0.16); transform: translateY(-1px); }
+.battle-skill-slot.skill-disabled { opacity: 0.4; cursor: not-allowed; }
+.bss-name { color: var(--purple); font-size: 0.74rem; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70px; }
+.bss-cost { color: var(--text-muted); font-size: 0.65rem; }
+.bss-empty { color: var(--text-dim); font-size: 0.7rem; }
+
+.battle-loading { text-align: center; padding: 70px 0; color: var(--text-muted); font-size: 1rem; }
 
 /* ===== 浮动历练卡片 ===== */
 .training-float {

@@ -50,6 +50,7 @@ export function loadDefs(buffs: Buff[], effects: BuffEffect[]): void {
   for (const b of buffs) {
     DEFS.set(b.key, {
       id: b.id, key: b.key, name: b.name, icon: b.icon, type: b.type,
+      description: b.description,
       duration: b.duration, stackRule: b.stack_rule, maxStack: b.max_stack,
       snapshot: !!b.snapshot, priority: b.priority ?? 0,
       tags: parseJson(b.tags, []),
@@ -139,6 +140,25 @@ export function applyBuff(
   };
   target.buffs.push(inst);
   return inst;
+}
+
+/**
+ * 把 buff 描述解析为玩家可见文案。
+ * 描述定义（BuffDef.description）与动态参数（ActiveBuff.params，由技能携带派发）
+ * 均归属引擎层；此处为唯一解析点，服务/前端只透传结果。
+ * 占位符：{key} 原值、{key%} 百分比（0.38→38%）；缺参时百分比回退为"部分"。
+ */
+export function describeBuff(ab: ActiveBuff): string {
+  const def = DEFS.get(ab.key);
+  const tpl = def?.description || '';
+  const params = ab.params;
+  if (!tpl || !tpl.includes('{') || !params) return tpl;
+  return tpl.replace(/\{([^{}]+?)(%?)\}/g, (_m, k: string, pct: string) => {
+    const v = params[k.trim()];
+    if (v == null || v === '') return pct ? '部分' : '';
+    const n = Number(v);
+    return pct ? (Number.isNaN(n) ? String(v) : Math.round(n * 100) + '%') : String(v);
+  });
 }
 
 function tickBuffs(state: BattleState, c: Combatant) {

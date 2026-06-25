@@ -32,7 +32,22 @@ export interface GeneratedLocation {
 export class MapGeneratorService {
   private readonly logger = new Logger(MapGeneratorService.name);
 
+  // 命名 → 语义类型：在生成收口处统一纠正 loc_type（仅作用于 district/空）
+  // 例如 agent 或降级方案把"坊市"产成了 district，这里纠正为 market
+  private static readonly NAME_TYPE_RULES: { match: string; type: string }[] = [
+    { match: '坊市', type: 'market' },
+  ];
+
   constructor(private readonly agentClient: AgentClient) {}
+
+  /** 归一化 loc_type：仅对 district/空 做按名纠正，避免误伤 wild2/scene 等 */
+  private normalizeTypes(items: GeneratedLocation[]): GeneratedLocation[] {
+    return items.map((it) => {
+      if (it.loc_type && it.loc_type !== 'district') return it;
+      const rule = MapGeneratorService.NAME_TYPE_RULES.find((r) => it.name.includes(r.match));
+      return rule ? { ...it, loc_type: rule.type } : it;
+    });
+  }
 
   async generate(input: GenerateInput): Promise<GeneratedLocation[]> {
     const { parent, rule, count, existingNames } = input;
@@ -63,7 +78,7 @@ export class MapGeneratorService {
         seed: parent.seed,
       });
 
-      return data.map((item: any) => ({
+      const items = data.map((item: any) => ({
         name: String(item.name || ''),
         loc_type: String(item.loc_type || 'district'),
         description: String(item.description || ''),
@@ -74,9 +89,10 @@ export class MapGeneratorService {
         seed: String(item.seed || ''),
         common_mobs: Array.isArray(item.common_mobs) ? item.common_mobs : null,
       }));
+      return this.normalizeTypes(items);
     } catch (err) {
       this.logger.error(`Agent 生成失败: ${(err as Error).message}，使用降级方案`);
-      return this.fallbackGenerate(parent, count);
+      return this.normalizeTypes(this.fallbackGenerate(parent, count));
     }
   }
 

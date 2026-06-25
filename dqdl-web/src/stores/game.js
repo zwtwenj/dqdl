@@ -21,6 +21,9 @@ export const useGameStore = defineStore('game', () => {
   const trainingEvents = ref([])
   const trainingInterval = ref(0)
 
+  // ── 突破结果弹框（由玩家点击任意区域关闭）──
+  const breakthroughResult = ref(null)
+
   // ── 存档 ──
   function hasSave() {
     try { return !!JSON.parse(localStorage.getItem(SAVE_KEY))?.playerId }
@@ -186,17 +189,20 @@ export const useGameStore = defineStore('game', () => {
     try {
       const d = await playerStore.breakthrough()
       cultivationLog.value.unshift({ text: d.narrative, gained: d.gained, critical: d.success, capped: !d.success })
-      alert(d.narrative)
+      breakthroughResult.value = { text: d.narrative, success: !!d.success }
     } catch (err) {
       cultivationLog.value.unshift({ text: '突破失败: ' + (err.response?.data?.message || err.message), gained: 0, critical: false, capped: false })
+      breakthroughResult.value = { text: '突破失败：' + (err.response?.data?.message || err.message), success: false }
     }
   }
+  function clearBreakthrough() { breakthroughResult.value = null }
 
   return {
     started, trainingLog, trainingLoading, cultivationLog,
     trainingMode, trainingEvents, trainingInterval,
+    breakthroughResult,
     hasSave, writeSave, clearSave, loadSave,
     newGame, continueGame, doTrainingEvent, doCultivate, doBreakthrough,
-    startAutoTraining, stopAutoTraining,
+    clearBreakthrough, startAutoTraining, stopAutoTraining,
   }
 })

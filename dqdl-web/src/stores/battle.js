@@ -7,6 +7,7 @@ export const useBattleStore = defineStore('battle', () => {
   const showBattle = ref(false)
   const battleLoading = ref(false)
   const battleOver = ref(false)
+  const battleWinner = ref(null)
   const attacking = ref(false)
 
   const curPlayerHp = ref(0)
@@ -67,6 +68,7 @@ export const useBattleStore = defineStore('battle', () => {
     playerBuffs.value = s.player.buffs || []
     mobBuffs.value = s.mob.buffs || []
     battleOver.value = !!s.over
+    battleWinner.value = s.winner ?? null
   }
 
   /** 从事件日志解析新增的伤害事件 → 浮动数字 + 受击抖动 */
@@ -97,6 +99,7 @@ export const useBattleStore = defineStore('battle', () => {
     showBattle.value = true
     battleLoading.value = true
     battleOver.value = false
+    battleWinner.value = null
     floaters.value = []
     playerBuffs.value = []
     mobBuffs.value = []
@@ -118,6 +121,7 @@ export const useBattleStore = defineStore('battle', () => {
     showBattle.value = false
     mob.value = null
     battleOver.value = false
+    battleWinner.value = null
     equippedSkills.value = []
     floaters.value = []
     playerBuffs.value = []
@@ -156,7 +160,7 @@ export const useBattleStore = defineStore('battle', () => {
   }
 
   return {
-    showBattle, battleLoading, mob, battleOver, attacking,
+    showBattle, battleLoading, mob, battleOver, battleWinner, attacking,
     playerName, playerLevel, playerPower, playerStamina,
     playerHp: curPlayerHp, playerMaxHp, playerEnergy: curPlayerEnergy, playerMaxEnergy,
     mobName, mobLevel, mobRank, mobMaxHp, mobHp: curMobHp,

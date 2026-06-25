@@ -49,6 +49,11 @@ export class AgentClient {
     return this.postJson('/generate/training', body);
   }
 
+  /** 奇遇发现叙事生成 → 返回 { text, ... } */
+  generateEncounter(body: unknown): Promise<{ text?: string } & Record<string, any>> {
+    return this.postJson('/generate/encounter', body);
+  }
+
   /** 突破叙事生成 → 返回 { text, ... } */
   generateBreakthrough(body: unknown): Promise<{ text?: string } & Record<string, any>> {
     return this.postJson('/generate/breakthrough', body);

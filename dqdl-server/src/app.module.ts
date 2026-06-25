@@ -17,6 +17,9 @@ import { BattleModule } from './battle/battle.module';
 import { DungeonModule } from './dungeon/dungeon.module';
 import { AgentModule } from './agent/agent.module';
 import { TrainingModule } from './training/training.module';
+import { EncounterModule } from './encounter/encounter.module';
+import { CultivationModule } from './cultivation/cultivation.module';
+import { RandomEventModule } from './random-event/random-event.module';
 
 @Module({
   imports: [
@@ -49,6 +52,9 @@ import { TrainingModule } from './training/training.module';
     DungeonModule,
     AgentModule,
     TrainingModule,
+    EncounterModule,
+    CultivationModule,
+    RandomEventModule,
   ],
   controllers: [AppController],
   providers: [AppService],

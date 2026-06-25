@@ -146,6 +146,7 @@ async function seed() {
 【严格约束】
 - 至少包含1个功能性区域（可交易/接任务/修炼）
 - 区域类型必须与父节点匹配
+- 坊市/交易场所的 loc_type 必须设为 "market"，其余城市内部区域用 "district"
 - {forbidden}
 - 如果父节点是野外类型，loc_type必须设为"wild2"，danger_level继承父节点（1-3）
 - 非野外区域danger_level设为0

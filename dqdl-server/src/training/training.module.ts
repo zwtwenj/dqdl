@@ -10,6 +10,7 @@ import { ItemModule } from '../item/item.module';
 import { TaskModule } from '../task/task.module';
 import { SkillModule } from '../skill/skill.module';
 import { BattleModule } from '../battle/battle.module';
+import { EncounterModule } from '../encounter/encounter.module';
 
 /**
  * 历练模块（阶段 1.3 从 location/ 提升）。
@@ -28,6 +29,7 @@ import { BattleModule } from '../battle/battle.module';
     TaskModule,
     SkillModule,
     BattleModule,
+    EncounterModule,
   ],
   controllers: [TrainingController],
   providers: [TrainingService],

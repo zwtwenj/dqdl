@@ -4,34 +4,36 @@ import { usePlayerStore } from '../stores/player'
 import { useMapStore } from '../stores/map'
 import { useBackpackStore } from '../stores/backpack'
 import { useTaskStore } from '../stores/task'
+import { useEncounterStore } from '../stores/encounter'
+import { Message } from '../utils/message'
 
 /**
  * 自动历练的 SSE 会话编排（阶段 2.2 从 game store 抽出）。
  *
- * 原本 game.js 持有模块级 trainingSSE 单例并直接改写 backpack/task store，
- * 既不可测试又把"网络连接生命周期"耦合进状态容器。
- * 这里把 SSE 的建立/事件解析/关闭集中到一处，store 只保留可见状态。
+ * 把 SSE 的建立/事件解析/关闭集中到一处，store 只保留可见状态。
+ * 断线（onerror）自动重连：最多 MAX_RETRY 次，每次间隔 RETRY_DELAY；
+ * 收到任意数据即重置重试计数；超过次数才真正停止历练。
  */
 let trainingSSE = null
+let trainingCtx = null        // { pid, lid }
+let trainingRetry = 0
+let trainingRetryTimer = null
 
-export function startAutoTraining() {
+const MAX_RETRY = 5
+const RETRY_DELAY = 3000
+
+function closeStream() {
+  if (trainingSSE) { trainingSSE.close(); trainingSSE = null }
+}
+
+function openStream() {
   const game = useGameStore()
-  const player = usePlayerStore()
-  const map = useMapStore()
   const backpack = useBackpackStore()
   const task = useTaskStore()
+  const encounter = useEncounterStore()
+  const { pid, lid } = trainingCtx
 
-  const pid = player.playerId
-  const lid = map.currentLocation?.id
-  if (!pid || !lid) return
-
-  game.trainingMode = true
-  game.trainingEvents = []
-  game.trainingLoading = true
-  setPlayerStatus(pid, 2).catch(() => {})
-
-  const url = trainingStreamUrl(pid, lid)
-  trainingSSE = new EventSource(url)
+  trainingSSE = new EventSource(trainingStreamUrl(pid, lid))
 
   trainingSSE.addEventListener('init', (e) => {
     try {
@@ -41,14 +43,20 @@ export function startAutoTraining() {
   })
 
   trainingSSE.onmessage = (e) => {
+    trainingRetry = 0 // 收到数据，重置重试计数
     try {
       const data = JSON.parse(e.data)
       game.trainingEvents = [data, ...game.trainingEvents]
       if (data.drops?.length > 0) backpack.fetch()
       if (data.task_updates?.length > 0) task.fetch()
+      if (data.encounter) {
+        Message.success('✨ 发现奇遇：' + data.encounter.description)
+        encounter.fetch()
+      }
     } catch { /* ignore */ }
   }
 
+  // 后端主动推送的业务错误（单个历练事件失败），仅记录，不重连
   trainingSSE.addEventListener('error', (e) => {
     try {
       const data = JSON.parse(e.data)
@@ -60,10 +68,42 @@ export function startAutoTraining() {
     stopAutoTraining()
   })
 
+  // 网络层错误：断线自动重连
   trainingSSE.onerror = () => {
-    game.trainingEvents = [{ text: '与历练之地的感应中断了...', mob: null, battle: null, drops: [], task_updates: [] }, ...game.trainingEvents]
-    stopAutoTraining()
+    closeStream()
+    if (trainingRetry < MAX_RETRY) {
+      trainingRetry += 1
+      game.trainingEvents = [
+        { text: `感应中断，${RETRY_DELAY / 1000}秒后重连（第${trainingRetry}/${MAX_RETRY}次）...`, mob: null, battle: null, drops: [], task_updates: [] },
+        ...game.trainingEvents,
+      ]
+      trainingRetryTimer = setTimeout(openStream, RETRY_DELAY)
+    } else {
+      game.trainingEvents = [{ text: '与历练之地的感应彻底中断，已停止历练。', mob: null, battle: null, drops: [], task_updates: [] }, ...game.trainingEvents]
+      stopAutoTraining()
+    }
   }
+}
+
+export function startAutoTraining() {
+  const game = useGameStore()
+  const player = usePlayerStore()
+  const map = useMapStore()
+
+  const pid = player.playerId
+  const lid = map.currentLocation?.id
+  if (!pid || !lid) return
+  // 互斥：副本/修炼中（status 3/4）不允许开始历练
+  if (player.data?.status && player.data.status !== 1) return
+
+  game.trainingMode = true
+  game.trainingEvents = []
+  game.trainingLoading = true
+  setPlayerStatus(pid, 2).catch(() => {})
+
+  trainingCtx = { pid, lid }
+  trainingRetry = 0
+  openStream()
 
   game.trainingLoading = false
 }
@@ -72,13 +112,12 @@ export function stopAutoTraining() {
   const game = useGameStore()
   const player = usePlayerStore()
 
+  if (trainingRetryTimer) { clearTimeout(trainingRetryTimer); trainingRetryTimer = null }
+  closeStream()
+
   game.trainingMode = false
   game.trainingLoading = false
   setPlayerStatus(player.playerId, 1).catch(() => {})
-  if (trainingSSE) {
-    trainingSSE.close()
-    trainingSSE = null
-  }
 }
 
 export function isAutoTraining() {

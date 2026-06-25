@@ -10,6 +10,7 @@ import { TaskService } from '../task/task.service';
 import { SkillService } from '../skill/skill.service';
 import { AgentClient } from '../agent/agent.client';
 import { BattleService } from '../battle/battle.service';
+import { EncounterService } from '../encounter/encounter.service';
 
 interface PlayerSkillEntry {
   id: number;
@@ -55,18 +56,20 @@ export interface TaskProgressUpdate {
 
 export interface TrainingEvent {
   text: string;
-  mob: { mob_id: string; name: string };
+  mob: { mob_id: string; name: string } | null;
   battle: {
     win_rate: number;
     rounds: number;
     style: string;
     player_total: number;
     mob_total: number;
-  };
-  won: boolean;
+  } | null;
+  won: boolean | null;
   drops: DropResult[];
   task_updates: TaskProgressUpdate[];
   timestamp: string;
+  /** 本次历练触发的奇遇（10% 概率，可能为 null） */
+  encounter?: { id: number; kind: string; title: string; description: string; scene_type: string; star: number | null } | null;
 }
 
 /**
@@ -93,6 +96,7 @@ export class TrainingService {
     private skillService: SkillService,
     private agentClient: AgentClient,
     private battleService: BattleService,
+    private readonly encounterService: EncounterService,
   ) {
     this.trainingInterval = config.get<number>('TRAINING_INTERVAL', 180000);
     this.trainingMaxDuration = config.get<number>('TRAINING_MAX_DURATION', 10800000);
@@ -158,6 +162,41 @@ export class TrainingService {
     const location = await this.locationService.findOne(locationId);
     if (!location) throw new Error('地点不存在');
 
+    const timestamp = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+    const techniqueName = player.technique?.name ?? '无';
+
+    // 非门：先尝试触发奇遇，成功则本次为奇遇事件（不遇怪物），否则为怪物事件
+    let encounterEntry: any = null;
+    try {
+      encounterEntry = await this.encounterService.tryGenerate(playerId);
+    } catch { /* ignore */ }
+    if (encounterEntry) {
+      let etext = encounterEntry.description;
+      try {
+        const ed = await this.agentClient.generateEncounter({
+          player: { name: player.name, technique_name: techniqueName },
+          location: { name: location.name, description: location.description },
+          encounter: {
+            kind: encounterEntry.kind, title: encounterEntry.title,
+            scene_type: encounterEntry.scene_type, star: encounterEntry.star,
+            description: encounterEntry.description,
+          },
+        });
+        etext = ed.text || encounterEntry.description;
+      } catch { /* fallback 用模板描述 */ }
+      return {
+        text: etext,
+        mob: null, battle: null, won: null,
+        drops: [], task_updates: [],
+        timestamp,
+        encounter: {
+          id: encounterEntry.id, kind: encounterEntry.kind, title: encounterEntry.title,
+          description: encounterEntry.description, scene_type: encounterEntry.scene_type,
+          star: encounterEntry.star,
+        },
+      };
+    }
+
     // 3. 从地点 common_mobs 随机选一只魔兽
     let mobId: string | null = null;
     if (location.common_mobs) {
@@ -195,7 +234,6 @@ export class TrainingService {
       : [];
 
     // 7. 调 agent 生成叙事文本（胜利/失败都调用）
-    const techniqueName = player.technique?.name ?? '无';
     const equippedSkills = await this.parseEquippedSkills(player.skill);
     const data = await this.agentClient.generateTraining({
       player: { name: player.name, technique_name: techniqueName, equipped_skills: equippedSkills },
@@ -208,14 +246,13 @@ export class TrainingService {
 
     const text = data.text || `你遭遇了一只${mob.name}。`;
 
-    const timestamp = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
-
     return { text, mob: { mob_id: mob.mob_id, name: mob.name || '' },
       battle: { win_rate: winRate, rounds, style, player_total: playerTotal, mob_total: mobTotal },
       won,
       drops,
       task_updates,
       timestamp,
+      encounter: null,
     };
   }
 }

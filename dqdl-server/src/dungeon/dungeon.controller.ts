@@ -5,10 +5,14 @@ import { DungeonService } from './dungeon.service';
 export class DungeonController {
   constructor(private readonly dungeonService: DungeonService) {}
 
-  /** 进入/生成副本 */
+  /** 进入/生成副本（可由奇遇进入，传 encounterId） */
   @Post('enter')
-  enter(@Query('playerId', ParseIntPipe) playerId: number) {
-    return this.dungeonService.enter(playerId);
+  enter(
+    @Query('playerId', ParseIntPipe) playerId: number,
+    @Query('encounterId') encounterId?: string,
+  ) {
+    const eid = encounterId ? Number(encounterId) : NaN;
+    return this.dungeonService.enter(playerId, Number.isFinite(eid) ? eid : undefined);
   }
 
   /** 获取当前进行中的副本状态 */
@@ -44,5 +48,17 @@ export class DungeonController {
   @Post('escape')
   escape(@Query('playerId', ParseIntPipe) playerId: number) {
     return this.dungeonService.escape(playerId);
+  }
+
+  /** 战斗失败：放弃副本 */
+  @Post('fail')
+  fail(@Query('playerId', ParseIntPipe) playerId: number) {
+    return this.dungeonService.fail(playerId);
+  }
+
+  /** 战斗胜利掉落：掉落进副本临时背包 */
+  @Post('loot')
+  loot(@Query('playerId', ParseIntPipe) playerId: number) {
+    return this.dungeonService.loot(playerId);
   }
 }

@@ -1,6 +1,7 @@
 <template>
   <div class="dq-overlay" @click.self="close">
     <div class="dq-box">
+      <button class="dq-leave" @click="confirmLeave" :disabled="acting || dungeonBattling">退出副本</button>
       <button class="dq-close" @click="close">&times;</button>
 
       <div v-if="loading" class="dq-center">
@@ -33,13 +34,19 @@
                   <span class="dq-act-tag">{{ actTypeLabel(activeAct.type) }}</span>
                 </div>
                 <p class="dq-narrative">{{ activeAct.narrative }}</p>
+                <div v-if="isCombatAct && !actCleared" class="dq-foe">
+                  <span class="dq-foe-icon">⚔</span>
+                  <span class="dq-foe-name">{{ activeAct.mob.name }}</span>
+                  <span class="dq-foe-lv">{{ mobRankLabel(activeAct.mob.level) }} · Lv.{{ activeAct.mob.level }}</span>
+                </div>
+                <div v-else-if="isCombatAct && actCleared" class="dq-reveal">✦ 已击败 {{ activeAct.mob.name }}</div>
                 <div v-if="activeAct.reveal" class="dq-reveal">✦ {{ activeAct.reveal }}</div>
               </div>
             </div>
 
             <div class="dq-flow-foot">
               <div v-if="isCompleted" class="dq-settle">
-                <div class="dq-settle-text">{{ status === 'completed' ? '秘境通关，机缘已得' : '你已撤出秘境，此行收获尽失' }}</div>
+                <div class="dq-settle-text">{{ settleText }}</div>
                 <button class="dq-btn primary" @click="close">离去</button>
               </div>
 
@@ -47,6 +54,9 @@
                 <template v-if="activeAct && activeAct.type === 'item'">
                   <button class="dq-btn primary" :disabled="acting || activeAct.picked" @click="pick">拾取</button>
                   <button class="dq-btn" :disabled="acting" @click="next">前进</button>
+                </template>
+                <template v-else-if="isCombatAct && !actCleared">
+                  <button class="dq-btn primary" :disabled="acting" @click="startCombat">战斗</button>
                 </template>
                 <button v-else class="dq-btn primary" :disabled="acting" @click="next">
                   {{ isLastAct ? '通关结算' : '前进' }}
@@ -70,11 +80,11 @@
                   <span class="dq-role-lv">{{ levelName(player?.level || 1) }}</span>
                 </div>
                 <div class="attr-vital">
-                  <div class="vital-item">
+                  <div class="vital-item is-hp">
                     <span class="vital-label">生命</span>
                     <span class="vital-val">{{ player?.hp ?? 0 }} / {{ player?.final_attrs?.max_hp ?? player?.max_hp ?? 100 }}</span>
                   </div>
-                  <div class="vital-item">
+                  <div class="vital-item is-energy">
                     <span class="vital-label">斗气</span>
                     <span class="vital-val">{{ player?.energy ?? 0 }} / {{ player?.final_attrs?.max_energy ?? player?.max_energy ?? 100 }}</span>
                   </div>
@@ -141,16 +151,22 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDungeonStore } from '../stores/dungeon'
+import { useBattleStore } from '../stores/battle'
+import { useEncounterStore } from '../stores/encounter'
 import { usePlayerStore } from '../stores/player'
 import { useBackpackStore } from '../stores/backpack'
 import { attrLabels, baseAttrKeys, levelName } from '../game/constants'
 
 const dungeonStore = useDungeonStore()
+const battleStore = useBattleStore()
+const encounterStore = useEncounterStore()
 const playerStore = usePlayerStore()
 const backpackStore = useBackpackStore()
+
+const { battleOver: battleDone, battleWinner } = storeToRefs(battleStore)
 
 const { data: player } = storeToRefs(playerStore)
 const { items: backpackItems } = storeToRefs(backpackStore)
@@ -161,7 +177,69 @@ const {
 } = storeToRefs(dungeonStore)
 
 // 直接解构 action（Pinia 自动绑定 this）
-const { next, pick, useTemp, close } = dungeonStore
+const { next, pick, useTemp, fail, loot, escape, close } = dungeonStore
+
+// ===== 副本内战斗（复用全局 battleStore） =====
+const clearedActs = ref(new Set())
+const dungeonBattling = ref(false)
+const isCombatAct = computed(() => {
+  const a = activeAct.value
+  return !!(a && (a.type === 'combat' || a.type === 'boss') && a.mob)
+})
+const actCleared = computed(() => isCombatAct.value && (clearedActs.value.has(currentAct.value) || activeAct.value?.looted))
+const settleText = computed(() => {
+  if (status.value === 'completed') return '秘境通关，机缘已得'
+  if (status.value === 'failed') return '挑战失败，黯然退出'
+  return '你已撤出秘境，此行收获尽失'
+})
+// 副本切换时清空已通关战斗记录
+watch(() => instance.value?.id, () => { clearedActs.value = new Set() })
+
+function startCombat() {
+  if (acting.value) return
+  const mobId = activeAct.value?.mob?.mob_id
+  if (!mobId) return
+  dungeonBattling.value = true
+  battleStore.open(mobId)
+}
+// 退出副本（放弃，丢失全部临时背包），二次确认
+function confirmLeave() {
+  if (acting.value || dungeonBattling.value) return
+  if (isCompleted.value) { close(); return }
+  if (window.confirm('强行退出副本将会失去当前副本中所有掉落，是否确定？')) {
+    leaveDungeon()
+  }
+}
+async function leaveDungeon() {
+  await escape()
+  close()
+}
+// 战斗结束：胜利→掉落+标记可前进；失败/逃跑→放弃副本
+watch(() => battleStore.battleOver, async (done) => {
+  if (!done || !dungeonBattling.value) return
+  dungeonBattling.value = false
+  if (battleWinner.value === 'player') {
+    const s = new Set(clearedActs.value)
+    s.add(currentAct.value)
+    clearedActs.value = s
+    loot()
+    setTimeout(() => battleStore.close(), 1500)
+  } else {
+    setTimeout(() => { battleStore.close(); fail() }, 1500)
+  }
+})
+// 副本进入终态（通关/放弃/失败）时刷新奇遇列表（entered→done 自动移除）
+watch(status, (s) => {
+  if (s === 'completed' || s === 'escaped' || s === 'failed') {
+    encounterStore.fetch().catch(() => {})
+  }
+})
+function mobRankLabel(lv) {
+  if (lv <= 9) return '一阶'
+  if (lv <= 19) return '二阶'
+  if (lv <= 29) return '三阶'
+  return '四阶'
+}
 
 const tab = ref('role')
 function openPack() {
@@ -198,7 +276,7 @@ function actTypeLabel(t) {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: 2050;
 }
 
 .dq-box {
@@ -231,6 +309,24 @@ function actTypeLabel(t) {
   transition: all 0.2s;
 }
 .dq-close:hover { background: #2a1f12; color: #f0d8a0; }
+
+.dq-leave {
+  position: absolute;
+  top: 12px;
+  right: 52px;
+  z-index: 5;
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  letter-spacing: 2px;
+  color: #c9a86a;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #5a3a2a;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.dq-leave:hover:not(:disabled) { background: #2a1410; color: #f0b0a0; border-color: #8a4030; }
+.dq-leave:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .dq-center {
   flex: 1;
@@ -388,6 +484,23 @@ function actTypeLabel(t) {
   border-left: 3px solid #d4af6a;
   border-radius: 4px;
 }
+
+.dq-foe {
+  margin-top: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: #e0a0a0;
+  background: linear-gradient(90deg, rgba(60, 20, 20, 0.45), rgba(20, 8, 8, 0.2));
+  border: 1px solid #6a2030;
+  border-left: 3px solid #c0405a;
+  border-radius: 4px;
+}
+.dq-foe-icon { color: #c0405a; font-size: 1rem; }
+.dq-foe-name { color: #f0c0c0; letter-spacing: 1px; }
+.dq-foe-lv { margin-left: auto; color: #b08888; font-size: 0.8rem; }
 
 .dq-settle { text-align: center; padding: 0; }
 .dq-settle-text {

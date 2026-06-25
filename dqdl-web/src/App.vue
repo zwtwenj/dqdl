@@ -32,6 +32,10 @@
         </button>
         <button class="btn btn--sm btn--primary" @click="showRole = true">角色</button>
         <button class="btn btn--sm btn--warning" @click="showSkillPanel = true">斗技</button>
+        <button class="btn btn--sm btn--info" @click="encounterStore.open">
+          奇遇
+          <span v-if="encounterStore.list.length" class="badge task-badge">{{ encounterStore.list.length }}</span>
+        </button>
       </div>
     </div>
 
@@ -90,11 +94,8 @@
 
       <!-- 行动栏（仅野外） -->
       <div class="loc-actions" v-if="['wild','wild2','wild3'].includes(currentLocation.loc_type)">
-        <button class="btn btn--success" @click="startAutoTraining" :disabled="trainingMode">
-          {{ trainingMode ? '历练中...' : '开始历练' }}
-        </button>
-        <button class="btn btn--danger" @click="openBattle" :disabled="trainingMode">战斗</button>
-        <button class="btn btn--warning" @click="openDungeon" :disabled="trainingMode">副本</button>
+        <button class="btn btn--danger" @click="openBattle" :disabled="trainingMode || player?.status !== 1">战斗</button>
+        <button class="btn btn--warning" @click="openDungeon" :disabled="trainingMode || player?.status !== 1">副本</button>
       </div>
     </div>
 
@@ -339,16 +340,18 @@
     <!-- 斗技面板（独立组件） -->
     <SkillPanel v-if="showSkillPanel" @close="showSkillPanel = false" />
 
-    <!-- 浮动历练卡片 -->
-    <div v-if="trainingMode" class="training-float">
-      <div class="training-float-header">
-        <span class="training-float-title">⚔ 历练中</span>
-        <button class="training-float-stop" @click="stopAutoTraining">停止历练</button>
+    <!-- 浮动历练卡片（野外常显：未历练可开始，历练中可停止） -->
+    <div v-if="isWild" class="training-float">
+      <div class="training-float-header" @click="logCollapsed = !logCollapsed">
+        <span class="training-float-title">⚔ 历练</span>
+        <button v-if="!trainingMode" class="training-float-stop start" :disabled="player?.status !== 1" @click.stop="startAutoTraining">开始历练</button>
+        <button v-else class="training-float-stop" @click.stop="stopAutoTraining">停止历练</button>
+        <span class="training-float-toggle">{{ logCollapsed ? '▸' : '▾' }}</span>
       </div>
-      <div class="training-float-body">
+      <div v-if="!logCollapsed" class="training-float-body">
         <div class="training-float-empty" v-if="!trainingEvents.length">
-          <div class="spinner-sm"></div>
-          <span>探寻魔兽中...</span>
+          <div v-if="trainingMode" class="spinner-sm"></div>
+          <span>{{ trainingMode ? '探寻魔兽中...' : '点击「开始历练」探寻魔兽踪迹' }}</span>
         </div>
         <div
           v-for="(evt, idx) in trainingEvents"
@@ -370,6 +373,9 @@
               📋 {{ upd.description.slice(0, 14) }}… {{ upd.current }}/{{ upd.required }}
               <span v-if="upd.done"> ✔</span>
             </span>
+          </div>
+          <div class="float-log-encounter" v-if="evt.encounter">
+            ✨ 发现奇遇 · {{ evt.encounter.title }}<span class="float-enc-scene">（{{ evt.encounter.scene_type }}）</span>
           </div>
           <span class="float-log-meta" v-if="evt.battle">
             {{ evt.timestamp }}&nbsp;·&nbsp;{{ evt.mob?.name }}&nbsp;·&nbsp;{{ evt.won === false ? '逃跑' : evt.battle?.style }}&nbsp;·&nbsp;胜率{{ evt.battle?.win_rate }}%
@@ -468,11 +474,22 @@
           <button class="btn btn--ghost" :disabled="attacking" @click="battleFlee">逃跑</button>
         </div>
         <div class="battle-loading" v-if="battleLoading">加载中...</div>
+
+        <!-- 战斗结果横幅 -->
+        <div v-if="battleOver" class="battle-result" :class="battleWinner === 'player' ? 'is-win' : 'is-lose'">
+          <div class="battle-result-text">{{ battleWinner === 'player' ? '胜 利' : '挑 战 失 败' }}</div>
+        </div>
       </div>
     </div>
 
     <!-- 副本界面（独立组件） -->
     <DungeonPanel v-if="showDungeon" />
+
+    <!-- 奇遇界面（独立组件） -->
+    <EncounterPanel v-if="encounterStore.show" />
+
+    <!-- 洞天福地修炼界面（独立组件） -->
+    <CultivationPanel v-if="cultivationStore.show" />
 
     <!-- buff 悬浮组件（fixed + Teleport，脱离战斗框 overflow:hidden） -->
     <Teleport to="body">
@@ -497,7 +514,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from './stores/player'
 import { useMapStore } from './stores/map'
@@ -507,7 +524,11 @@ import { useTaskStore } from './stores/task'
 import { useGameStore } from './stores/game'
 import { useBattleStore } from './stores/battle'
 import { useDungeonStore } from './stores/dungeon'
+import { useEncounterStore } from './stores/encounter'
+import { useCultivationStore } from './stores/cultivation'
 import DungeonPanel from './components/DungeonPanel.vue'
+import EncounterPanel from './components/EncounterPanel.vue'
+import CultivationPanel from './components/CultivationPanel.vue'
 import RolePanel from './components/RolePanel.vue'
 import TaskPanel from './components/TaskPanel.vue'
 import SkillPanel from './components/SkillPanel.vue'
@@ -522,6 +543,8 @@ const taskStore = useTaskStore()
 const gameStore = useGameStore()
 const battleStore = useBattleStore()
 const dungeonStore = useDungeonStore()
+const encounterStore = useEncounterStore()
+const cultivationStore = useCultivationStore()
 
 const { data: player } = storeToRefs(playerStore)
 const { loading: playerLoading, loadingText: playerLoadingText } = storeToRefs(playerStore)
@@ -530,10 +553,15 @@ const { npc: dialogNpc, history: dialogHistory, loading: dialogLoading } = store
 const { items: backpackItems, showPanel: showBackpack, showTrade, tradeSelling, usingItem } = storeToRefs(backpackStore)
 const { list: tasks, loading: taskLoading } = storeToRefs(taskStore)
 const { started: gameStarted, trainingLog, cultivationLog, trainingLoading, trainingMode, trainingEvents } = storeToRefs(gameStore)
-const { showBattle, battleLoading, mob, playerName: battlePlayerName, playerLevel: battlePlayerLevel, playerHp: battlePlayerHp, playerMaxHp, playerEnergy: battlePlayerEnergy, playerMaxEnergy, mobName: battleMobName, mobLevel: battleMobLevel, mobRank: battleMobRank, mobMaxHp, mobHp: battleMobHp, equippedSkills, battleOver, attacking, playerBuffs: battlePlayerBuffs, mobBuffs: battleMobBuffs, playerHurt: battlePlayerHurt, mobHurt: battleMobHurt, playerFloaters: battlePlayerFloaters, mobFloaters: battleMobFloaters } = storeToRefs(battleStore)
+const { showBattle, battleLoading, mob, playerName: battlePlayerName, playerLevel: battlePlayerLevel, playerHp: battlePlayerHp, playerMaxHp, playerEnergy: battlePlayerEnergy, playerMaxEnergy, mobName: battleMobName, mobLevel: battleMobLevel, mobRank: battleMobRank, mobMaxHp, mobHp: battleMobHp, equippedSkills, battleOver, attacking, playerBuffs: battlePlayerBuffs, mobBuffs: battleMobBuffs, playerHurt: battlePlayerHurt, mobHurt: battleMobHurt, playerFloaters: battlePlayerFloaters, mobFloaters: battleMobFloaters, battleWinner } = storeToRefs(battleStore)
 const { showDungeon } = storeToRefs(dungeonStore)
 
+// 游戏开始后预加载奇遇列表（让按钮角标显示已有数量）
+watch(gameStarted, (v) => { if (v) encounterStore.fetch() })
+
 const loading = computed(() => playerStore.loading || playerLoading.value || mapLoading.value)
+const isWild = computed(() => ['wild', 'wild2', 'wild3'].includes(currentLocation.value?.loc_type))
+const logCollapsed = ref(false)
 const loadingText = computed(() => mapLoadingText.value || playerLoadingText.value)
 const hasSave = computed(() => gameStore.hasSave())
 
@@ -1363,6 +1391,13 @@ function typeClass(type) {
   font-weight: bold;
   font-size: 1.05rem;
 }
+/* 生命/斗气配色：生命红、斗气蓝，左侧色条更显眼 */
+.vital-item.is-hp { border-left: 3px solid #d9404a; }
+.vital-item.is-hp .vital-label { color: #e0505a; }
+.vital-item.is-hp .vital-val { color: #ff5a66; }
+.vital-item.is-energy { border-left: 3px solid #3a86e0; }
+.vital-item.is-energy .vital-label { color: #5aa0ff; }
+.vital-item.is-energy .vital-val { color: #66b2ff; }
 
 /* 属性行 */
 .attr-row {
@@ -2161,7 +2196,7 @@ function typeClass(type) {
 .battle-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: 2100;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2414,6 +2449,27 @@ function typeClass(type) {
 
 .battle-loading { text-align: center; padding: 70px 0; color: var(--text-muted); font-size: 1rem; }
 
+/* 战斗结果横幅（fixed 全屏，不依赖父容器定位） */
+.battle-result {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2150;
+  animation: br-in 0.3s ease;
+}
+@keyframes br-in { from { opacity: 0; transform: scale(1.1); } to { opacity: 1; transform: scale(1); } }
+.battle-result-text {
+  font-size: 3.2rem;
+  letter-spacing: 14px;
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  text-shadow: 0 0 24px currentColor;
+}
+.battle-result.is-win .battle-result-text { color: #f0c040; }
+.battle-result.is-lose .battle-result-text { color: #c05060; }
+
 /* ===== 浮动历练卡片 ===== */
 .training-float {
   position: fixed;
@@ -2443,6 +2499,13 @@ function typeClass(type) {
   font-weight: bold;
   font-size: 0.95rem;
 }
+.training-float-toggle {
+  margin-left: auto;
+  color: #8a7a4a;
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
 .training-float-stop {
   background: #3a2020;
   border: 1px solid #6a3030;
@@ -2456,6 +2519,15 @@ function typeClass(type) {
 .training-float-stop:hover {
   background: #5a2828;
   border-color: #8a4040;
+}
+.training-float-stop.start {
+  background: #1e3a2e;
+  border-color: #2e5a44;
+  color: #6fbf8a;
+}
+.training-float-stop.start:hover {
+  background: #264a38;
+  border-color: #3e7a64;
 }
 .training-float-body {
   flex: 1;
@@ -2531,4 +2603,14 @@ function typeClass(type) {
   color: #6a6a8a;
   font-size: 0.74rem;
 }
+.float-log-encounter {
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  color: #6fbfa8;
+  background: rgba(30, 74, 62, 0.3);
+  border-left: 2px solid #6fbfa8;
+  border-radius: 3px;
+}
+.float-enc-scene { color: #5a8a7a; font-size: 0.72rem; }
 </style>

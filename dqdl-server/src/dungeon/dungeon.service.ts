@@ -9,6 +9,7 @@ import { MobService } from '../mob/mob.service';
 import { ItemService } from '../item/item.service';
 import { Mob } from '../mob/mob.entity';
 import { AgentClient } from '../agent/agent.client';
+import { EncounterService } from '../encounter/encounter.service';
 
 const SCENE_POOL = ['山洞', '密林', '山谷', '浅滩'];
 
@@ -44,18 +45,26 @@ export class DungeonService {
     private readonly agentClient: AgentClient,
     private readonly mobService: MobService,
     private readonly itemService: ItemService,
+    private readonly encounterService: EncounterService,
   ) {}
 
   /** 进入副本：生成蓝图并创建实例（旧进行中副本自动标记为放弃） */
-  async enter(playerId: number): Promise<DungeonInstance> {
+  async enter(playerId: number, encounterId?: number): Promise<DungeonInstance> {
     const player = await this.playerService.findOne(playerId);
     if (!player) throw new NotFoundException('玩家不存在');
+    if (player.status !== 1) throw new Error('正在进行别的事物，请完成后再尝试进入');
 
     await this.repo.update({ player_id: playerId, status: 'active' }, { status: 'escaped' });
 
+    // 场景类型：由奇遇进入则消耗奇遇并取其 scene_type，否则随机
+    let sceneType = SCENE_POOL[Math.floor(Math.random() * SCENE_POOL.length)];
+    let encounterRefId: number | null = null;
+    if (encounterId) {
+      const enc = await this.encounterService.consume(encounterId, playerId);
+      if (enc) { sceneType = enc.scene_type; encounterRefId = enc.id; }
+    }
     // 难度锚点：暂时写死 1 星；后续接入地图等阶后，由当前历练地图 danger_level/region 决定
     const difficulty = 1;
-    const sceneType = SCENE_POOL[Math.floor(Math.random() * SCENE_POOL.length)];
     const blueprint = await this.generateBlueprint(sceneType, player.level, difficulty);
 
     const instance = this.repo.create({
@@ -68,8 +77,11 @@ export class DungeonService {
       status: 'active',
       difficulty,
       temp_items: '[]',
+      encounter_id: encounterRefId,
     });
-    return this.enrich(await this.repo.save(instance));
+    const saved = await this.repo.save(instance);
+    await this.playerService.setStatus(playerId, 3);
+    return this.enrich(saved);
   }
 
   /** 获取玩家当前进行中的副本（原始数据，内部用） */
@@ -88,6 +100,8 @@ export class DungeonService {
     if (inst.current_act >= total) {
       inst.status = 'completed';
       await this.flushTempToBackpack(playerId, inst);
+      if (inst.encounter_id) await this.encounterService.markDone(inst.encounter_id, playerId);
+      await this.playerService.setStatus(playerId, 1);
     } else {
       inst.current_act += 1;
     }
@@ -100,6 +114,50 @@ export class DungeonService {
     if (!inst) throw new NotFoundException('没有进行中的副本');
     inst.status = 'escaped';
     inst.temp_items = '[]';
+    await this.repo.save(inst);
+    if (inst.encounter_id) await this.encounterService.markDone(inst.encounter_id, playerId);
+    await this.playerService.setStatus(playerId, 1);
+    return this.enrich(inst);
+  }
+
+  /** 战斗失败：放弃副本，临时背包丢失 */
+  async fail(playerId: number): Promise<any> {
+    const inst = await this.getCurrent(playerId);
+    if (!inst) throw new NotFoundException('没有进行中的副本');
+    inst.status = 'failed';
+    inst.temp_items = '[]';
+    await this.repo.save(inst);
+    if (inst.encounter_id) await this.encounterService.markDone(inst.encounter_id, playerId);
+    await this.playerService.setStatus(playerId, 1);
+    return this.enrich(inst);
+  }
+
+  /** 战斗胜利掉落：按当前幕魔兽数据掷骰掉落，进入副本临时背包（幂等，已掉落则跳过） */
+  async loot(playerId: number): Promise<any> {
+    const inst = await this.getCurrent(playerId);
+    if (!inst) throw new NotFoundException('没有进行中的副本');
+    const acts = Array.isArray(inst.acts) ? inst.acts : [];
+    const act = acts[inst.current_act - 1];
+    if (!act || (act.type !== 'combat' && act.type !== 'boss') || act.looted) {
+      return this.enrich(inst);
+    }
+    const mobId = act.mob?.mob_id;
+    const mob = mobId ? await this.mobService.findByMobId(mobId) : null;
+    const drops = mob ? await this.calcDrops(mob.drops) : [];
+    const temp = parseJson<any[]>(inst.temp_items, []);
+    const lootNames: string[] = [];
+    for (const d of drops) {
+      if (!d || !d.name) continue;
+      const cnt = Number(d.count) || 1;
+      const ex = temp.find((t) => t.name === d.name);
+      if (ex) ex.count += cnt;
+      else temp.push({ name: d.name, count: cnt });
+      lootNames.push(`${d.name} ×${cnt}`);
+    }
+    inst.temp_items = JSON.stringify(temp);
+    act.looted = true;
+    act.lootNames = lootNames;
+    inst.acts = acts;
     return this.enrich(await this.repo.save(inst));
   }
 
@@ -169,6 +227,28 @@ export class DungeonService {
       usableMap = new Map(rows.map((i) => [i.name, !!i.usable]));
     }
     return { ...inst, temp_items: temp.map((t) => ({ ...t, usable: usableMap.get(t.name) || false })) };
+  }
+
+  /** 按 mob.drops 配置掷骰掉落，复用历练的掉落算法（结果进副本临时背包） */
+  private async calcDrops(dropsJson: string | null | undefined): Promise<{ item_id: string; name: string; count: number }[]> {
+    if (!dropsJson) return [];
+    let dropDefs: { item_id: string; name: string; rate: number; min: number; max: number }[];
+    try { dropDefs = JSON.parse(dropsJson); } catch { return []; }
+    if (!Array.isArray(dropDefs) || !dropDefs.length) return [];
+    const ids = [...new Set(dropDefs.map((d) => d.item_id).filter(Boolean))];
+    const items = ids.length ? await this.itemService.findByItemIds(ids) : [];
+    const itemMap = new Map(items.map((it) => [it.item_id, it]));
+    const result: { item_id: string; name: string; count: number }[] = [];
+    for (const d of dropDefs) {
+      if (Math.random() <= (d.rate ?? 0)) {
+        const min = Number(d.min) || 1;
+        const max = Number(d.max) || min;
+        const count = Math.floor(Math.random() * (max - min + 1)) + min;
+        const cleanName = itemMap.get(d.item_id)?.name || d.name;
+        result.push({ item_id: d.item_id, name: cleanName, count });
+      }
+    }
+    return result;
   }
 
   private async generateBlueprint(sceneType: string, playerLevel: number, difficulty: number): Promise<DungeonBlueprint> {

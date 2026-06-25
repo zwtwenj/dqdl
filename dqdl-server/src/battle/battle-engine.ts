@@ -275,7 +275,7 @@ function runAttack(state: BattleState, src: Combatant, tgt: Combatant, skill: Ba
     state.log.push(`${atk.crit ? '⚡暴击！' : ''}${src.name}${skill ? ` 「${skill.name}」` : ''} → ${tgt.name} ${before - tgt.hp} 伤害`);
     state.bus.eventLog.push({ t: 'damage', from: src.name, to: tgt.name, amount: atk.finalDamage, crit: atk.crit });
     checkDeath(state, src, tgt);
-    if (!state.over) { dispatch(state, tgt, 'afterHit', ctxBase); checkDeath(state, src, tgt); }
+    if (!state.over) { dispatch(state, tgt, 'afterHit', ctxBase); checkDeath(state, src, tgt); checkDeath(state, tgt, src); }
     if (!state.over) { dispatch(state, src, 'afterAttack', ctxBase); checkDeath(state, src, tgt); }
   }
   state.bus.depth--;
@@ -286,6 +286,9 @@ export function runTurn(state: BattleState, attacker: Combatant, defender: Comba
   const ctxBase = { source: attacker, target: defender, atk: null as AttackEvent | null, bus: state.bus, log: state.log };
 
   dispatch(state, attacker, 'onTurnStart', ctxBase);
+  // 持续伤害（中毒/流血）可能在 onTurnStart 扣血致死；DoT 由对面施加，winner 归对面
+  checkDeath(state, defender, attacker);
+  if (state.over) return;
   tickBuffs(state, attacker);
 
   if (hasStatus(attacker, 'stun')) { state.log.push(`💫 ${attacker.name} 被眩晕，跳过回合`); return; }
@@ -293,6 +296,8 @@ export function runTurn(state: BattleState, attacker: Combatant, defender: Comba
   runAttack(state, attacker, defender, action.type === 'skill' ? action.skill || null : null);
 
   dispatch(state, attacker, 'onTurnEnd', ctxBase);
+  // onTurnEnd 持续伤害同样可能致死
+  checkDeath(state, defender, attacker);
   reapConsumed(attacker);
   checkDeath(state, attacker, defender);
 }

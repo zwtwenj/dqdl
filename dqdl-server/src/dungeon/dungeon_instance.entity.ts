@@ -28,6 +28,10 @@ export class DungeonInstance {
   @Column({ type: 'int', default: 1, comment: '当前幕(1-5)' })
   current_act: number;
 
+  /** 来源奇遇ID（由奇遇进入时记录，会话结束时回写奇遇状态） */
+  @Column({ type: 'int', nullable: true, comment: '来源奇遇ID' })
+  encounter_id: number | null;
+
   /** 副本临时背包 JSON: [{name, count}]，通关后转入玩家主背包，撤退则丢失 */
   @Column({ type: 'text', default: '[]', comment: '副本临时背包(JSON)' })
   temp_items: string;

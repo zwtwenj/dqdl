@@ -7,6 +7,7 @@ import { PlayerModule } from '../player/player.module';
 import { BackpackModule } from '../backpack/backpack.module';
 import { ItemModule } from '../item/item.module';
 import { MobModule } from '../mob/mob.module';
+import { EncounterModule } from '../encounter/encounter.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { MobModule } from '../mob/mob.module';
     BackpackModule,
     ItemModule,
     MobModule,
+    EncounterModule,
   ],
   controllers: [DungeonController],
   providers: [DungeonService],

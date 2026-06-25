@@ -2,8 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { usePlayerStore } from './player'
 import { useBackpackStore } from './backpack'
-import { enterDungeon, getCurrentDungeon, nextDungeonAct, pickDungeonAct, useDungeonTempItem, escapeDungeon } from '../api'
 import { Message } from '../utils/message'
+import { enterDungeon, getCurrentDungeon, nextDungeonAct, pickDungeonAct, useDungeonTempItem, escapeDungeon, failDungeon, lootDungeon, enterFromEncounter as enterFromEncounterApi } from '../api'
 
 export const useDungeonStore = defineStore('dungeon', () => {
   const showDungeon = ref(false)
@@ -22,7 +22,7 @@ export const useDungeonStore = defineStore('dungeon', () => {
   const status = computed(() => instance.value?.status || 'active')
   const totalActs = computed(() => acts.value.length || 5)
   const isLastAct = computed(() => currentAct.value >= totalActs.value)
-  const isCompleted = computed(() => status.value === 'completed' || status.value === 'escaped')
+  const isCompleted = computed(() => status.value === 'completed' || status.value === 'escaped' || status.value === 'failed')
   const activeAct = computed(() => acts.value[currentAct.value - 1] || null)
   const tempItems = computed(() => instance.value?.temp_items || [])
 
@@ -44,6 +44,38 @@ export const useDungeonStore = defineStore('dungeon', () => {
       } catch (e) {
         instance.value = null
       }
+    }
+    dungeonLoading.value = false
+  }
+
+  /** 从奇遇进入副本（消耗对应奇遇） */
+  async function enterFromEncounter(encounterId) {
+    showDungeon.value = true
+    dungeonLoading.value = true
+    instance.value = null
+    const pid = playerStore.playerId
+    try {
+      const res = await enterFromEncounterApi(pid, encounterId)
+      instance.value = res.data
+    } catch (e) {
+      instance.value = null
+      showDungeon.value = false
+      Message.error(e.response?.data?.message || '秘境凝聚失败，请重试')
+    }
+    dungeonLoading.value = false
+  }
+
+  /** 恢复（最小化后重新打开）：拉取当前进行中的副本 */
+  async function resume() {
+    showDungeon.value = true
+    dungeonLoading.value = true
+    instance.value = null
+    const pid = playerStore.playerId
+    try {
+      const cur = await getCurrentDungeon(pid)
+      instance.value = cur.data
+    } catch {
+      instance.value = null
     }
     dungeonLoading.value = false
   }
@@ -76,6 +108,34 @@ export const useDungeonStore = defineStore('dungeon', () => {
       // ignore
     }
     acting.value = false
+  }
+
+  /** 战斗失败：放弃副本，临时背包丢失 */
+  async function fail() {
+    if (acting.value) return
+    acting.value = true
+    const pid = playerStore.playerId
+    try {
+      const res = await failDungeon(pid)
+      instance.value = res.data
+    } catch (e) {
+      // ignore
+    }
+    acting.value = false
+  }
+
+  /** 战斗胜利掉落：掉落进临时背包，返回更新后的 instance */
+  async function loot() {
+    const pid = playerStore.playerId
+    try {
+      const res = await lootDungeon(pid)
+      instance.value = res.data
+      const act = res.data?.acts?.[res.data.current_act - 1]
+      if (act?.lootNames?.length) Message.success('获得 ' + act.lootNames.join('、'))
+      return res.data
+    } catch (e) {
+      return null
+    }
   }
 
   /** 拾取当前物品幕奖励 */
@@ -118,6 +178,6 @@ export const useDungeonStore = defineStore('dungeon', () => {
     showDungeon, dungeonLoading, acting, instance,
     title, sceneType, difficulty, intro, acts, currentAct, status, totalActs,
     isLastAct, isCompleted, activeAct, tempItems,
-    enter, next, escape, pick, useTemp, close,
+    enter, enterFromEncounter, resume, next, escape, fail, loot, pick, useTemp, close,
   }
 })

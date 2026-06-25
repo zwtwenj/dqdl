@@ -4,18 +4,10 @@
  */
 import { DataSource } from 'typeorm';
 import { RandomEvent } from './random-event.entity';
+import { dbOptions } from '../db.config';
 
 async function seed() {
-  const ds = new DataSource({
-    type: 'mysql',
-    host: 'os.environ.get("DB_HOST", "127.0.0.1")',
-    port: 3306,
-    username: 'root',
-    password: 'os.environ.get("DB_PASSWORD", "")',
-    database: 'dqdl',
-    entities: [RandomEvent],
-    synchronize: true,
-  });
+  const ds = new DataSource(dbOptions([RandomEvent]));
 
   await ds.initialize();
   console.log('✅ 数据库连接成功');

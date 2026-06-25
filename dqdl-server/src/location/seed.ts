@@ -6,18 +6,10 @@
 import { DataSource } from 'typeorm';
 import { Location } from './location.entity';
 import { LocationGenRule } from './location-gen-rule.entity';
+import { dbOptions } from '../db.config';
 
 async function seed() {
-  const ds = new DataSource({
-    type: 'mysql',
-    host: 'os.environ.get("DB_HOST", "127.0.0.1")',
-    port: 3306,
-    username: 'root',
-    password: 'os.environ.get("DB_PASSWORD", "")',
-    database: 'dqdl',
-    entities: [Location, LocationGenRule],
-    synchronize: true,
-  });
+  const ds = new DataSource(dbOptions([Location, LocationGenRule]));
 
   await ds.initialize();
   console.log('✅ 数据库连接成功');

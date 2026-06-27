@@ -19,12 +19,23 @@ export const updatePlayerPosition = (id, position) => api.patch(`/player/${id}/p
 export const cultivate = (id, qiDensity) => api.post(`/player/${id}/cultivate`, { qi_density: qiDensity || 0 })
 export const breakthrough = (id) => api.post(`/player/${id}/breakthrough`)
 
+// Technique equip/unequip
+export const equipTechnique = (playerId, techniqueId) => api.post(`/player/${playerId}/technique/equip`, { techniqueId })
+export const unequipTechnique = (playerId) => api.post(`/player/${playerId}/technique/unequip`)
+export const breakthroughTechnique = (playerId, techniqueId, rate) => api.post(`/player/${playerId}/technique/breakthrough`, { techniqueId, rate })
+
+// Treasure（宝物：装备经背包"使用"宝物物品；此处仅卸下）
+export const unequipTreasure = (playerId, slot) => api.post(`/backpack/${playerId}/treasure/unequip`, { slot })
+
 // NPC API
 export const getNpcsByLocation = (locationId) => api.get(`/npc/location/${locationId}`)
 export const talkToNpc = (npcId, message, history) => api.post(`/npc/${npcId}/talk`, { message, history })
+export const triggerNpcEvent = (npcId, eventId, playerId, history) => api.post(`/npc/${npcId}/event`, { eventId, playerId, history })
 
 // Training API
 export const doTraining = (playerId, locationId) => api.post(`/training?playerId=${playerId}&locationId=${locationId}`)
+export const startTraining = (playerId) => api.post(`/training/start?playerId=${playerId}`)
+export const stopTraining = (playerId) => api.post(`/training/stop?playerId=${playerId}`)
 export const setPlayerStatus = (playerId, status) => api.patch(`/player/${playerId}/status`, { status })
 export const trainingStreamUrl = (playerId, locationId) => `/api/training/stream?playerId=${playerId}&locationId=${locationId}`
 
@@ -36,6 +47,8 @@ export const updatePlayerSkills = (playerId, skillJson) => api.put(`/player/${pl
 export const getBackpack = (playerId) => api.get('/backpack/' + playerId)
 export const sellItem = (playerId, name, count) => api.post('/backpack/' + playerId + '/sell', { name, count: count || 1 })
 export const useItem = (playerId, name) => api.post('/backpack/' + playerId + '/use', { name })
+export const getShopItems = () => api.get('/backpack/shop/items')
+export const buyItem = (playerId, itemId, count) => api.post('/backpack/' + playerId + '/buy', { itemId, count: count || 1 })
 
 // Task API
 export const generateTask = (locationId) => api.post('/task/generate', { location_id: locationId })
@@ -63,6 +76,16 @@ export const cultivationEnter = (playerId, encounterId) => api.post(`/cultivatio
 export const cultivationCurrent = (playerId) => api.get(`/cultivation/current?playerId=${playerId}`)
 export const cultivationStop = (playerId) => api.post(`/cultivation/stop?playerId=${playerId}`)
 export const cultivationStreamUrl = (playerId) => `/api/cultivation/stream?playerId=${playerId}`
+
+// Cultivation Room API（城内付费修炼室）
+export const cultivationRoomConfig = () => api.get('/cultivation-room/config')
+export const enterCultivationRoom = (playerId, tier, mode = 'qi', techniqueId = null) => {
+  const q = `/cultivation-room/enter?playerId=${playerId}&tier=${tier}&mode=${mode}` + (techniqueId ? `&techniqueId=${techniqueId}` : '')
+  return api.post(q)
+}
+export const getCultivationRoom = (playerId) => api.get(`/cultivation-room/current?playerId=${playerId}`)
+export const stopCultivationRoom = (playerId) => api.post(`/cultivation-room/stop?playerId=${playerId}`)
+export const cultivationRoomStreamUrl = (playerId) => `/api/cultivation-room/stream?playerId=${playerId}`
 
 // Battle API
 export const battleStart = (playerId, mobId) => api.post('/battle/start', { playerId, mobId })

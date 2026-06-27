@@ -19,6 +19,10 @@ export class Item {
   @Column({ type: 'varchar', length: 32 })
   type: string;
 
+  /** 物品图标（emoji/图片地址），为空时前端使用占位符 */
+  @Column({ type: 'varchar', length: 128, nullable: true, comment: '物品图标' })
+  icon: string | null;
+
   @Column({ type: 'int', default: 0, comment: '参考价格（金币）' })
   price: number;
 

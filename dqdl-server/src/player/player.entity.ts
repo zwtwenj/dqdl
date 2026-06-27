@@ -26,6 +26,22 @@ export class Player {
   @Column({ type: 'int', default: 5, comment: '运气' })
   lucky: number;
 
+  /** 基础属性（创建时固定，不含等级成长）—— 等级成长由 levelAttrBonus(level) 派生 */
+  @Column({ type: 'int', default: 0, comment: '基础力量(创建固定，不含等级成长)' })
+  base_power: number;
+
+  @Column({ type: 'int', default: 0, comment: '基础智力(创建固定，不含等级成长)' })
+  base_intelligence: number;
+
+  @Column({ type: 'int', default: 0, comment: '基础敏捷(创建固定，不含等级成长)' })
+  base_quick: number;
+
+  @Column({ type: 'int', default: 0, comment: '基础体质(创建固定，不含等级成长)' })
+  base_stamina: number;
+
+  @Column({ type: 'int', default: 0, comment: '基础运气(创建固定，不含等级成长)' })
+  base_lucky: number;
+
   @Column({ type: 'int', default: 50, comment: '当前生命值' })
   hp: number;
 
@@ -64,6 +80,14 @@ export class Player {
 
   @Column({ type: 'int', default: 1, comment: '当前修炼功法ID' })
   technique_id: number;
+
+  /** 已习得功法及修炼进度(JSON数组)，与 skill 类似：[{id, level, cultivation, max_cultivation}] */
+  @Column({ type: 'text', default: '[]', comment: '已习得功法及进度(JSON数组)' })
+  technique: string;
+
+  /** 已装备宝物(JSON数组，与 skill 槽位同构)：[{id(宝物定义id), slot(1-5)}]，最多5件 */
+  @Column({ type: 'text', default: '[]', comment: '已装备宝物(JSON):[{id,slot}]' })
+  treasures: string;
 
   @CreateDateColumn({ comment: '创建时间' })
   created_at: Date;

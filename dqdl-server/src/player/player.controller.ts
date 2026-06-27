@@ -58,6 +58,30 @@ export class PlayerController {
     return this.playerService.breakthrough(id);
   }
 
+  /** 装配功法 */
+  @Post(':id/technique/equip')
+  async equipTechnique(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { techniqueId: number },
+  ) {
+    return this.playerService.equipTechnique(id, body.techniqueId);
+  }
+
+  /** 卸下功法 */
+  @Post(':id/technique/unequip')
+  async unequipTechnique(@Param('id', ParseIntPipe) id: number) {
+    return this.playerService.unequipTechnique(id);
+  }
+
+  /** 功法突破（由前端小游戏汇总成功率 rate%） */
+  @Post(':id/technique/breakthrough')
+  async breakthroughTechnique(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { techniqueId: number; rate: number },
+  ) {
+    return this.playerService.breakthroughTechnique(id, body.techniqueId, body.rate);
+  }
+
   /** 设置玩家状态（1=正常 2=历练中） */
   @Patch(':id/status')
   async setStatus(

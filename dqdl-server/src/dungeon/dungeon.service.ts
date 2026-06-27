@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DungeonInstance } from './dungeon_instance.entity';
@@ -52,7 +52,7 @@ export class DungeonService {
   async enter(playerId: number, encounterId?: number): Promise<DungeonInstance> {
     const player = await this.playerService.findOne(playerId);
     if (!player) throw new NotFoundException('玩家不存在');
-    if (player.status !== 1) throw new Error('正在进行别的事物，请完成后再尝试进入');
+    if (player.status !== 1) throw new BadRequestException('正在进行别的事物，请完成后再尝试进入');
 
     await this.repo.update({ player_id: playerId, status: 'active' }, { status: 'escaped' });
 

@@ -39,6 +39,15 @@ export class ItemUseService {
     if (!player) return { ok: false, error: '玩家不存在' };
 
     const desc = parseJson<ItemEffectDescriptor | null>(dbItem.use_effect, null);
+
+    // 宝物"物品形态"：使用 → 装备到宝物栏（成功后由调用方扣减该物品）
+    if (desc && (desc as any).type === 'equipTreasure') {
+      const out = await this.playerService.equipTreasureFromItem(playerId, Number((desc as any).treasureId));
+      return out.ok
+        ? { ok: true, message: out.message, player: out.player }
+        : { ok: false, error: out.error };
+    }
+
     const result = resolveUseEffect(player, desc);
     if (!result.ok) return { ok: false, error: result.message };
 

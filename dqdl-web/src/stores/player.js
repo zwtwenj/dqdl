@@ -66,6 +66,15 @@ export const usePlayerStore = defineStore('player', () => {
     if (data.value && partial) data.value = { ...data.value, ...partial }
   }
 
+  /** 重新拉取玩家完整数据（功法修炼/突破后等需要同步 technique 进度的场景） */
+  async function refresh() {
+    if (!playerId.value) return
+    try {
+      const res = await getPlayer(playerId.value)
+      if (res.data) data.value = res.data
+    } catch { /* ignore */ }
+  }
+
   /** 修炼：调 API 并更新自身 cultivation/level_cultivation，返回结果供 UI 编排 */
   async function cultivate(qi) {
     if (!playerId.value || qi <= 0) return null
@@ -87,6 +96,6 @@ export const usePlayerStore = defineStore('player', () => {
   return {
     data, loading, loadingText,
     playerId, money, hasSave, positionIds, currentLocationId,
-    newGame, loadPlayer, patchMoney, patch, cultivate, breakthrough,
+    newGame, loadPlayer, patchMoney, patch, refresh, cultivate, breakthrough,
   }
 })

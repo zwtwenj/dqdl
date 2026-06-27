@@ -36,6 +36,7 @@ export class MapGeneratorService {
   // 例如 agent 或降级方案把"坊市"产成了 district，这里纠正为 market
   private static readonly NAME_TYPE_RULES: { match: string; type: string }[] = [
     { match: '坊市', type: 'market' },
+    { match: '修炼室', type: 'cultivation' },
   ];
 
   constructor(private readonly agentClient: AgentClient) {}
@@ -129,7 +130,7 @@ export class MapGeneratorService {
         locType = 'district';
       } else {
         // city 或其他
-        pool = ['坊市', '佣兵公会', '药材商行', '城主府', '修炼场'];
+        pool = ['坊市', '佣兵公会', '修炼室', '药材商行', '城主府', '修炼场'];
         locType = 'district';
       }
     } else {

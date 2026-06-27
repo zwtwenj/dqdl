@@ -137,6 +137,7 @@ export class NpcService {
       '药材商': ['掌柜', '老板娘'],
       '旅馆老板': ['掌柜', '大娘'],
       '修炼场教官': ['教头', '师傅'],
+      '修炼室管理员': ['执事', '管事'],
     };
 
     const surname = surnames[Math.floor(Math.random() * surnames.length)];

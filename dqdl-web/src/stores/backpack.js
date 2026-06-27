@@ -1,15 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getBackpack, sellItem, useItem, getPlayer } from '../api'
+import { getBackpack, sellItem, useItem, getPlayer, getShopItems, buyItem } from '../api'
 import { usePlayerStore } from './player'
 import { Message } from '../utils/message'
 
 export const useBackpackStore = defineStore('backpack', () => {
   // ── state（映射 backpack 表） ──
-  const items = ref([])           // [{name, count, description, price}, ...]
+  const items = ref([])           // [{name, count, icon, description, price, usable}, ...]
+  const shopItems = ref([])       // NPC 商店：[{id, name, icon, type, price, description}]
   const showPanel = ref(false)
   const showTrade = ref(false)
   const tradeSelling = ref(false)
+  const tradeBuying = ref(false)
   const usingItem = ref(false)
 
   // ── actions ──
@@ -23,6 +25,13 @@ export const useBackpackStore = defineStore('backpack', () => {
     } catch { items.value = [] }
   }
 
+  async function fetchShop() {
+    try {
+      const res = await getShopItems()
+      shopItems.value = res.data || []
+    } catch { shopItems.value = [] }
+  }
+
   function toggle() {
     showPanel.value = !showPanel.value
     if (showPanel.value) fetch()
@@ -31,8 +40,28 @@ export const useBackpackStore = defineStore('backpack', () => {
   function openTrade() {
     showTrade.value = true
     fetch()
+    fetchShop()
   }
   function closeTrade() { showTrade.value = false }
+
+  async function buy(itemId, count) {
+    const playerStore = usePlayerStore()
+    if (!playerStore.playerId || tradeBuying.value) return
+    tradeBuying.value = true
+    try {
+      const res = await buyItem(playerStore.playerId, itemId, count)
+      if (res.data?.error) { Message.error(res.data.error); return }
+      await fetch()
+      if (res.data.money != null) {
+        playerStore.patchMoney(res.data.money)
+      }
+      return res.data
+    } catch (err) {
+      Message.error('购买失败: ' + (err.response?.data?.message || err.message))
+    } finally {
+      tradeBuying.value = false
+    }
+  }
 
   async function sell(itemName, count) {
     const playerStore = usePlayerStore()
@@ -73,7 +102,7 @@ export const useBackpackStore = defineStore('backpack', () => {
   }
 
   return {
-    items, showPanel, showTrade, tradeSelling, usingItem,
-    fetch, toggle, openTrade, closeTrade, sell, use,
+    items, shopItems, showPanel, showTrade, tradeSelling, tradeBuying, usingItem,
+    fetch, fetchShop, toggle, openTrade, closeTrade, sell, buy, use,
   }
 })

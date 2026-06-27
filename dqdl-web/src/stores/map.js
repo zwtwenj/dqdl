@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getRoots, getChildren, getLocation, getTree, getNpcsByLocation, updatePlayerPosition } from '../api'
 import { usePlayerStore } from './player'
+import { Message } from '../utils/message'
 
 export const useMapStore = defineStore('map', () => {
   const breadcrumb = ref([])
@@ -63,6 +64,17 @@ export const useMapStore = defineStore('map', () => {
 
   async function moveTo(loc, depthIndex) {
     const playerStore = usePlayerStore()
+    // 以后端为权威：先把目标位置发给后端，status≠1（室内修炼/历练中等）会被 400 拒绝，
+    // 拒绝则直接提示并不移动；通过后才做乐观移动与加载。
+    if (playerStore.playerId) {
+      const targetPath = breadcrumb.value.slice(0, depthIndex).map((n) => n.id).concat([loc.id])
+      try {
+        await updatePlayerPosition(playerStore.playerId, JSON.stringify(targetPath))
+      } catch (e) {
+        Message.error(e.response?.data?.message || '当前状态无法移动')
+        return
+      }
+    }
     _startLoad(`前往${loc.name}...`)
 
     try {
@@ -81,14 +93,32 @@ export const useMapStore = defineStore('map', () => {
 
       currentLocation.value = target; currentChildren.value = children
       try { currentNpcs.value = (await getNpcsByLocation(loc.id)).data || [] } catch { currentNpcs.value = [] }
-      if (playerStore.playerId) updatePlayerPosition(playerStore.playerId, buildPositionStr()).catch(() => {})
+      // position 已在开头通过后端校验并写入，无需再次调用
     } finally { _endLoad() }
   }
 
   async function navigateToLocation(locationId) {
     const playerStore = usePlayerStore()
+    // 目标完整路径需先 loadLocationChain 才能得到，故采用「乐观加载 + 后端拒绝则回滚」
+    const prev = {
+      bc: breadcrumb.value.slice(),
+      cl: currentLocation.value,
+      cc: currentChildren.value.slice(),
+      cn: currentNpcs.value.slice(),
+    }
     await loadLocationChain(locationId)
-    if (playerStore.playerId) updatePlayerPosition(playerStore.playerId, buildPositionStr()).catch(() => {})
+    if (playerStore.playerId) {
+      try {
+        await updatePlayerPosition(playerStore.playerId, buildPositionStr())
+      } catch (e) {
+        // 后端权威拒绝：回滚到移动前
+        breadcrumb.value = prev.bc
+        currentLocation.value = prev.cl
+        currentChildren.value = prev.cc
+        currentNpcs.value = prev.cn
+        Message.error(e.response?.data?.message || '当前状态无法移动')
+      }
+    }
   }
 
   return {

@@ -1,4 +1,4 @@
-import { setPlayerStatus, trainingStreamUrl } from '../api'
+import { startTraining, stopTraining, trainingStreamUrl } from '../api'
 import { useGameStore } from '../stores/game'
 import { usePlayerStore } from '../stores/player'
 import { useMapStore } from '../stores/map'
@@ -99,7 +99,8 @@ export function startAutoTraining() {
   game.trainingMode = true
   game.trainingEvents = []
   game.trainingLoading = true
-  setPlayerStatus(pid, 2).catch(() => {})
+  // 状态由后端统一管理：请求开始历练接口（后端校验并置 status=2）
+  startTraining(pid).catch(() => {})
 
   trainingCtx = { pid, lid }
   trainingRetry = 0
@@ -117,7 +118,8 @@ export function stopAutoTraining() {
 
   game.trainingMode = false
   game.trainingLoading = false
-  setPlayerStatus(player.playerId, 1).catch(() => {})
+  // 请求后端停止历练（后端恢复 status=1），不再由前端直接改 status
+  if (player.playerId) stopTraining(player.playerId).catch(() => {})
 }
 
 export function isAutoTraining() {

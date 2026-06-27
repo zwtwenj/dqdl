@@ -32,6 +32,7 @@
         </button>
         <button class="btn btn--sm btn--primary" @click="showRole = true">角色</button>
         <button class="btn btn--sm btn--warning" @click="showSkillPanel = true">斗技</button>
+        <button class="btn btn--sm btn--primary" @click="showTreasurePanel = true">宝物</button>
         <button class="btn btn--sm btn--info" @click="encounterStore.open">
           奇遇
           <span v-if="encounterStore.list.length" class="badge task-badge">{{ encounterStore.list.length }}</span>
@@ -293,7 +294,7 @@
               @mouseleave="hideItemTip"
               @contextmenu.prevent="item.usable && !usingItem && usePlayerItem(item.name)"
             >
-              <div class="bp-slot__icon">📦</div>
+              <div class="bp-slot__icon">{{ itemIcon(item) }}</div>
               <div class="bp-slot__name">{{ item.name }}</div>
               <span v-if="item.count > 1" class="bp-slot__count">{{ item.count }}</span>
             </div>
@@ -310,27 +311,57 @@
           <button class="role-close" @click="closeTrade">&times;</button>
         </div>
         <div class="trade-body">
+          <!-- NPC 出售（商店） -->
           <div class="trade-side trade-npc">
-            <div class="trade-side-title">🏪 NPC 出售</div>
-            <div class="trade-empty">暂无物品出售</div>
+            <div class="trade-side-title">
+              🏪 NPC 出售
+              <span class="trade-money">💰 {{ player?.money ?? 0 }} 金币</span>
+            </div>
+            <div v-if="shopItems.length === 0" class="trade-empty">暂无物品出售</div>
+            <div class="bp-grid" v-else>
+              <div
+                v-for="(item, idx) in shopItems"
+                :key="'s' + idx"
+                class="bp-slot trade-slot"
+                @mouseenter="showItemTip(item, $event, 'buy')"
+                @mouseleave="hideItemTip"
+              >
+                <div class="bp-slot__icon">{{ itemIcon(item) }}</div>
+                <div class="bp-slot__name">{{ item.name }}</div>
+                <button
+                  class="trade-slot-btn trade-slot-btn--buy"
+                  :disabled="tradeBuying || (player?.money ?? 0) < item.price"
+                  :title="'购买（Shift×10）'"
+                  @click.stop="buyShopItem(item.id, $event.shiftKey ? 10 : 1)"
+                >{{ item.price }}金 购买</button>
+              </div>
+            </div>
           </div>
+          <!-- 我的背包（与背包弹窗保持一致） -->
           <div class="trade-side trade-player">
             <div class="trade-side-title">
               🎒 我的背包
               <span class="trade-money">💰 {{ player?.money ?? 0 }} 金币</span>
             </div>
             <div v-if="backpackItems.length === 0" class="trade-empty">背包空空如也</div>
-            <div v-for="(item, idx) in backpackItems" :key="idx" class="trade-item">
-              <div class="trade-item-info">
-                <span class="ti-name">{{ item.name }}</span>
-                <span class="ti-count">&times;{{ item.count }}</span>
-                <span v-if="item.price" class="ti-sell-price">单价 {{ Math.floor(item.price * 0.5) }} 金</span>
+            <div class="bp-grid" v-else>
+              <div
+                v-for="(item, idx) in backpackItems"
+                :key="'p' + idx"
+                class="bp-slot trade-slot"
+                @mouseenter="showItemTip(item, $event)"
+                @mouseleave="hideItemTip"
+              >
+                <div class="bp-slot__icon">{{ itemIcon(item) }}</div>
+                <div class="bp-slot__name">{{ item.name }}</div>
+                <span v-if="item.count > 1" class="bp-slot__count">{{ item.count }}</span>
+                <button
+                  class="trade-slot-btn trade-slot-btn--sell"
+                  :disabled="tradeSelling"
+                  :title="item.price ? ('出售 ' + Math.floor(item.price * 0.5) + ' 金（Shift全部）') : '出售'"
+                  @click.stop="sellPlayerItem(item.name, $event.shiftKey ? item.count : 1)"
+                >售 {{ Math.floor(item.price * 0.5) }}金</button>
               </div>
-              <button
-                class="btn btn--sm btn--success"
-                :disabled="tradeSelling"
-                @click="sellPlayerItem(item.name, $event.shiftKey ? item.count : 1)"
-              >出售</button>
             </div>
           </div>
         </div>
@@ -339,6 +370,9 @@
 
     <!-- 斗技面板（独立组件） -->
     <SkillPanel v-if="showSkillPanel" @close="showSkillPanel = false" />
+
+    <!-- 宝物面板 -->
+    <TreasurePanel v-if="showTreasurePanel" @close="showTreasurePanel = false" />
 
     <!-- 浮动历练卡片（野外常显：未历练可开始，历练中可停止） -->
     <div v-if="isWild" class="training-float">
@@ -381,6 +415,21 @@
             {{ evt.timestamp }}&nbsp;·&nbsp;{{ evt.mob?.name }}&nbsp;·&nbsp;{{ evt.won === false ? '逃跑' : evt.battle?.style }}&nbsp;·&nbsp;胜率{{ evt.battle?.win_rate }}%
           </span>
         </div>
+      </div>
+    </div>
+
+    <!-- 室内修炼悬浮卡片：修炼室会话进行中且主面板已收起时常驻右下角 -->
+    <div v-if="cultivationRoomStore.isActive && !cultivationRoomStore.showPanel" class="cult-room-float">
+      <div class="cult-room-float-head">
+        <span class="cult-room-float-title">🧘 修炼中</span>
+        <span class="cult-room-float-mode">{{ cultRoomModeLabel }}</span>
+      </div>
+      <div class="cult-room-float-bar">
+        <div class="cult-room-float-fill" :style="{ width: cultRoomPct + '%' }"></div>
+      </div>
+      <div class="cult-room-float-foot">
+        <button class="cult-room-float-btn expand" @click="cultivationRoomStore.open()">展开</button>
+        <button class="cult-room-float-btn stop" @click="cultivationRoomStore.stop()">停止</button>
       </div>
     </div>
 
@@ -491,6 +540,12 @@
     <!-- 洞天福地修炼界面（独立组件） -->
     <CultivationPanel v-if="cultivationStore.show" />
 
+    <!-- 城内修炼室（占位） -->
+    <CultivationRoomPanel />
+
+    <!-- 功法突破小游戏 -->
+    <TechniqueBreakthroughGame v-if="tbStore.show" />
+
     <!-- buff 悬浮组件（fixed + Teleport，脱离战斗框 overflow:hidden） -->
     <Teleport to="body">
       <div v-if="buffTooltip" class="buff-tooltip" :style="buffTooltip.pos">
@@ -500,10 +555,11 @@
 
     <!-- 物品悬浮组件（fixed + Teleport，脱离背包滚动容器裁切） -->
     <Teleport to="body">
-      <div v-if="itemTooltip" class="item-tip" :style="itemTooltip.pos">
+      <div v-if="itemTooltip" ref="itemTipEl" class="item-tip" :style="itemTooltip.pos">
         <div class="tooltip-name">{{ itemTooltip.item.name }}</div>
         <div v-if="itemTooltip.item.description" class="tooltip-desc">{{ itemTooltip.item.description }}</div>
-        <div v-if="itemTooltip.item.price" class="tooltip-price">💰 出售 {{ Math.floor(itemTooltip.item.price * 0.5) }} 金币</div>
+        <div v-if="itemTooltip.item.price && itemTooltip.mode !== 'buy'" class="tooltip-price">💰 出售 {{ Math.floor(itemTooltip.item.price * 0.5) }} 金币</div>
+        <div v-else-if="itemTooltip.item.price && itemTooltip.mode === 'buy'" class="tooltip-price">💰 购买 {{ itemTooltip.item.price }} 金币</div>
         <div v-if="itemTooltip.item.usable" class="tooltip-hint">右键使用</div>
       </div>
     </Teleport>
@@ -514,7 +570,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from './stores/player'
 import { useMapStore } from './stores/map'
@@ -526,12 +582,17 @@ import { useBattleStore } from './stores/battle'
 import { useDungeonStore } from './stores/dungeon'
 import { useEncounterStore } from './stores/encounter'
 import { useCultivationStore } from './stores/cultivation'
+import { useCultivationRoomStore } from './stores/cultivationRoom'
+import { useTechniqueBreakthroughStore } from './stores/techniqueBreakthrough'
 import DungeonPanel from './components/DungeonPanel.vue'
 import EncounterPanel from './components/EncounterPanel.vue'
 import CultivationPanel from './components/CultivationPanel.vue'
+import CultivationRoomPanel from './components/CultivationRoomPanel.vue'
+import TechniqueBreakthroughGame from './components/TechniqueBreakthroughGame.vue'
 import RolePanel from './components/RolePanel.vue'
 import TaskPanel from './components/TaskPanel.vue'
 import SkillPanel from './components/SkillPanel.vue'
+import TreasurePanel from './components/TreasurePanel.vue'
 import MessageToast from './components/MessageToast.vue'
 import { attrLabels, baseAttrKeys, levelName } from './game/constants'
 
@@ -545,12 +606,14 @@ const battleStore = useBattleStore()
 const dungeonStore = useDungeonStore()
 const encounterStore = useEncounterStore()
 const cultivationStore = useCultivationStore()
+const cultivationRoomStore = useCultivationRoomStore()
+const tbStore = useTechniqueBreakthroughStore()
 
 const { data: player } = storeToRefs(playerStore)
 const { loading: playerLoading, loadingText: playerLoadingText } = storeToRefs(playerStore)
 const { breadcrumb, currentLocation, currentChildren, currentNpcs, currentSiblings, loading: mapLoading, loadingText: mapLoadingText } = storeToRefs(mapStore)
 const { npc: dialogNpc, history: dialogHistory, loading: dialogLoading } = storeToRefs(dialogStore)
-const { items: backpackItems, showPanel: showBackpack, showTrade, tradeSelling, usingItem } = storeToRefs(backpackStore)
+const { items: backpackItems, shopItems, showPanel: showBackpack, showTrade, tradeSelling, tradeBuying, usingItem } = storeToRefs(backpackStore)
 const { list: tasks, loading: taskLoading } = storeToRefs(taskStore)
 const { started: gameStarted, trainingLog, cultivationLog, trainingLoading, trainingMode, trainingEvents } = storeToRefs(gameStore)
 const { showBattle, battleLoading, mob, playerName: battlePlayerName, playerLevel: battlePlayerLevel, playerHp: battlePlayerHp, playerMaxHp, playerEnergy: battlePlayerEnergy, playerMaxEnergy, mobName: battleMobName, mobLevel: battleMobLevel, mobRank: battleMobRank, mobMaxHp, mobHp: battleMobHp, equippedSkills, battleOver, attacking, playerBuffs: battlePlayerBuffs, mobBuffs: battleMobBuffs, playerHurt: battlePlayerHurt, mobHurt: battleMobHurt, playerFloaters: battlePlayerFloaters, mobFloaters: battleMobFloaters, battleWinner } = storeToRefs(battleStore)
@@ -561,6 +624,21 @@ watch(gameStarted, (v) => { if (v) encounterStore.fetch() })
 
 const loading = computed(() => playerStore.loading || playerLoading.value || mapLoading.value)
 const isWild = computed(() => ['wild', 'wild2', 'wild3'].includes(currentLocation.value?.loc_type))
+
+// 室内修炼悬浮卡片
+const cultRoomModeLabel = computed(() => {
+  const s = cultivationRoomStore.session
+  if (!s) return ''
+  const mode = s.mode === 'technique' ? '功法' : '斗气'
+  const tier = ['一', '二', '三'][(s.tier || 1) - 1] + '阶'
+  return `${tier} · ${mode}`
+})
+const cultRoomPct = computed(() => {
+  const p = cultivationRoomStore.progress
+  const cur = p?.current ?? 0
+  const max = p?.max ?? 0
+  return max <= 0 ? 0 : Math.max(0, Math.min(100, (cur / max) * 100))
+})
 const logCollapsed = ref(false)
 const loadingText = computed(() => mapLoadingText.value || playerLoadingText.value)
 const hasSave = computed(() => gameStore.hasSave())
@@ -578,7 +656,10 @@ function handleEventClick(evt) { dialogStore.handleEvent(evt) }
 function toggleBackpack() { backpackStore.toggle() }
 function closeTrade() { backpackStore.closeTrade() }
 function sellPlayerItem(name, count) { backpackStore.sell(name, count) }
+function buyShopItem(itemId, count) { backpackStore.buy(itemId, count) }
 function usePlayerItem(name) { backpackStore.use(name) }
+// 物品图标：icon 字段为空时使用占位符
+function itemIcon(item) { return item?.icon || '📦' }
 function acceptCurrentTask(card) { taskStore.acceptCurrentTask(card) }
 function navigateToLocation(locId) {
   if (trainingMode.value) return
@@ -621,25 +702,41 @@ const showRole = ref(false)
 
 // 物品悬浮组件：定位到所指向的格子下方，并夹紧在视口内（脱离背包滚动容器裁切）
 const itemTooltip = ref(null)
-function showItemTip(item, e) {
+const itemTipEl = ref(null)
+function showItemTip(item, e, mode = 'sell') {
   const r = e.currentTarget.getBoundingClientRect()
-  const tipW = 230
-  let left = r.left + r.width / 2 - tipW / 2
-  left = Math.max(8, Math.min(window.innerWidth - tipW - 8, left))
-  itemTooltip.value = { item, pos: { left: left + 'px', top: r.bottom + 8 + 'px', width: tipW + 'px' } }
+  const M = 8
+  // 先隐藏渲染，下一帧测量真实尺寸后再定位（measure → flip → shift，避免溢出屏幕）
+  itemTooltip.value = { item, mode, pos: { left: '-9999px', top: '-9999px', width: '230px', visibility: 'hidden' } }
+  nextTick(() => {
+    const el = itemTipEl.value
+    const w = el?.offsetWidth || 230
+    const h = el?.offsetHeight || 120
+    // shift（水平）：以格子中心对齐并夹紧
+    let left = r.left + r.width / 2 - w / 2
+    left = Math.max(M, Math.min(window.innerWidth - w - M, left))
+    // flip（垂直）：优先下方；放不下翻到上方；都放不下则贴底
+    let top = r.bottom + M
+    if (top + h > window.innerHeight - M) {
+      const above = r.top - M - h
+      top = above >= M ? above : Math.max(M, window.innerHeight - h - M)
+    }
+    itemTooltip.value = { item, mode, pos: { left: left + 'px', top: top + 'px', width: w + 'px' } }
+  })
 }
 function hideItemTip() { itemTooltip.value = null }
 
 const showSkillPanel = ref(false)
+const showTreasurePanel = ref(false)
 
-function typeLabel(type) { return {continent:'大陆',region:'区域',empire:'帝国',city:'城市',wild:'野外',wild2:'野外深处',wild3:'野外核心',sect:'宗派',secret:'秘境',district:'区域',scene:'场景'}[type]||type }
+function typeLabel(type) { return {continent:'大陆',region:'区域',empire:'帝国',city:'城市',wild:'野外',wild2:'野外深处',wild3:'野外核心',sect:'宗派',secret:'秘境',district:'区域',scene:'场景',cultivation:'修炼室'}[type]||type }
 function dangerLabel(level) { return {1:'一阶(低危)',2:'二阶(中危)',3:'三阶(高危)'}[level]||level }
 function dangerShort(level) { return { 1: '一阶', 2: '二阶', 3: '三阶' }[level] || level }
 function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(a) ? a : [] } catch { return [] } }
 
 // 地点类型 → 图标（玄幻辨识）
 function typeIcon(type) {
-  return { continent: '🌏', region: '🧭', empire: '🏛', city: '🏯', district: '🏮', scene: '📍', wild: '🌲', wild2: '🌲', wild3: '🌲', sect: '⛩️', secret: '✨' }[type] || '📍'
+  return { continent: '🌏', region: '🧭', empire: '🏛', city: '🏯', district: '🏮', scene: '📍', wild: '🌲', wild2: '🌲', wild3: '🌲', sect: '⛩️', secret: '✨', cultivation: '🧘' }[type] || '📍'
 }
 // 地点类型 → 配色族（卡片左边强调色 / 悬停光晕）
 function typeClass(type) {
@@ -1732,7 +1829,8 @@ function typeClass(type) {
 .backpack-panel {
   width: 760px;
   max-width: 96vw;
-  max-height: 86vh;
+  height: 80vh;
+  max-height: 680px;
   display: flex;
   flex-direction: column;
 }
@@ -1873,12 +1971,24 @@ function typeClass(type) {
 .trade-side-title { font-size: 0.9rem; color: #c0c0cc; font-weight: bold; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #2a2a3a; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: #15151e; z-index: 1; }
 .trade-money { font-size: 0.82rem; color: #f0c040; font-weight: normal; }
 .trade-empty { color: #5a5a6a; text-align: center; padding: 32px 0; font-size: 0.9rem; }
-.trade-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #1e1e2e; transition: background 0.15s; }
-.trade-item:hover { background: #1a1a28; }
-.trade-item-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ti-name { color: #d0c8b8; font-size: 0.88rem; }
-.ti-count { color: #50c878; font-weight: bold; font-size: 0.85rem; }
-.ti-sell-price { color: #f0c040; font-size: 0.78rem; background: #2a2010; padding: 1px 6px; border-radius: 8px; }
+/* 交易格子：与背包弹窗共用 .bp-slot，两侧展示一致；仅底部多一个操作按钮 */
+.trade-side .bp-grid { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 10px; }
+.trade-slot { padding-bottom: 4px; }
+.trade-slot-btn {
+  margin-top: 2px;
+  width: 100%;
+  padding: 3px 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: filter var(--transition), opacity var(--transition);
+}
+.trade-slot-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.trade-slot-btn:not(:disabled):hover { filter: brightness(1.12); }
+.trade-slot-btn--buy { background: #2a3348; color: #8ab4ff; }
+.trade-slot-btn--sell { background: #243024; color: #7fd09a; }
 /* btn-sell / btn-use → 统一使用 .btn 基类 */
 
 /* 斗技按钮 */
@@ -2469,6 +2579,30 @@ function typeClass(type) {
 }
 .battle-result.is-win .battle-result-text { color: #f0c040; }
 .battle-result.is-lose .battle-result-text { color: #c05060; }
+
+/* ===== 室内修炼悬浮卡片 ===== */
+.cult-room-float {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 220px;
+  background: linear-gradient(145deg, #12121c, #1a1a2e);
+  border: 1px solid #2f5a4a;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.6), 0 0 0 1px rgba(111,191,168,0.18);
+  padding: 12px 14px;
+  z-index: 1000;
+}
+.cult-room-float-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cult-room-float-title { font-size: 0.9rem; color: #e0e0ec; font-weight: 600; }
+.cult-room-float-mode { font-size: 0.74rem; color: #6fbfa8; }
+.cult-room-float-bar { height: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+.cult-room-float-fill { height: 100%; background: linear-gradient(90deg, #3a8f78, #6fbfa8); transition: width 0.35s ease; }
+.cult-room-float-foot { display: flex; gap: 8px; }
+.cult-room-float-btn { flex: 1; padding: 4px 0; font-size: 0.78rem; border-radius: var(--radius); cursor: pointer; transition: filter var(--transition); }
+.cult-room-float-btn:hover { filter: brightness(1.15); }
+.cult-room-float-btn.expand { color: #c0c0cc; background: rgba(50,50,64,0.5); border: 1px solid var(--border); }
+.cult-room-float-btn.stop { color: #e08060; background: rgba(70,40,36,0.4); border: 1px solid #5a2e28; }
 
 /* ===== 浮动历练卡片 ===== */
 .training-float {

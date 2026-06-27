@@ -32,7 +32,22 @@ export class TrainingController {
     return this.trainingService.execute(playerId, locationId);
   }
 
-  /** 历练流（SSE） — 自动定时触发历练事件 */
+  /** 开始历练：由后端校验并置玩家为历练中（状态由后端统一管理，前端不再直接改 status） */
+  @Post('start')
+  async start(
+    @Query('playerId', ParseIntPipe) playerId: number,
+  ) {
+    return this.trainingService.begin(playerId);
+  }
+
+  /** 停止历练：由后端立即恢复玩家为空闲，并使旧 SSE 流失效 */
+  @Post('stop')
+  async stop(@Query('playerId', ParseIntPipe) playerId: number) {
+    await this.trainingService.stop(playerId);
+    return { success: true };
+  }
+
+  /** 历练流（SSE） — 自动定时触发历练事件。状态生命周期由 start/stop/本流的断开兜底共同管理 */
   @Get('stream')
   async streamTraining(
     @Query('playerId', ParseIntPipe) playerId: number,
@@ -40,6 +55,9 @@ export class TrainingController {
     @Res() res: Response,
     @Req() req: Request,
   ) {
+    // 记录本流对应的会话令牌；若未被 start 建立则为 0（下方循环会立即退出）
+    const token = this.trainingService.currentToken(playerId);
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -54,9 +72,11 @@ export class TrainingController {
     req.on('close', () => { running = false; });
 
     while (running) {
+      // 被新的 start/stop 取代 → 本流静默退出，状态归新会话所有
+      if (!this.trainingService.isCurrent(playerId, token)) break;
+
       const elapsed = Date.now() - startTime;
       if (elapsed >= maxDuration) {
-        await this.playerService.setStatus(playerId, 1);
         res.write('event: stop\ndata: {}\n\n');
         break;
       }
@@ -76,6 +96,10 @@ export class TrainingController {
 
       await new Promise<void>(r => setTimeout(r, this.trainingService.trainingInterval));
     }
+
+    // 本流结束：仅当仍是当前会话（未被新 start/stop 取代）才恢复空闲。
+    // 这也是客户端断开/刷新/崩溃时，后端唯一的兜底回收路径。
+    await this.trainingService.endIfCurrent(playerId, token);
 
     res.end();
   }

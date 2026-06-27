@@ -14,10 +14,34 @@ export class BackpackController {
     private readonly itemUseService: ItemUseService,
   ) {}
 
+  /** NPC 商店出售列表（无数量限制，售价 = item.price） */
+  @Get('shop/items')
+  getShopItems() {
+    return this.backpackService.getShopItems();
+  }
+
   /** 获取玩家背包（附带物品 description 和 price） */
   @Get(':playerId')
   getByPlayer(@Param('playerId') playerId: number) {
     return this.backpackService.getEnriched(Number(playerId));
+  }
+
+  /** 购买商店物品：扣金币 + 入背包 */
+  @Post(':playerId/buy')
+  buyItem(
+    @Param('playerId') playerId: number,
+    @Body() body: { itemId: number; count: number },
+  ) {
+    return this.backpackService.buy(Number(playerId), body.itemId, body.count);
+  }
+
+  /** 卸下宝物：移出宝物栏，物品形态返还背包 */
+  @Post(':playerId/treasure/unequip')
+  unequipTreasure(
+    @Param('playerId') playerId: number,
+    @Body() body: { slot: number },
+  ) {
+    return this.backpackService.unequipTreasure(Number(playerId), body.slot);
   }
 
   /** 添加物品 */

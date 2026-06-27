@@ -23,6 +23,12 @@ export class ItemService {
     return this.itemRepo.findOneBy({ id });
   }
 
+  /** 按主键批量查找（NPC 商店用） */
+  async findByIds(ids: number[]): Promise<Item[]> {
+    if (!ids.length) return [];
+    return this.itemRepo.find({ where: { id: In(ids) } });
+  }
+
   async findByType(type: string): Promise<Item[]> {
     return this.itemRepo.find({ where: { type }, order: { id: 'ASC' } });
   }

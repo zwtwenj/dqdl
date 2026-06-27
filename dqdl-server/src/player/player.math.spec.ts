@@ -1,4 +1,4 @@
-import { getLevelK, calcLevelCultivation, PlayerService } from './player.service';
+import { getLevelK, calcLevelCultivation, levelAttrBonus, PlayerService } from './player.service';
 
 /**
  * 冻结玩家等级数学：这些纯函数将在阶段 1.5 / 1.2 重构中被搬运，
@@ -60,8 +60,21 @@ describe('player level math (行为冻结)', () => {
     });
   });
 
-  describe('PlayerService.breakthroughRate', () => {
-    it('level<11 返回 80', () => {
+  describe('levelAttrBonus = 等级全属性加成(1-9级每级+3，10级起封顶)', () => {
+    it.each<[number, number]>([
+      [1, 0],
+      [2, 3],
+      [5, 12],
+      [9, 24],
+      [10, 24],
+      [15, 24],
+      [30, 24],
+    ])('level %i -> +%i', (level, expected) => {
+      expect(levelAttrBonus(level)).toBe(expected);
+    });
+  });
+
+  describe('PlayerService.breakthroughRate', () => {    it('level<11 返回 80', () => {
       expect(PlayerService.breakthroughRate(1)).toBe(80);
       expect(PlayerService.breakthroughRate(10)).toBe(80);
     });

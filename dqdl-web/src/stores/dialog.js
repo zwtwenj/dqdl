@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { talkToNpc, generateTask, acceptTask, completeAdventurerTasks } from '../api'
+import { talkToNpc, triggerNpcEvent } from '../api'
 import { usePlayerStore } from './player'
-import { useMapStore } from './map'
 import { useBackpackStore } from './backpack'
 import { useTaskStore } from './task'
 
@@ -44,81 +43,41 @@ export const useDialogStore = defineStore('dialog', () => {
     loading.value = false
   }
 
-  /** 处理快捷对话事件 */
+  /**
+   * 处理快捷对话事件：业务与台词统一由后端编排（POST /npc/:id/event），
+   * 前端只负责把 npcReply 推进对话历史，再按 type 做对应的 UI 反应。
+   */
   async function handleEvent(evt) {
-    if (!evt.event) { await send(evt.text); return }
-
-    let eventData
-    try { eventData = typeof evt.event === 'string' ? JSON.parse(evt.event) : evt.event }
-    catch { await send(evt.text); return }
-
+    if (!npc.value) return
     const playerStore = usePlayerStore()
-    const mapStore = useMapStore()
     const taskStore = useTaskStore()
-    const backpackStore = useBackpackStore()
+    loading.value = true
+    try {
+      const res = await triggerNpcEvent(npc.value.id, evt.id, playerStore.playerId, history.value)
+      const { type, npcReply, payload } = res.data || {}
 
-    if (eventData.type === 'createAdventurerTask') {
-      taskStore.setLoading(true)
-      try {
-        const res = await generateTask(mapStore.currentLocation?.id)
-        const preview = res.data
-        const t0 = preview.target?.[0] || {}
-        history.value.push({
-          player: evt.text,
-          npc: '本公会有以下任务，你是否接受？',
-          taskCard: {
-            preview: true,
-            name: preview.name || '猎杀魔兽',
-            description: preview.description,
-            target: preview.target,
-            reward: preview.reward,
-            delivery: preview.delivery || null,
-            star: preview.star || 1,
-            location_path: t0.location_path || [],
-            mob_name: t0.mob_name || '',
-            kill_count: t0.kill_count || t0.required || 0,
-            required: t0.required || 0,
-            current: 0,
-          },
-        })
-      } catch (err) {
-        history.value.push({ player: evt.text, npc: `任务生成失败：${err.response?.data?.message || err.message}` })
-      } finally { taskStore.setLoading(false) }
+      const entry = { player: evt.text, npc: npcReply || '...' }
+      // 任务预览：附带任务卡，供玩家在对话内接受/拒绝
+      if (type === 'createAdventurerTask' && payload?.taskCard) entry.taskCard = payload.taskCard
+      history.value.push(entry)
 
-    } else if (eventData.type === 'completeTask') {
-      taskStore.setLoading(true)
-      try {
-        const npcId = npc.value?.id
-        const res = await completeAdventurerTasks(playerStore.playerId, npcId)
-        const { count, tasks: doneTasks } = res.data
-        if (count === 0) {
-          history.value.push({ player: evt.text, npc: '目前没有可以交付的已完成任务。' })
-        } else {
-          const names = doneTasks.map(t => t.description).join('、')
-          let totalMoney = 0
-          for (const dt of doneTasks) {
-            for (const r of dt.reward || []) {
-              if (r.type === 'money' && r.value) totalMoney += r.value
-            }
-          }
-          const moneyMsg = totalMoney > 0 ? ` 获得奖励 ${totalMoney} 金币！` : ''
-          history.value.push({ player: evt.text, npc: `辛苦了！已为你登记以下 ${count} 个任务完成：${names}。${moneyMsg}` })
-          await taskStore.fetch()
-          // 刷新玩家数据
-          if (playerStore.playerId) {
-            const { getPlayer } = await import('../api')
-            const pRes = await getPlayer(playerStore.playerId)
-            playerStore.data = pRes.data
-          }
-        }
-      } catch (err) {
-        history.value.push({ player: evt.text, npc: `交付失败：${err.response?.data?.message || err.message}` })
-      } finally { taskStore.setLoading(false) }
-
-    } else if (eventData.type === 'trade') {
-      backpackStore.openTrade()
-    } else {
-      await send(evt.text)
+      // 前端只做 UI 反应（不再决定调用哪个业务接口，也不再硬编码台词）
+      if (type === 'completeTask') {
+        await taskStore.fetch()
+        // 交付会改变金币，刷新玩家数据
+        const { getPlayer } = await import('../api')
+        const pRes = await getPlayer(playerStore.playerId).catch(() => null)
+        if (pRes) playerStore.data = pRes.data
+      } else if (type === 'trade') {
+        useBackpackStore().openTrade()
+      } else if (type === 'cultivationRoom') {
+        const { useCultivationRoomStore } = await import('./cultivationRoom')
+        useCultivationRoomStore().open()
+      }
+    } catch (err) {
+      history.value.push({ player: evt.text, npc: `（${err.response?.data?.message || err.message || '发生意外'}）` })
+    } finally {
+      loading.value = false
     }
   }
 

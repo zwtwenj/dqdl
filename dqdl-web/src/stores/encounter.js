@@ -52,8 +52,7 @@ export const useEncounterStore = defineStore('encounter', () => {
       if (!window.confirm('进入将自动停止当前历练，是否确定进入？')) return
       const { stopAutoTraining } = await import('../services/trainingSession')
       stopAutoTraining()
-      const { setPlayerStatus } = await import('../api')
-      await setPlayerStatus(usePlayerStore().playerId, 1).catch(() => {})
+      await new Promise(r => setTimeout(r, 300)) // 等待后端恢复 status=1
     }
     show.value = false // 立即关闭奇遇面板，避免与副本/修炼面板叠加
     if (en.status === 'entered') {

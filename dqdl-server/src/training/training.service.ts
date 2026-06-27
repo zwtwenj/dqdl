@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PlayerService } from '../player/player.service';
 import { MobService } from '../mob/mob.service';
@@ -84,6 +84,13 @@ export class TrainingService {
   readonly trainingInterval: number;
   readonly trainingMaxDuration: number;
 
+  /**
+   * 历练会话令牌（每个玩家一个）。玩家每次开始/停止历练都会自增，
+   * SSE 流在结束时只有"令牌仍匹配"才把状态恢复为空闲，
+   * 从而避免旧流误把新会话的状态重置（刷新页面后立即重连的竞态）。
+   */
+  private readonly sessionToken = new Map<number, number>();
+
   constructor(
     private config: ConfigService,
     private playerService: PlayerService,
@@ -100,6 +107,57 @@ export class TrainingService {
   ) {
     this.trainingInterval = config.get<number>('TRAINING_INTERVAL', 180000);
     this.trainingMaxDuration = config.get<number>('TRAINING_MAX_DURATION', 10800000);
+  }
+
+  /** 开始历练：校验空闲 → 置历练中(2) → 颁发会话令牌。状态由后端统一管理 */
+  async begin(playerId: number): Promise<{ token: number }> {
+    const player = await this.playerService.findByIdRaw(playerId);
+    if (!player) throw new NotFoundException('玩家不存在');
+    if (player.status !== 1) {
+      throw new BadRequestException('正在进行别的事物，请完成后再尝试进入');
+    }
+    await this.playerService.setStatus(playerId, 2);
+    const token = (this.sessionToken.get(playerId) ?? 0) + 1;
+    this.sessionToken.set(playerId, token);
+    return { token };
+  }
+
+  /** 主动停止历练：立即恢复空闲(1) 并使旧 SSE 流失效（令牌自增） */
+  async stop(playerId: number): Promise<void> {
+    this.bumpToken(playerId);
+    const player = await this.playerService.findByIdRaw(playerId);
+    if (player && player.status === 2) {
+      await this.playerService.setStatus(playerId, 1);
+    }
+  }
+
+  /** SSE 流读取当前令牌（用于自识别是否仍是活跃会话） */
+  currentToken(playerId: number): number {
+    return this.sessionToken.get(playerId) ?? 0;
+  }
+
+  /** SSE 流判断自己是否仍是当前会话 */
+  isCurrent(playerId: number, token: number): boolean {
+    return this.sessionToken.get(playerId) === token;
+  }
+
+  /**
+   * SSE 流结束（客户端断开/刷新/超时）：若本流仍是当前会话（未被新的 begin/stop 取代），
+   * 才把状态恢复为空闲。这是客户端消失时唯一的兜底回收路径。
+   */
+  async endIfCurrent(playerId: number, token: number): Promise<void> {
+    if (this.sessionToken.get(playerId) !== token) return;
+    this.sessionToken.delete(playerId);
+    const player = await this.playerService.findByIdRaw(playerId);
+    if (player && player.status === 2) {
+      await this.playerService.setStatus(playerId, 1);
+    }
+  }
+
+  private bumpToken(playerId: number): number {
+    const token = (this.sessionToken.get(playerId) ?? 0) + 1;
+    this.sessionToken.set(playerId, token);
+    return token;
   }
 
   /** 解析玩家已装备斗技 */

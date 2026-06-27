@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -37,7 +37,7 @@ export class CultivationService {
     const player = await this.playerService.findByIdRaw(playerId);
     if (!player) throw new NotFoundException('玩家不存在');
     if (player.status !== STATUS_IDLE) {
-      throw new Error('正在进行别的事物，请完成后再尝试进入');
+      throw new BadRequestException('正在进行别的事物，请完成后再尝试进入');
     }
 
     const enc = await this.encounterService.consume(encounterId, playerId);

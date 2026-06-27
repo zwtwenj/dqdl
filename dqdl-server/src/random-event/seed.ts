@@ -41,12 +41,12 @@ async function seed() {
             ],
           },
           buy_good: {
-            effects: [{ giveItem: { name: '一品回气丹', count: 10 } }],
+            effects: [{ giveItem: { name: '一阶回春丹', count: 10 } }],
             npc: '你接过布包，丹药香气扑鼻——货真价实！再抬头，那人已混入人群不见了踪影。',
             end: true,
           },
           buy_bad: {
-            effects: [{ giveItem: { name: '废丹', count: 1 } }],
+            effects: [],
             npc: '你仔细查看包裹中的丹药，却发现这只是一炉废丹而已，转身望去，已经不见那人的身影。',
             end: true,
           },

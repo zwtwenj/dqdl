@@ -257,7 +257,7 @@ def fallback_generate(parent_info, count):
     pool = (
         ['云岚城', '黑岩城', '赤焰城', '碧水城', '风雷城', '天星城', '落雁城', '紫月城']
         if depth < 3
-        else ['坊市', '佣兵公会', '药材商行', '城主府', '修炼场', '密林区', '溪谷', '山腰平台']
+        else ['坊市', '佣兵公会', '修炼室', '药材商行', '城主府', '修炼场', '密林区', '溪谷', '山腰平台']
     )
     results = []
     for i in range(min(count, len(pool))):
@@ -275,7 +275,7 @@ def fallback_generate(parent_info, count):
 def ensure_city_districts(results, parent_info):
     """
     后处理：确保城市内部场景包含必选区域
-    - 必有：坊市、佣兵公会
+    - 必有：坊市、佣兵公会、修炼室
     - 50%概率：拍卖行
     """
     MANDATORY = [
@@ -294,6 +294,14 @@ def ensure_city_districts(results, parent_info):
             'danger_level': 1,
             'available_actions': ['quest', 'rest'],
             'tags': ['任务', '佣兵'],
+        },
+        {
+            'name': '修炼室',
+            'loc_type': 'cultivation',
+            'description': f'{parent_info.get("name", "")}的修炼室，通过阵法吸纳斗气进行修炼，价格不菲但效率极高。',
+            'danger_level': 1,
+            'available_actions': ['cultivate', 'rest'],
+            'tags': ['修炼'],
         },
     ]
     OPTIONAL = {

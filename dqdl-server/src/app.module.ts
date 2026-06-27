@@ -19,7 +19,10 @@ import { AgentModule } from './agent/agent.module';
 import { TrainingModule } from './training/training.module';
 import { EncounterModule } from './encounter/encounter.module';
 import { CultivationModule } from './cultivation/cultivation.module';
+import { CultivationRoomModule } from './cultivation-room/cultivation-room.module';
 import { RandomEventModule } from './random-event/random-event.module';
+import { DialogEventModule } from './dialog-event/dialog-event.module';
+import { TreasureModule } from './treasure/treasure.module';
 
 @Module({
   imports: [
@@ -54,7 +57,10 @@ import { RandomEventModule } from './random-event/random-event.module';
     TrainingModule,
     EncounterModule,
     CultivationModule,
+    CultivationRoomModule,
     RandomEventModule,
+    DialogEventModule,
+    TreasureModule,
   ],
   controllers: [AppController],
   providers: [AppService],

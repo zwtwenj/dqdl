@@ -82,12 +82,14 @@ export const buffLibrary: Record<string, BuffFn> = {
     });
   },
 
-  // 技能自身挂 buff
+  // 技能自身挂 buff（支持透传参数覆盖，如护盾量 amount）
   apply_self: (ctx, p) => {
     const key = p.buffKey as string;
     const level = p.level ?? 1;
     const d = defOf(key);
-    applyBuff(ctx.source, key, ctx.source, level);
-    ctx.log.push(`${d?.icon || '✦'} ${ctx.source.name} 获得「${d?.name || key}」`);
+    const override = p.amount != null ? { amount: p.amount } : undefined;
+    applyBuff(ctx.source, key, ctx.source, level, undefined, override);
+    const extra = override ? `（${override.amount}）` : '';
+    ctx.log.push(`${d?.icon || '✦'} ${ctx.source.name} 获得「${d?.name || key}」${extra}`);
   },
 };

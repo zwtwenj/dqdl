@@ -44,29 +44,37 @@ export class CultivationRoomService {
     };
   }
 
-  /** 进入修炼室：校验空闲 + 目标未修满；mode: qi=修炼斗气, technique=修炼功法 */
+  /** 进入修炼室：校验空闲 + 目标未修满；mode: qi=修炼斗气, technique=修炼功法, skill=修炼斗技 */
   async enter(
     playerId: number,
     tier: number,
     mode: string = 'qi',
-    targetTechniqueId?: number,
+    targetId?: number,
   ): Promise<any> {
     if (!TIER_COST[tier]) throw new BadRequestException('修炼室档位错误');
-    const m = mode === 'technique' ? 'technique' : 'qi';
+    const m = mode === 'technique' ? 'technique' : mode === 'skill' ? 'skill' : 'qi';
     const player = await this.playerService.findByIdRaw(playerId);
     if (!player) throw new NotFoundException('玩家不存在');
     if (player.status !== STATUS_IDLE) {
       throw new BadRequestException('正在进行别的事物，请完成后再尝试进入');
     }
 
-    let targetId: number | null = null;
+    let tid: number | null = null;
     if (m === 'technique') {
-      if (!targetTechniqueId) throw new BadRequestException('请选择要修炼的功法');
-      targetId = Number(targetTechniqueId);
-      const st = await this.playerService.getTechniqueState(playerId, targetId);
+      if (!targetId) throw new BadRequestException('请选择要修炼的功法');
+      tid = Number(targetId);
+      const st = await this.playerService.getTechniqueState(playerId, tid);
       if (!st) throw new BadRequestException('未习得该功法');
       if (st.max_cultivation > 0 && st.cultivation >= st.max_cultivation) {
         throw new BadRequestException('该功法修为已满');
+      }
+    } else if (m === 'skill') {
+      if (!targetId) throw new BadRequestException('请选择要修炼的斗技');
+      tid = Number(targetId);
+      const st = await this.playerService.getSkillState(playerId, tid);
+      if (!st) throw new BadRequestException('未习得该斗技');
+      if (st.max_level > 0 && st.level >= st.max_level) {
+        throw new BadRequestException('该斗技已修炼至满级');
       }
     } else {
       if (player.cultivation >= player.level_cultivation) {
@@ -80,7 +88,7 @@ export class CultivationRoomService {
     const session = this.repo.create({
       player_id: playerId,
       mode: m,
-      target_technique_id: targetId,
+      target_technique_id: tid,
       tier,
       rounds: 0,
       total_gained: 0,
@@ -89,7 +97,7 @@ export class CultivationRoomService {
     });
     const saved = await this.repo.save(session);
     await this.playerService.setStatus(playerId, STATUS_ROOM_CULTIVATING);
-    this.logger.log(`玩家 ${playerId} 进入 ${tier}阶修炼室 (${m}${m === 'technique' ? `#${targetId}` : ''})`);
+    this.logger.log(`玩家 ${playerId} 进入 ${tier}阶修炼室 (${m}${tid != null ? `#${tid}` : ''})`);
     return { ...saved, progress: await this.progressFor(player, saved) };
   }
 
@@ -131,12 +139,16 @@ export class CultivationRoomService {
     const effectiveQi = BASE_QI * (TIER_MULT[session.tier] ?? 1);
     const targetId = session.target_technique_id;
     const isTechnique = session.mode === 'technique' && targetId != null;
+    const isSkill = session.mode === 'skill' && targetId != null;
 
-    // 目标修为是否已满（功法满 / 斗气满）→ 停止
+    // 目标修为是否已满（功法满 / 斗技满级 / 斗气满）→ 停止
     let targetFull = false;
     if (isTechnique) {
       const st = await this.playerService.getTechniqueState(playerId, targetId as number);
       targetFull = !!st && st.max_cultivation > 0 && st.cultivation >= st.max_cultivation;
+    } else if (isSkill) {
+      const st = await this.playerService.getSkillState(playerId, targetId as number);
+      targetFull = !!st && st.max_level > 0 && st.level >= st.max_level;
     } else {
       targetFull = player.cultivation >= player.level_cultivation;
     }
@@ -160,6 +172,10 @@ export class CultivationRoomService {
     if (isTechnique) {
       const r = await this.playerService.cultivateTechnique(playerId, targetId as number, effectiveQi);
       gained = r.gained; critical = r.critical; justReachedFull = r.full;
+    } else if (isSkill) {
+      // 斗技：修为满自动突破，仅当达到满级(maxed)才会结束会话
+      const r = await this.playerService.cultivateSkill(playerId, targetId as number, effectiveQi);
+      gained = r.gained; critical = r.critical; justReachedFull = r.maxed;
     } else {
       const r = await this.playerService.cultivate(playerId, effectiveQi);
       gained = r.gained; critical = r.critical; capped = r.capped;
@@ -227,6 +243,11 @@ export class CultivationRoomService {
       const st = player ? await this.playerService.getTechniqueState(player.id, session.target_technique_id) : null;
       if (st) return { mode: 'technique', name: st.name, level: st.level, current: st.cultivation, max: st.max_cultivation };
       return { mode: 'technique', name: '功法', level: 1, current: 0, max: 0 };
+    }
+    if (session.mode === 'skill' && session.target_technique_id) {
+      const st = player ? await this.playerService.getSkillState(player.id, session.target_technique_id) : null;
+      if (st) return { mode: 'skill', name: st.name, level: st.level, current: st.cultivation, max: st.max_cultivation };
+      return { mode: 'skill', name: '斗技', level: 1, current: 0, max: 0 };
     }
     return {
       mode: 'qi',

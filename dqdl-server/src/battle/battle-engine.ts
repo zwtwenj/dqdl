@@ -230,9 +230,32 @@ function buildSkillSteps(skill: BattleState['skills'][number]): EffectRow[] {
     steps.push({ hook: 'beforeAttack', fnId: 'deliver', params: { buffKey: entry.buff, level: entry.level ?? 1, ...(override || {}) }, priority: 50, consume: false });
   }
   for (const entry of skill.selfBuffs || []) {
-    steps.push({ hook: 'beforeAttack', fnId: 'apply_self', params: { buffKey: entry.buff, level: entry.level ?? 1 }, priority: 20, consume: false });
+    const override = entry.paramKey ? { amount: P[entry.paramKey] } : undefined;
+    steps.push({ hook: 'beforeAttack', fnId: 'apply_self', params: { buffKey: entry.buff, level: entry.level ?? 1, ...(override || {}) }, priority: 20, consume: false });
   }
   return steps;
+}
+
+/**
+ * 护盾吸收：目标身上 barrier buff（params.amount 为剩余护盾量）吸收本次伤害。
+ * 护盾唯一（stack_rule=refresh，刷新即重置量与持续时间）；耗尽则立即移除。
+ * 在 finalDamage 计算后、扣血前调用。
+ */
+function absorbShield(state: BattleState, tgt: Combatant, damage: number): number {
+  if (damage <= 0) return damage;
+  const barrier = tgt.buffs.find((b) => b.key === 'barrier');
+  if (!barrier) return damage;
+  const amt = Number(barrier.params?.amount) || 0;
+  if (amt <= 0) return damage;
+  const absorb = Math.min(amt, damage);
+  barrier.params = { ...(barrier.params || {}), amount: amt - absorb };
+  state.log.push(`🛡️ ${tgt.name} 护盾吸收 ${absorb} 伤害（剩余 ${barrier.params.amount}）`);
+  if (Number(barrier.params.amount) <= 0) {
+    const idx = tgt.buffs.indexOf(barrier);
+    if (idx >= 0) tgt.buffs.splice(idx, 1);
+    state.log.push(`🛡️ ${tgt.name} 的护盾被击破`);
+  }
+  return damage - absorb;
 }
 
 function runAttack(state: BattleState, src: Combatant, tgt: Combatant, skill: BattleState['skills'][number] | null) {
@@ -270,6 +293,8 @@ function runAttack(state: BattleState, src: Combatant, tgt: Combatant, skill: Ba
   } else {
     const effReduction = Math.min(0.95, Math.max(0, atk.reduction * (1 - Math.min(0.95, atk.armorPen))));
     atk.finalDamage = Math.max(0, Math.round(atk.baseDamage * (1 - effReduction) * atk.damageMul * (atk.crit ? 2 : 1)));
+    // 护盾吸收（在 finalDamage 计算后、扣血前）
+    atk.finalDamage = absorbShield(state, tgt, atk.finalDamage);
     const before = tgt.hp;
     tgt.hp = Math.max(0, tgt.hp - atk.finalDamage);
     state.log.push(`${atk.crit ? '⚡暴击！' : ''}${src.name}${skill ? ` 「${skill.name}」` : ''} → ${tgt.name} ${before - tgt.hp} 伤害`);

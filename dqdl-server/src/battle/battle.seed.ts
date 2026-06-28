@@ -136,6 +136,7 @@ const SEED_BUFFS: SeedBuff[] = [
   { key: 'vampire', name: '吸血', icon: '🦇', type: 'buff', duration: 5, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '造成伤害时吸取生命' },
   { key: 'thorns', name: '荆棘', icon: '🌵', type: 'buff', duration: 5, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '受到攻击时反弹伤害' },
   { key: 'pojia', name: '破甲', icon: '⚔', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '下次攻击无视对方部分减伤' },
+  { key: 'barrier', name: '护体盾', icon: '🛡', type: 'buff', duration: 3, stack_rule: 'refresh', max_stack: 1, snapshot: false, priority: 0, description: '吸收{amount}点伤害' },
 ];
 
 const SEED_EFFECTS: SeedEffect[] = [
@@ -183,4 +184,7 @@ const SEED_SKILLS: SeedSkill[] = [
   { name: '雷霆一击', description: '黄阶高级斗技，雷霆万钧，携带破甲', base_damage: 9, attr: 'power', rank: 41, max_level: 5, energy_cost: 16,
     levels: lv([1.1, 1.3, 1.6, 1.9, 2.2], { 'armorPen': [0.35, 0.37, 0.39, 0.41, 0.43] }),
     carried: [{ buff: 'pojia', paramKey: 'armorPen' }], target_effects: [{ buff: 'stun' }], self_effects: [{ buff: 'shield' }] },
+  { name: '磐石护体', description: '黄阶中级斗技，凝聚斗气化作护体盾气，吸收伤害', base_damage: 6, attr: 'stamina', rank: 42, max_level: 5, energy_cost: 14,
+    levels: lv([0.6, 0.8, 1.0, 1.2, 1.4], { shieldAmount: [120, 180, 260, 360, 480] }),
+    self_effects: [{ buff: 'barrier', paramKey: 'shieldAmount' }] },
 ];

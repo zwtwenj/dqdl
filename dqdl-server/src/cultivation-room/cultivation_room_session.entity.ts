@@ -9,12 +9,12 @@ export class CultivationRoomSession {
   @Column({ type: 'int', comment: '玩家ID' })
   player_id: number;
 
-  /** 修炼内容：qi=修炼斗气(玩家突破修为)，technique=修炼功法 */
-  @Column({ type: 'varchar', length: 16, default: 'qi', comment: '修炼类型: qi/technique' })
+  /** 修炼内容：qi=修炼斗气(玩家突破修为)，technique=修炼功法，skill=修炼斗技 */
+  @Column({ type: 'varchar', length: 16, default: 'qi', comment: '修炼类型: qi/technique/skill' })
   mode: string;
 
-  /** 修炼功法时，目标功法ID（player.technique 中的某一项）；qi 模式为 null */
-  @Column({ type: 'int', nullable: true, comment: '目标功法ID(technique模式)' })
+  /** 目标ID：technique 模式=功法ID，skill 模式=斗技ID；qi 模式为 null（复用同一列） */
+  @Column({ type: 'int', nullable: true, comment: '目标ID(technique=功法ID / skill=斗技ID)' })
   target_technique_id: number | null;
 
   /** 档位 1-3，决定修炼倍率与每跳金币 */

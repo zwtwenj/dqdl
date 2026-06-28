@@ -12,15 +12,15 @@ export class CultivationRoomController {
     return this.service.getOptions();
   }
 
-  /** 进入修炼室（选择档位 + 修炼类型：qi=斗气, technique=功法[需 techniqueId]） */
+  /** 进入修炼室（选择档位 + 修炼类型：qi=斗气, technique=功法[需 targetId], skill=斗技[需 targetId]） */
   @Post('enter')
   enter(
     @Query('playerId', ParseIntPipe) playerId: number,
     @Query('tier', ParseIntPipe) tier: number,
     @Query('mode') mode: string,
-    @Query('techniqueId') techniqueId?: string,
+    @Query('targetId') targetId?: string,
   ) {
-    return this.service.enter(playerId, tier, mode, techniqueId ? Number(techniqueId) : undefined);
+    return this.service.enter(playerId, tier, mode, targetId ? Number(targetId) : undefined);
   }
 
   /** 当前进行中的修炼室会话 */

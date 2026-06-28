@@ -19,7 +19,7 @@ export const useCultivationRoomStore = defineStore('cultivationRoom', () => {
   const stopReason = ref(null)
 
   // 选择向导状态
-  const step = ref('tier')          // 'tier' | 'type' | 'technique'
+  const step = ref('tier')          // 'tier' | 'type' | 'technique' | 'skill'
   const selectedTier = ref(null)
 
   const isActive = computed(() => !!session.value)
@@ -60,13 +60,14 @@ export const useCultivationRoomStore = defineStore('cultivationRoom', () => {
   function goTier() { step.value = 'tier' }
   function goType() { step.value = 'type' }
   function goTechniquePicker() { step.value = 'technique' }
+  function goSkillPicker() { step.value = 'skill' }
 
-  async function enter(tier, mode = 'qi', techniqueId = null) {
+  async function enter(tier, mode = 'qi', targetId = null) {
     const pid = usePlayerStore().playerId
     if (!pid || loading.value) return
     loading.value = true
     try {
-      const res = await enterCultivationRoom(pid, tier, mode, techniqueId)
+      const res = await enterCultivationRoom(pid, tier, mode, targetId)
       session.value = res.data
       progress.value = res.data?.progress || null
       stopReason.value = null
@@ -118,6 +119,6 @@ export const useCultivationRoomStore = defineStore('cultivationRoom', () => {
     showPanel, tiers, interval, session, progress, loading, stopReason, isActive,
     step, selectedTier,
     open, close, fetchConfig, fetchCurrent, enter, stop, applySettle,
-    pickTier, goTier, goType, goTechniquePicker,
+    pickTier, goTier, goType, goTechniquePicker, goSkillPicker,
   }
 })

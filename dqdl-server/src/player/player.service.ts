@@ -5,6 +5,9 @@ import { Player } from './player.entity';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { TechniqueService, techniqueBreakthroughBaseRate } from '../technique/technique.service';
 import { TreasureService } from '../treasure/treasure.service';
+import { SkillService } from '../skill/skill.service';
+import { BuffService } from '../buff/buff.service';
+import { Buff } from '../buff/buff.entity';
 import { AgentClient } from '../agent/agent.client';
 
 /** 等阶 K 常量：1-9=100, 11-19=200, 21-29=300, 31-39=400 */
@@ -38,6 +41,8 @@ export class PlayerService {
     private readonly playerRepo: Repository<Player>,
     private readonly techniqueService: TechniqueService,
     private readonly treasureService: TreasureService,
+    private readonly skillService: SkillService,
+    private readonly buffService: BuffService,
     private readonly agentClient: AgentClient,
   ) {}
 
@@ -145,7 +150,20 @@ export class PlayerService {
         icon: def?.icon || null,
         description: def?.description || '',
         stats: def ? this.treasureService.parseStats(def.stats) : {},
+        effects: def ? this.treasureService.parseEffects(def.effects) : {},
       };
+    });
+
+    // 已习得斗技（含完整展示信息：伤害公式 + 附带效果；附带 buff 的名称/描述在此 join，
+    // 前端无需再请求 skill/buff 全量表）
+    const skEntries = this.parseSkill(player.skill);
+    const skDefs = skEntries.length ? await this.skillService.findByIds(skEntries.map((s) => Number(s.id))) : [];
+    const skDefMap = new Map(skDefs.map((d) => [d.id, d]));
+    const buffDefs = skEntries.length ? await this.buffService.findAll() : [];
+    const buffMap = new Map(buffDefs.map((b) => [b.key, b]));
+    const skills = skEntries.map((s) => {
+      const def = skDefMap.get(Number(s.id));
+      return this.presentSkill(def, Number(s.level) || 1, buffMap, (s as any).carry ?? null, Number(s.cultivation) || 0);
     });
 
     return {
@@ -162,6 +180,7 @@ export class PlayerService {
         : null,
       techniques,
       treasures,
+      skills,
       final_attrs: finalAttrs,
       // 修炼效率加成(百分点)：修炼收益 = 基础 × (100 + 此值) / 100
       cultivation_efficiency: trEffects.cultivation_efficiency || 0,
@@ -176,6 +195,86 @@ export class PlayerService {
     } catch {
       return [];
     }
+  }
+
+  /** 解析玩家斗技列表数组 */
+  private parseSkill(raw: string | null | undefined): any[] {
+    try {
+      const a = JSON.parse(raw || '[]');
+      return Array.isArray(a) ? a : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private parseLevels(raw: string | null | undefined): any[] {
+    try { const a = JSON.parse(raw || '[]'); return Array.isArray(a) ? a : []; } catch { return []; }
+  }
+  private parseEffectEntries(raw: string | null | undefined): { buff: string; paramKey?: string }[] {
+    let arr: any;
+    try { arr = JSON.parse(raw || '[]'); } catch { arr = []; }
+    if (!Array.isArray(arr)) return [];
+    return arr.map((e) => (typeof e === 'string' ? { buff: e } : { buff: e.buff, paramKey: e.paramKey }));
+  }
+  private formatSkillParam(key: string, val: number): string | null {
+    if (key === 'armorPen') return `穿透 ${Math.round(val * 100)}%`;
+    if (key === 'burnRate') return `灼烧 ×${val}`;
+    if (key === 'bleedRate') return `流血 ×${val}`;
+    if (key === 'shieldAmount') return `护盾 ${val}`;
+    return null; // 未知 paramKey 不展示，避免出现原始键名
+  }
+  /**
+   * 组装单条斗技的展示视图：基础信息 + 修炼进度 + 伤害公式 + 附带效果。
+   * 附带 buff 的名称/图标/描述在此用 buffMap join，前端不再直接请求 buff 表。
+   */
+  private presentSkill(
+    def: any | undefined,
+    level: number,
+    buffMap: Map<string, Buff>,
+    carry: any,
+    cultivation: number,
+  ): any {
+    const lvEntry = def ? this.parseLevels(def.levels).find((e) => Number(e?.level) === level) : null;
+    const P = (lvEntry && (lvEntry as any).params) || {};
+    const buildGroup = (raw: string | null, tag: string) => ({
+      tag,
+      items: this.parseEffectEntries(raw).map((e) => {
+        const b = buffMap.get(e.buff);
+        const val = e.paramKey && P[e.paramKey] != null ? Number(P[e.paramKey]) : null;
+        let desc = b?.description || '';
+        let param: string | null = null;
+        if (val != null) {
+          if (desc.includes('{')) {
+            // 描述含占位符（如护盾「吸收{amount}点伤害」）：直接代入当前等级数值，不再额外显示 param 避免重复
+            desc = desc.replace(/\{([^{}]+?)(%?)\}/g, (_m, _k: string, pct: string) =>
+              pct ? Math.round(val * 100) + '%' : String(val));
+          } else {
+            param = this.formatSkillParam(e.paramKey!, val);
+          }
+        }
+        return { icon: b?.icon || '✦', name: b?.name || e.buff, description: desc, param };
+      }),
+    });
+    return {
+      id: def?.id ?? 0,
+      carry: carry ?? null,
+      name: def?.name || '未知斗技',
+      rank: def?.rank ?? null,
+      level,
+      max_level: def?.max_level ?? 0,
+      cultivation,
+      max_cultivation: def ? this.skillService.maxCultivationAtLevel(def, level) : 0,
+      description: def?.description || '',
+      attr: def?.attr || 'power',
+      base_damage: def?.base_damage || 0,
+      energy_cost: def?.energy_cost || 0,
+      damageRate: Number(P.damageRate ?? 1),
+      groups: def ? [
+        buildGroup(def.carried, '携带效果'),
+        buildGroup(def.target_effects, '命中附加'),
+        buildGroup(def.self_effects, '自身增益'),
+      ] : [],
+    };
   }
 
   /** 读取当前「装配中」的功法进度：{id, level, cultivation}（未装配返回 null） */
@@ -389,6 +488,79 @@ export class PlayerService {
     await this.playerRepo.save(player);
     this.logger.log(`玩家 ${playerId} 修炼功法 ${techniqueId}：+${gained} 功法修为`);
     return { gained, critical, cultivation: newCult, max_cultivation: max, full };
+  }
+
+  /** 读取某项斗技的修炼进度（供修炼室渲染/校验）：{name, level, cultivation, max_cultivation, max_level} */
+  async getSkillState(playerId: number, skillId: number): Promise<{
+    name: string; level: number; cultivation: number; max_cultivation: number; max_level: number;
+  } | null> {
+    const player = await this.playerRepo.findOneBy({ id: playerId });
+    if (!player) return null;
+    const arr = this.parseSkill(player.skill);
+    const entry = arr.find((s) => Number(s.id) === Number(skillId));
+    const def = await this.skillService.findOne(skillId);
+    if (!entry || !def) return null;
+    const lv = Number(entry.level) || 1;
+    return {
+      name: def.name,
+      level: lv,
+      cultivation: Number(entry.cultivation) || 0,
+      max_cultivation: this.skillService.maxCultivationAtLevel(def, lv),
+      max_level: def.max_level ?? 0,
+    };
+  }
+
+  /**
+   * 修炼斗技（修炼室 skill 模式每跳调用）：与修炼功法同公式，产出加到指定斗技修为上。
+   * 与功法的区别：修为满后【自动突破】（等级+1、修为清零），无需玩家手动操作；
+   * 因此可一直修炼，直至该斗技达到 max_level（返回 maxed=true 让修炼室结束会话）。
+   */
+  async cultivateSkill(playerId: number, skillId: number, qiDensity: number): Promise<{
+    gained: number; critical: boolean; level: number; cultivation: number;
+    max_cultivation: number; maxed: boolean; leveledUp: boolean;
+  }> {
+    const player = await this.playerRepo.findOneBy({ id: playerId });
+    if (!player) throw new NotFoundException('玩家不存在');
+    const arr = this.parseSkill(player.skill);
+    const entry = arr.find((s) => Number(s.id) === Number(skillId));
+    if (!entry) throw new BadRequestException('未习得该斗技');
+    const def = await this.skillService.findOne(skillId);
+    if (!def) throw new NotFoundException('斗技不存在');
+
+    let lv = Number(entry.level) || 1;
+    const maxLevel = def.max_level ?? 0;
+    // 已达最高级：不再增长
+    if (maxLevel > 0 && lv >= maxLevel) {
+      return { gained: 0, critical: false, level: lv, cultivation: Number(entry.cultivation) || 0, max_cultivation: 0, maxed: true, leveledUp: false };
+    }
+
+    const max = this.skillService.maxCultivationAtLevel(def, lv);
+    const cur = Number(entry.cultivation) || 0;
+    const growth = 10; // 斗技修炼速率（固定；功法走 def.growth，斗技无 growth 字段）
+    const factor = 0.9 + Math.random() * 0.2;
+    let gained = Math.round(qiDensity * factor * growth / 100);
+    // 修炼效率：每点 +1% 修炼收益（来源于已装备宝物）
+    const cultEff = (await this.sumEquippedTreasureEffects(player)).cultivation_efficiency || 0;
+    if (cultEff > 0) gained = Math.round(gained * (100 + cultEff) / 100);
+    const critical = Math.random() < 0.1;
+    if (critical) gained *= 3;
+
+    let newCult = cur + gained;
+    let leveledUp = false;
+    // 修为满 → 自动突破：等级+1、修为清零（多余修为不保留），可继续修炼下一级
+    if (max > 0 && newCult >= max) {
+      lv += 1;
+      newCult = 0;
+      leveledUp = true;
+    }
+    entry.level = lv;
+    entry.cultivation = newCult;
+    player.skill = JSON.stringify(arr);
+    await this.playerRepo.save(player);
+
+    const maxed = maxLevel > 0 && lv >= maxLevel;
+    this.logger.log(`玩家 ${playerId} 修炼斗技 ${skillId}：+${gained} 修为${leveledUp ? `，自动突破至 Lv.${lv}` : ''}${maxed ? '，已满级' : ''}`);
+    return { gained, critical, level: lv, cultivation: newCult, max_cultivation: this.skillService.maxCultivationAtLevel(def, lv), maxed, leveledUp };
   }
 
   /**

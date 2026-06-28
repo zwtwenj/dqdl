@@ -15,7 +15,7 @@
           </div>
           <div class="cr-cult">
             <div class="cr-cult-top">
-              <span class="cr-cult-label">{{ store.progress?.mode === 'technique' ? '功法修为' : '斗气修为' }}</span>
+              <span class="cr-cult-label">{{ progressLabel }}</span>
               <span class="cr-cult-val">Lv.{{ store.progress?.level ?? 1 }} · {{ store.progress?.current ?? 0 }} / {{ store.progress?.max ?? 0 }}</span>
             </div>
             <div class="cr-cult-bar" :class="{ 'is-full': cultFull }">
@@ -59,9 +59,9 @@
                 <span class="cr-type-name">修炼功法</span>
                 <span class="cr-type-desc">提升功法修为</span>
               </button>
-              <button class="cr-type-btn is-disabled" disabled>
+              <button class="cr-type-btn" :disabled="store.loading" @click="store.goSkillPicker()">
                 <span class="cr-type-name">修炼斗技</span>
-                <span class="cr-type-desc">敬请期待</span>
+                <span class="cr-type-desc">提升斗技修为（满即自动突破）</span>
               </button>
             </div>
             <button class="cr-back" @click="store.goTier()">‹ 返回</button>
@@ -88,6 +88,27 @@
             </div>
             <button class="cr-back" @click="store.goType()">‹ 返回</button>
           </div>
+
+          <!-- 第三步（斗技）：选择修炼哪一项斗技（修为满自动突破，可连续修炼至满级） -->
+          <div v-else-if="store.step === 'skill'" class="cr-kind">
+            <div class="cr-kind-title">选择修炼斗技</div>
+            <div class="skill-inventory-grid cr-tech-grid">
+              <div
+                v-for="s in skills"
+                :key="s.id"
+                class="skill-item tech-item"
+                :class="{ 'is-full': skillIsMaxed(s) }"
+                @click="onPickSkill(s)"
+              >
+                <div class="skill-icon">{{ s.name?.[0] || '技' }}</div>
+                <div class="skill-name">{{ s.name }}</div>
+                <div class="skill-lv">Lv.{{ s.level }}{{ s.max_level ? '/' + s.max_level : '' }}</div>
+                <span v-if="skillIsMaxed(s)" class="cr-full-badge">已满</span>
+              </div>
+              <div v-if="skills.length === 0" class="cr-empty-inline">暂无已习得斗技</div>
+            </div>
+            <button class="cr-back" @click="store.goType()">‹ 返回</button>
+          </div>
         </template>
       </div>
     </div>
@@ -107,6 +128,12 @@ const tbStore = useTechniqueBreakthroughStore()
 const { data: player } = storeToRefs(playerStore)
 
 const techniques = computed(() => player.value?.techniques || [])
+const skills = computed(() => player.value?.skills || [])
+
+const progressLabel = computed(() => {
+  const m = store.progress?.mode
+  return m === 'technique' ? '功法修为' : m === 'skill' ? '斗技修为' : '斗气修为'
+})
 
 const cultPct = computed(() => {
   const cur = store.progress?.current ?? 0
@@ -129,6 +156,13 @@ function openBreakthrough(t) { tbStore.open(t) }
 function onPickTechnique(t) {
   if (techIsFull(t)) return
   store.enter(store.selectedTier, 'technique', t.id)
+}
+function skillIsMaxed(s) {
+  return (s.max_level ?? 0) > 0 && (s.level ?? 0) >= (s.max_level ?? 0)
+}
+function onPickSkill(s) {
+  if (skillIsMaxed(s)) return
+  store.enter(store.selectedTier, 'skill', s.id)
 }
 const reasonText = computed(() => ({
   full: '修为已满，修炼自动结束。',

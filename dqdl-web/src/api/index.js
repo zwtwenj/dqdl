@@ -41,6 +41,7 @@ export const trainingStreamUrl = (playerId, locationId) => `/api/training/stream
 
 // Skill API
 export const getSkills = () => api.get('/skill')
+export const getBuffs = () => api.get('/buff')
 export const updatePlayerSkills = (playerId, skillJson) => api.put(`/player/${playerId}`, { skill: skillJson })
 
 // Backpack API
@@ -79,8 +80,8 @@ export const cultivationStreamUrl = (playerId) => `/api/cultivation/stream?playe
 
 // Cultivation Room API（城内付费修炼室）
 export const cultivationRoomConfig = () => api.get('/cultivation-room/config')
-export const enterCultivationRoom = (playerId, tier, mode = 'qi', techniqueId = null) => {
-  const q = `/cultivation-room/enter?playerId=${playerId}&tier=${tier}&mode=${mode}` + (techniqueId ? `&techniqueId=${techniqueId}` : '')
+export const enterCultivationRoom = (playerId, tier, mode = 'qi', targetId = null) => {
+  const q = `/cultivation-room/enter?playerId=${playerId}&tier=${tier}&mode=${mode}` + (targetId ? `&targetId=${targetId}` : '')
   return api.post(q)
 }
 export const getCultivationRoom = (playerId) => api.get(`/cultivation-room/current?playerId=${playerId}`)

@@ -132,6 +132,51 @@ describe('battle-engine (行为冻结)', () => {
     });
   });
 
+  describe('护盾吸收 (barrier)', () => {
+    // power=100, lvl=10, mob stamina=0 → finalDamage = round(100*(1-800/3000)) = 73
+    const setup = (amount: number) => {
+      loadDefs([makeBuff({ id: 1, key: 'barrier', name: '护体盾', stack_rule: 'refresh', duration: 3, description: '吸收{amount}点伤害' })], []);
+      const rnd = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+      const p = createCombatant({ side: 'player', name: '勇者', level: 10, base: { power: 100 }, hp: 100, maxHp: 100, skipEnergy: true });
+      const m = createCombatant({ side: 'mob', name: '木桩', level: 5, base: { stamina: 0 }, hp: 200, maxHp: 200, skipEnergy: true });
+      applyBuff(m, 'barrier', m, 1, undefined, { amount });
+      return { rnd, p, m };
+    };
+
+    it('伤害小于护盾量：全额吸收，护盾剩余且目标不掉血', () => {
+      const { rnd, p, m } = setup(100); // 护盾 100 vs 73 伤害
+      const st = newState(p, m, []);
+      const before = m.hp;
+      runTurn(st, p, m, { type: 'normal' });
+      expect(m.hp).toBe(before);
+      const b = m.buffs.find((x) => x.key === 'barrier');
+      expect(b).toBeTruthy();
+      expect(Number(b!.params!.amount)).toBe(100 - 73);
+      expect(st.log.some((l) => l.includes('护盾吸收'))).toBe(true);
+      rnd.mockRestore();
+    });
+
+    it('伤害大于护盾量：护盾被击破，溢出伤害扣血', () => {
+      const { rnd, p, m } = setup(50); // 护盾 50 vs 73 伤害
+      const st = newState(p, m, []);
+      runTurn(st, p, m, { type: 'normal' });
+      expect(m.hp).toBe(200 - (73 - 50));
+      expect(m.buffs.find((x) => x.key === 'barrier')).toBeFalsy();
+      expect(st.log.some((l) => l.includes('被击破'))).toBe(true);
+      rnd.mockRestore();
+    });
+
+    it('唯一 + 刷新：再次获得护盾会重置护盾量与持续时间', () => {
+      loadDefs([makeBuff({ id: 1, key: 'barrier', name: '护体盾', stack_rule: 'refresh', duration: 3 })], []);
+      const c = createCombatant({ side: 'player', name: 'P', level: 1, base: {}, hp: 100, maxHp: 100 });
+      applyBuff(c, 'barrier', c, 1, undefined, { amount: 100 });
+      applyBuff(c, 'barrier', c, 1, undefined, { amount: 200 });
+      expect(c.buffs.length).toBe(1);
+      expect(Number(c.buffs[0].params!.amount)).toBe(200);
+      expect(c.buffs[0].remaining).toBe(3);
+    });
+  });
+
   describe('EventBus', () => {
     it('post / drain 按单位与钩子过滤', () => {
       const bus = new EventBus();

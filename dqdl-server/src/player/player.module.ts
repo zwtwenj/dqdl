@@ -5,9 +5,11 @@ import { PlayerService } from './player.service';
 import { PlayerController } from './player.controller';
 import { TechniqueModule } from '../technique/technique.module';
 import { TreasureModule } from '../treasure/treasure.module';
+import { SkillModule } from '../skill/skill.module';
+import { BuffModule } from '../buff/buff.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Player]), TechniqueModule, TreasureModule],
+  imports: [TypeOrmModule.forFeature([Player]), TechniqueModule, TreasureModule, SkillModule, BuffModule],
   controllers: [PlayerController],
   providers: [PlayerService],
   exports: [PlayerService],

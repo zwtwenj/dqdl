@@ -54,6 +54,18 @@ export class TaskController {
     };
   }
 
+  /** 接受锻造委托（生成材料收集任务，交付锻造师，奖励黑铁剑） */
+  @Post('forge/accept')
+  async acceptForge(@Body() body: { player_id: number; location_id: number }) {
+    const task = await this.taskService.acceptForgeTask(Number(body.player_id), Number(body.location_id));
+    return {
+      ...task,
+      target: this.taskService.parse(task.target),
+      reward: this.taskService.parse(task.reward),
+      delivery: task.delivery ? JSON.parse(task.delivery) : null,
+    };
+  }
+
   /** 领取奖励 */
   @Post(':id/claim')
   async claim(@Param('id') id: number) {

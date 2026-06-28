@@ -37,6 +37,7 @@ export class MapGeneratorService {
   private static readonly NAME_TYPE_RULES: { match: string; type: string }[] = [
     { match: '坊市', type: 'market' },
     { match: '修炼室', type: 'cultivation' },
+    { match: '冶炼坊', type: 'forging' },
   ];
 
   constructor(private readonly agentClient: AgentClient) {}
@@ -130,7 +131,7 @@ export class MapGeneratorService {
         locType = 'district';
       } else {
         // city 或其他
-        pool = ['坊市', '佣兵公会', '修炼室', '药材商行', '城主府', '修炼场'];
+        pool = ['坊市', '佣兵公会', '修炼室', '冶炼坊', '药材商行', '城主府', '修炼场'];
         locType = 'district';
       }
     } else {

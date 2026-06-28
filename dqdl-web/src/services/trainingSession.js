@@ -93,8 +93,13 @@ export function startAutoTraining() {
   const pid = player.playerId
   const lid = map.currentLocation?.id
   if (!pid || !lid) return
-  // 互斥：副本/修炼中（status 3/4）不允许开始历练
-  if (player.data?.status && player.data.status !== 1) return
+  // 互斥：副本/修炼中等（status≠1）不允许开始历练，并给出原因提示
+  const status = player.data?.status
+  if (status && status !== 1) {
+    const label = { 2: '历练', 3: '奇遇副本', 4: '洞天福地修炼', 5: '修炼室修炼' }[status] || '其它事务'
+    Message.warning(`你正在进行${label}，无法开始历练`)
+    return
+  }
 
   game.trainingMode = true
   game.trainingEvents = []

@@ -20,7 +20,7 @@ export class TreasureService {
 
   async findByIds(ids: number[]): Promise<Treasure[]> {
     if (!ids.length) return [];
-    return this.repo.find({ where: { id: ids as any } });
+    return this.repo.find({ where: ids.map((id) => ({ id }) as any) });
   }
 
   parseStats(statsJson: string | null): Record<string, number> {

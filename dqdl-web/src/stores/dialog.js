@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { talkToNpc, triggerNpcEvent } from '../api'
+import { talkToNpc, triggerNpcEvent, completeAdventurerTasks } from '../api'
 import { usePlayerStore } from './player'
 import { useBackpackStore } from './backpack'
 import { useTaskStore } from './task'
@@ -24,6 +24,36 @@ export const useDialogStore = defineStore('dialog', () => {
       history.value.push({ player: '', npc: '（沉默地看了你一眼）' })
     }
     loading.value = false
+    // 钩子：打开对话时自动检测并交付该 NPC 处已达标的任务（无需再点"交付"按钮）
+    await tryDeliverOnOpen()
+  }
+
+  /** 打开 NPC 对话钩子：若玩家有在该 NPC 交付且已达标的任务，自动交付并刷新任务/背包/玩家 */
+  async function tryDeliverOnOpen() {
+    if (!npc.value) return
+    const playerStore = usePlayerStore()
+    const taskStore = useTaskStore()
+    const backpackStore = useBackpackStore()
+    await taskStore.fetch()
+    const ready = taskStore.list.filter((t) =>
+      t.delivery && Number(t.delivery.npc_id) === Number(npc.value.id)
+      && t.status === 'pending'
+      && (t.target || []).length > 0
+      && (t.target || []).every((x) => x.current >= x.required),
+    )
+    if (!ready.length) return
+    try {
+      const res = await completeAdventurerTasks(playerStore.playerId, npc.value.id)
+      const done = Array.isArray(res.data) ? res.data : (res.data?.tasks || [])
+      await taskStore.fetch()
+      await backpackStore.fetch()
+      const { getPlayer } = await import('../api')
+      const pRes = await getPlayer(playerStore.playerId).catch(() => null)
+      if (pRes) playerStore.data = pRes.data
+      if (done.length) {
+        history.value.push({ player: '', npc: `（你交付了 ${done.length} 项委托，对方收下并给了你奖励。）` })
+      }
+    } catch { /* ignore */ }
   }
 
   function close() {

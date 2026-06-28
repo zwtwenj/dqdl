@@ -1,14 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { RandomEvent } from './random-event.entity';
+import { RandomEventLog } from './random-event-log.entity';
 import { PlayerService } from '../player/player.service';
 import { BackpackService } from '../backpack/backpack.service';
+import { TaskService } from '../task/task.service';
 
-/** 单条 effect：{ money: ±n } | { giveItem: { name, count } } */
+/** 单条 effect：{ money: ±n } | { giveItem: { name, count } } | { forgeTask: true } */
 export interface EventEffect {
   money?: number;
   giveItem?: { name: string; count: number };
+  forgeTask?: boolean;
 }
 
 /** 触发 payload 契约（按 trigger_type 携带不同字段） */
@@ -30,8 +33,11 @@ export class RandomEventService {
   constructor(
     @InjectRepository(RandomEvent)
     private readonly repo: Repository<RandomEvent>,
+    @InjectRepository(RandomEventLog)
+    private readonly logRepo: Repository<RandomEventLog>,
     private readonly playerService: PlayerService,
     private readonly backpackService: BackpackService,
+    private readonly taskService: TaskService,
   ) {}
 
   /**
@@ -57,6 +63,14 @@ export class RandomEventService {
       }
       if (!this.matchConditions(cond, payload)) continue;
 
+      // 仅触发一次的事件：已记录则跳过
+      if (ev.once) {
+        const logged = await this.logRepo.findOne({
+          where: { player_id: playerId, event_id: ev.event_id },
+        });
+        if (logged) continue;
+      }
+
       if (Math.random() <= Number(ev.chance)) {
         let nodes: any = {};
         try {
@@ -64,6 +78,15 @@ export class RandomEventService {
         } catch {
           nodes = {};
         }
+        // 记录触发：写入事件总线（status=started，once 事件据此去重；快照待前端 sync 更新）
+        await this.logRepo.save(
+          this.logRepo.create({
+            player_id: playerId,
+            event_id: ev.event_id,
+            status: 'started',
+            process: JSON.stringify({ messages: [], choices: [], ended: false, path: [] }),
+          }),
+        );
         this.logger.log(`玩家 ${playerId} 触发事件 ${ev.event_id} (${triggerType})`);
         return { event_id: ev.event_id, title: ev.title, nodes };
       }
@@ -72,18 +95,25 @@ export class RandomEventService {
   }
 
   /**
-   * 落地一批 effect：money 走 grantMoney（负数即扣除），giveItem 走背包叠加。
-   * 返回刷新后的金币与背包，供前端同步。
+   * 落地一批 effect：money 走 grantMoney（负数即扣除），giveItem 走背包叠加，
+   * forgeTask 走锻造委托接取（需 context.locationId）。返回刷新后的金币与背包。
    */
-  async apply(playerId: number, effects: EventEffect[]): Promise<{ money: number; items: any[] }> {
+  async apply(
+    playerId: number,
+    effects: EventEffect[],
+    context?: { locationId?: number },
+  ): Promise<{ money: number; items: any[] }> {
     let moneyDelta = 0;
     const items: { name: string; count: number }[] = [];
+    let forge = false;
 
     for (const eff of effects || []) {
       if (typeof eff.money === 'number') {
         moneyDelta += eff.money;
       } else if (eff.giveItem?.name) {
         items.push({ name: eff.giveItem.name, count: eff.giveItem.count || 1 });
+      } else if (eff.forgeTask) {
+        forge = true;
       }
     }
 
@@ -101,12 +131,51 @@ export class RandomEventService {
       await this.backpackService.addItem(playerId, it.name, it.count);
     }
 
+    if (forge && context?.locationId) {
+      await this.taskService.acceptForgeTask(playerId, context.locationId);
+    }
+
     const player = await this.playerService.findByIdRaw(playerId);
     const bp = await this.backpackService.getByPlayer(playerId);
     return {
       money: player?.money ?? 0,
       items: this.backpackService.parseItems(bp.items),
     };
+  }
+
+  /** 同步事件状态：更新最近一条触发记录的对话快照与状态(started→in_progress，ended 收尾) */
+  async syncEvent(
+    playerId: number,
+    eventId: string,
+    snapshot: any,
+    ended: boolean,
+  ): Promise<void> {
+    const log = await this.logRepo.findOne({
+      where: { player_id: playerId, event_id: eventId },
+      order: { id: 'DESC' },
+    });
+    if (!log) return;
+    log.process = JSON.stringify(snapshot || {});
+    log.status = ended ? 'ended' : 'in_progress';
+    await this.logRepo.save(log);
+  }
+
+  /**
+   * 获取玩家当前进行中的事件(未 ended)，用于页面刷新后恢复对话。
+   * 返回 { event_id, title, nodes, snapshot } 或 null。
+   */
+  async getCurrent(playerId: number): Promise<{ event_id: string; title: string; nodes: any; snapshot: any } | null> {
+    const log = await this.logRepo.findOne({
+      where: { player_id: playerId, status: In(['started', 'in_progress']) },
+      order: { id: 'DESC' },
+    });
+    if (!log) return null;
+    const ev = await this.repo.findOne({ where: { event_id: log.event_id } });
+    let nodes: any = {};
+    try { nodes = JSON.parse(ev?.nodes || '{}'); } catch { nodes = {}; }
+    let snapshot: any = { messages: [], choices: [], ended: false, path: [] };
+    try { snapshot = JSON.parse(log.process || '{}'); } catch { /* keep default */ }
+    return { event_id: log.event_id, title: ev?.title || log.event_id, nodes, snapshot };
   }
 
   /** 启用事件列表（调试/作者用） */

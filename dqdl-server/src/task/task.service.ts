@@ -5,6 +5,8 @@ import { Task } from './task.entity';
 import { Location } from '../location/location.entity';
 import { PlayerService } from '../player/player.service';
 import { NpcService } from '../npc/npc.service';
+import { BackpackService } from '../backpack/backpack.service';
+import { MobService } from '../mob/mob.service';
 
 export interface TaskTarget {
   desc: string;
@@ -30,6 +32,8 @@ export class TaskService {
     private readonly locationRepo: Repository<Location>,
     private readonly playerService: PlayerService,
     private readonly npcService: NpcService,
+    private readonly backpackService: BackpackService,
+    private readonly mobService: MobService,
   ) {}
 
   parse<T>(json: string): T[] {
@@ -208,6 +212,87 @@ export class TaskService {
     return this.create(playerId, name, description, target, reward, 'adventurer', delivery, star);
   }
 
+  /**
+   * 锻造委托：参考佣兵战斗任务生成规则，选定 empire 下某野外魔兽，要求击杀收集材料。
+   * 交付地点 = 锻造师(锻造地点的 NPC)；奖励 = 黑铁剑(宝物)。
+   * 每位玩家仅一个锻造委托（已存在则直接返回）。
+   */
+  async acceptForgeTask(playerId: number, locationId: number): Promise<Task> {
+    const existing = await this.taskRepo.findOne({ where: { player_id: playerId, type: 'forge' } });
+    if (existing) return existing;
+
+    const empire = await this.findAncestorByType(locationId, 'empire');
+    if (!empire) throw new NotFoundException('当前位置未找到帝国区域，无法生成锻造委托');
+
+    const wilds = await this.locationRepo
+      .createQueryBuilder('loc')
+      .where('loc.parent_id = :eid', { eid: empire.id })
+      .andWhere('loc.loc_type = :t', { t: 'wild' })
+      .andWhere('loc.danger_level > 0')
+      .andWhere('loc.common_mobs IS NOT NULL')
+      .getMany();
+    if (wilds.length === 0) throw new NotFoundException(`${empire.name} 下暂无可用的野外区域`);
+
+    const wild = wilds[Math.floor(Math.random() * wilds.length)];
+    let mobs: { mob_id: string; name: string }[] = [];
+    try { mobs = JSON.parse(wild.common_mobs!); } catch { /* */ }
+    if (mobs.length === 0) throw new NotFoundException(`${wild.name} 没有常见怪物数据`);
+
+    const mob = mobs[Math.floor(Math.random() * mobs.length)];
+    const killCount = Math.floor(Math.random() * 4) + 3; // 3~6
+
+    // 材料名：取该怪物 drops 中 type==='专属' 的一项；无则回退为"{怪名}材料"
+    let material = `${mob.name}材料`;
+    try {
+      const full = await this.mobService.findByMobId(mob.mob_id);
+      const drops: any[] = full?.drops ? JSON.parse(full.drops) : [];
+      const exclusive = drops.filter((d) => d && d.type === '专属');
+      if (exclusive.length) material = exclusive[Math.floor(Math.random() * exclusive.length)].name || material;
+    } catch { /* 保持回退 */ }
+
+    const blacksmith = await this.npcService.findOneRawByLocation(locationId);
+
+    // 交付路径：从锻造地点上溯到 empire
+    const pathNodes: { id: number; name: string; loc_type: string }[] = [];
+    let cursor = await this.locationRepo.findOneBy({ id: locationId });
+    while (cursor) {
+      pathNodes.unshift({ id: cursor.id, name: cursor.name, loc_type: cursor.loc_type });
+      if (!cursor.parent_id || cursor.loc_type === 'empire') break;
+      cursor = await this.locationRepo.findOneBy({ id: cursor.parent_id });
+    }
+
+    const target: any[] = [{
+      desc: `为锻造师收集${material}（击杀${mob.name}）`,
+      current: 0,
+      required: killCount,
+      mob_name: mob.name,
+      kill_count: killCount,
+      material,
+      location_path: [
+        { id: empire.id, name: empire.name, loc_type: 'empire' },
+        { id: wild.id, name: wild.name, loc_type: 'wild' },
+      ],
+    }];
+    const delivery: any = {
+      npc_id: blacksmith?.id ?? null,
+      npc_name: blacksmith?.name ?? '锻造师',
+      location_label: pathNodes.map((n) => n.name).join(' > '),
+      location_path: pathNodes,
+    };
+
+    this.logger.log(`玩家 ${playerId} 接受锻造委托：收集${material}（击杀${mob.name}×${killCount}）`);
+    return this.create(
+      playerId,
+      `锻造委托：收集${material}`,
+      `锻造师需要${material}，前往${empire.name} > ${wild.name}击杀${mob.name}获取（共${killCount}份），完成后回去交付可得「黑铁剑」。`,
+      target,
+      [{ name: '黑铁剑', count: 1 }],
+      'forge',
+      delivery,
+      1,
+    );
+  }
+
   /** 向上查找指定 loc_type 的祖先节点 */
   private async findAncestorByType(
     locationId: number,
@@ -277,6 +362,7 @@ export class TaskService {
     });
     const completedTasks: Task[] = [];
     let totalMoney = 0;
+    const itemRewards: { name: string; count: number }[] = [];
 
     for (const task of pendingTasks) {
       const targets = this.parse<TaskTarget>(task.target);
@@ -290,23 +376,30 @@ export class TaskService {
         if (!delivery || Number(delivery.npc_id) !== Number(npcId)) continue;
       }
 
-      task.status = 'completed';
+      task.status = 'claimed';
       await this.taskRepo.save(task);
       completedTasks.push(task);
 
-      // 累加金币奖励
+      // 累加奖励：money / 物品
       const rewards = this.parse<TaskReward>(task.reward);
       for (const r of rewards) {
         if (r.type === 'money' && r.value) {
           totalMoney += r.value;
+        } else if (r.name) {
+          itemRewards.push({ name: r.name, count: r.count || 1 });
         }
       }
     }
 
-    // 一次性发放金币（通过 PlayerService，不再跨表原生 SQL）
+    // 一次性发放金币
     if (totalMoney > 0) {
       await this.playerService.grantMoney(playerId, totalMoney);
       this.logger.log(`玩家 ${playerId} 获得任务奖励金币: ${totalMoney}`);
+    }
+    // 发放物品奖励（入背包）
+    for (const it of itemRewards) {
+      await this.backpackService.addItem(playerId, it.name, it.count);
+      this.logger.log(`玩家 ${playerId} 获得任务奖励物品: ${it.name}×${it.count}`);
     }
 
     return completedTasks;

@@ -41,6 +41,8 @@
               :key="s.id"
               class="skill-item"
               draggable="true"
+              title="点击装备到空槽位，或拖拽到指定槽位"
+              @click="onEquip(s)"
               @dragstart="onDragStart(s, $event)"
               @mouseenter="showTip(s, $event)"
               @mouseleave="hideTip"
@@ -86,6 +88,7 @@ import { ref, computed, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '../stores/player'
 import { updatePlayerSkills } from '../api'
+import { Message } from '../utils/message'
 import { attrLabels } from '../game/constants'
 
 const emit = defineEmits(['close'])
@@ -135,6 +138,16 @@ function hideTip() { tip.value = null }
 
 // ── 装备/卸下（仅改 carry，本地同步 player.skills[] 与 player.skill 原始串）──
 function parseRaw(raw) { try { const a = JSON.parse(raw || '[]'); return Array.isArray(a) ? a : [] } catch { return [] } }
+
+/** 点击装备：装入第一个空槽位（1-5）；无空位则提示。拖拽到指定槽位仍保留。 */
+function onEquip(s) {
+  const used = new Set(skills.value.filter(x => x.carry >= 1 && x.carry <= 5).map(x => x.carry))
+  const free = [1, 2, 3, 4, 5].find(sl => !used.has(sl))
+  if (!free) { Message.warning('斗技栏已满（5/5），请先卸下'); return }
+  applyCarryChange(raw => {
+    const t = raw.find(x => x.id === s.id); if (t) t.carry = free
+  })
+}
 function onDragStart(s, e) {
   e.dataTransfer.setData('text/plain', String(s.id))
   e.dataTransfer.effectAllowed = 'move'

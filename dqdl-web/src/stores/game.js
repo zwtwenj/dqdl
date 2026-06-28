@@ -5,6 +5,7 @@ import { usePlayerStore } from './player'
 import { useMapStore } from './map'
 import { useBackpackStore } from './backpack'
 import { useTaskStore } from './task'
+import { useRandomEventStore } from './randomEvent'
 import { startAutoTraining, stopAutoTraining } from '../services/trainingSession'
 
 const SAVE_KEY = 'dqdl_save'
@@ -129,6 +130,8 @@ export const useGameStore = defineStore('game', () => {
       writeSave(playerStore.playerId)
       await taskStore.fetch()
       started.value = true
+      // 恢复进行中的随机事件（页面刷新后）
+      await useRandomEventStore().resumeInProgress()
 
       if (playerStore.data?.status === 2 && mapStore.currentLocation?.loc_type?.startsWith('wild')) {
         startAutoTraining()

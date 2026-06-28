@@ -387,7 +387,7 @@
     <div v-if="isWild" class="training-float">
       <div class="training-float-header" @click="logCollapsed = !logCollapsed">
         <span class="training-float-title">⚔ 历练</span>
-        <button v-if="!trainingMode" class="training-float-stop start" :disabled="player?.status !== 1" @click.stop="startAutoTraining">开始历练</button>
+        <button v-if="!trainingMode" class="training-float-stop start" @click.stop="startAutoTraining">开始历练</button>
         <button v-else class="training-float-stop" @click.stop="stopAutoTraining">停止历练</button>
         <span class="training-float-toggle">{{ logCollapsed ? '▸' : '▾' }}</span>
       </div>
@@ -555,6 +555,9 @@
     <!-- 功法突破小游戏 -->
     <TechniqueBreakthroughGame v-if="tbStore.show" />
 
+    <!-- 随机事件对话（内部 v-if="current"） -->
+    <RandomEventDialog />
+
     <!-- buff 悬浮组件（fixed + Teleport，脱离战斗框 overflow:hidden） -->
     <Teleport to="body">
       <div v-if="buffTooltip" class="buff-tooltip" :style="buffTooltip.pos">
@@ -603,6 +606,7 @@ import TaskPanel from './components/TaskPanel.vue'
 import SkillPanel from './components/SkillPanel.vue'
 import TreasurePanel from './components/TreasurePanel.vue'
 import MessageToast from './components/MessageToast.vue'
+import RandomEventDialog from './components/RandomEventDialog.vue'
 import { attrLabels, baseAttrKeys, levelName } from './game/constants'
 
 const playerStore = usePlayerStore()
@@ -1773,6 +1777,7 @@ function typeClass(type) {
   border-radius: var(--radius);
   padding: 10px 12px;
   box-shadow: var(--shadow-panel);
+  pointer-events: none;
 }
 .tooltip-name {
   color: var(--gold);

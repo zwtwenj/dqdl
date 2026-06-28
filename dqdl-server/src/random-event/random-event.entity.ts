@@ -34,6 +34,10 @@ export class RandomEvent {
   @Column({ type: 'int', default: 0, comment: '同时命中时的优先级(大优先)' })
   weight: number;
 
+  /** 是否仅触发一次(每玩家)：true 时查 random_event_log 去重 */
+  @Column({ type: 'tinyint', default: 0, comment: '是否每玩家仅触发一次' })
+  once: number;
+
   @Column({ type: 'varchar', length: 64, nullable: true, comment: '特殊逻辑 handler 名(可选)' })
   handler: string | null;
 

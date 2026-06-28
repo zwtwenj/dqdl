@@ -54,6 +54,7 @@ export const buyItem = (playerId, itemId, count) => api.post('/backpack/' + play
 // Task API
 export const generateTask = (locationId) => api.post('/task/generate', { location_id: locationId })
 export const acceptTask = (playerId, name, description, target, reward, delivery, star) => api.post('/task/accept', { player_id: playerId, name, description, target, reward: reward || [], delivery: delivery || null, star: star || 1 })
+export const acceptForgeTask = (playerId, locationId) => api.post('/task/forge/accept', { player_id: playerId, location_id: locationId })
 export const completeAdventurerTasks = (playerId, npcId) => api.post('/task/complete-adventurer', { player_id: playerId, npc_id: npcId })
 export const getPlayerTasks = (playerId) => api.get('/task/player/' + playerId)
 
@@ -94,6 +95,8 @@ export const battleAction = (playerId, body) => api.post('/battle/action', { pla
 
 // Random Event API（场景事件）
 export const checkEvent = (playerId, type, payload) => api.post('/event/check', { playerId, type, payload })
-export const applyEvent = (playerId, effects) => api.post('/event/apply', { playerId, effects })
+export const applyEvent = (playerId, effects, context) => api.post('/event/apply', { playerId, effects, context: context || {} })
+export const syncEvent = (playerId, eventId, snapshot, ended) => api.post('/event/sync', { playerId, eventId, snapshot: snapshot || {}, ended: !!ended })
+export const getCurrentEvent = (playerId) => api.get(`/event/current?playerId=${playerId}`)
 
 export default api

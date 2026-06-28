@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getRoots, getChildren, getLocation, getTree, getNpcsByLocation, updatePlayerPosition } from '../api'
 import { usePlayerStore } from './player'
+import { useRandomEventStore } from './randomEvent'
 import { Message } from '../utils/message'
 
 export const useMapStore = defineStore('map', () => {
@@ -31,6 +32,18 @@ export const useMapStore = defineStore('map', () => {
     currentChildren.value = []
   }
   function _endLoad() { loading.value = false }
+  /** 进入新地点后检测随机事件(enter_location)，payload 含 locType/locationId/playerLevel */
+  function _checkEnterEvent(target) {
+    if (!target) return
+    try {
+      useRandomEventStore().tryTrigger('enter_location', {
+        locType: target.loc_type,
+        name: target.name,
+        locationId: target.id,
+        playerLevel: usePlayerStore().data?.level,
+      })
+    } catch { /* ignore */ }
+  }
 
   async function loadLocationChain(locationId) {
     _startLoad('载入地图...')
@@ -59,6 +72,7 @@ export const useMapStore = defineStore('map', () => {
       breadcrumb.value = chain; currentLocation.value = target; currentChildren.value = children
       loadingText.value = '寻找路人...'
       try { currentNpcs.value = (await getNpcsByLocation(locationId)).data || [] } catch { currentNpcs.value = [] }
+      _checkEnterEvent(target)
     } finally { _endLoad() }
   }
 
@@ -93,6 +107,7 @@ export const useMapStore = defineStore('map', () => {
 
       currentLocation.value = target; currentChildren.value = children
       try { currentNpcs.value = (await getNpcsByLocation(loc.id)).data || [] } catch { currentNpcs.value = [] }
+      _checkEnterEvent(target)
       // position 已在开头通过后端校验并写入，无需再次调用
     } finally { _endLoad() }
   }

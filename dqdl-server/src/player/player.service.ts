@@ -93,6 +93,8 @@ export class PlayerService {
 
     // 已装备宝物的属性加成之和
     const trStats = await this.sumEquippedTreasureStats(player);
+    // 已装备宝物的被动效果（修炼效率等）
+    const trEffects = await this.sumEquippedTreasureEffects(player);
 
     const finalAttrs = {
       power: player.power + (techBase.power || 0) + (trStats.power || 0),
@@ -140,6 +142,7 @@ export class PlayerService {
         name: def?.name || '未知宝物',
         category: def?.category || '饰品',
         rank: def?.rank ?? null,
+        icon: def?.icon || null,
         description: def?.description || '',
         stats: def ? this.treasureService.parseStats(def.stats) : {},
       };
@@ -160,6 +163,8 @@ export class PlayerService {
       techniques,
       treasures,
       final_attrs: finalAttrs,
+      // 修炼效率加成(百分点)：修炼收益 = 基础 × (100 + 此值) / 100
+      cultivation_efficiency: trEffects.cultivation_efficiency || 0,
     };
   }
 
@@ -220,6 +225,35 @@ export class PlayerService {
     return sum;
   }
 
+  /** 解析玩家扩展属性 JSON */
+  private parseExtraAttrs(player: Player): Record<string, any> {
+    try { const v = JSON.parse(player.extra_attrs || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+  }
+
+  /** 汇总已装备宝物的被动效果（如修炼效率 cultivation_efficiency） */
+  private async sumEquippedTreasureEffects(player: Player): Promise<Record<string, number>> {
+    const entries = this.parseTreasures(player.treasures);
+    if (!entries.length) return {};
+    const defs = await this.treasureService.findByIds(entries.map((t) => Number(t.id)));
+    const map = new Map(defs.map((d) => [d.id, d]));
+    const sum: Record<string, number> = {};
+    for (const e of entries) {
+      const def = map.get(Number(e.id));
+      if (!def) continue;
+      const f = this.treasureService.parseEffects(def.effects);
+      for (const k of Object.keys(f)) sum[k] = (sum[k] || 0) + (Number(f[k]) || 0);
+    }
+    return sum;
+  }
+
+  /** 重算修炼效率并写入 extra_attrs（装备/卸下宝物时调用，保证 extra_attrs 可直接查看） */
+  private async recalcCultivationEfficiency(player: Player): Promise<void> {
+    const x = (await this.sumEquippedTreasureEffects(player)).cultivation_efficiency || 0;
+    const attrs = this.parseExtraAttrs(player);
+    attrs.cultivation_efficiency = x;
+    player.extra_attrs = JSON.stringify(attrs);
+  }
+
   /**
    * 使用宝物"物品形态" → 装备到宝物栏：占用一个空槽（1-5），校验同类上限，
    * 加入 player.treasures 并重算属性。物品本身的扣减由调用方（背包use）负责。
@@ -246,6 +280,7 @@ export class PlayerService {
     arr.push({ id: Number(treasureId), slot: freeSlot });
     player.treasures = JSON.stringify(arr);
     await this.applyEquippedTechniqueToMax(player);
+    await this.recalcCultivationEfficiency(player);
     await this.playerRepo.save(player);
     this.logger.log(`玩家 ${playerId} 装备宝物 ${def.name} 到槽位 ${freeSlot}`);
     return { ok: true, message: `装备宝物：${def.name}`, player: await this.findOne(playerId) };
@@ -261,6 +296,7 @@ export class PlayerService {
     const removed = arr.splice(idx, 1)[0];
     player.treasures = JSON.stringify(arr);
     await this.applyEquippedTechniqueToMax(player);
+    await this.recalcCultivationEfficiency(player);
     await this.playerRepo.save(player);
     const def = await this.treasureService.findOne(Number(removed.id));
     this.logger.log(`玩家 ${playerId} 卸下槽位 ${slot} 的宝物 ${def?.name ?? removed.id}`);
@@ -338,6 +374,9 @@ export class PlayerService {
     const growth = def?.growth ?? 10;
     const factor = 0.9 + Math.random() * 0.2;
     let gained = Math.round(qiDensity * factor * growth / 100);
+    // 修炼效率：每点 +1% 修炼收益（来源于已装备宝物）
+    const cultEff = (await this.sumEquippedTreasureEffects(player)).cultivation_efficiency || 0;
+    if (cultEff > 0) gained = Math.round(gained * (100 + cultEff) / 100);
     const critical = Math.random() < 0.1;
     if (critical) gained *= 3;
 
@@ -469,6 +508,10 @@ export class PlayerService {
 
     const factor = 0.9 + Math.random() * 0.2;
     let gained = Math.round(qiDensity * factor * growth / 100);
+
+    // 修炼效率：每点 +1% 修炼收益（来源于已装备宝物，如玄铁戒指 +5）
+    const cultEff = (await this.sumEquippedTreasureEffects(player)).cultivation_efficiency || 0;
+    if (cultEff > 0) gained = Math.round(gained * (100 + cultEff) / 100);
 
     // 暴击：10% 概率三倍
     const critical = Math.random() < 0.1;

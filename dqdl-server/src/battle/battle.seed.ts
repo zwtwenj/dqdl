@@ -64,7 +64,6 @@ export class BattleSeeder {
       const skillRows: DeepPartial<Skill>[] = SEED_SKILLS.map((s) => ({
         name: s.name, description: s.description, base_damage: s.base_damage,
         attr: s.attr, rank: s.rank, level: 1, max_level: s.max_level, energy_cost: s.energy_cost,
-        scaling: JSON.stringify(s.levels.map((l) => l.params['伤害倍率'] ?? 1)),
         levels: JSON.stringify(s.levels),
         target_effects: JSON.stringify(s.target_effects || []),
         self_effects: JSON.stringify(s.self_effects || []),
@@ -118,7 +117,7 @@ interface SeedSkill {
 
 function lv(dmg: number[], extra: Record<string, number[]> = {}) {
   return dmg.map((d, i) => {
-    const params: Record<string, number> = { '伤害倍率': d };
+    const params: Record<string, number> = { damageRate: d };
     for (const k of Object.keys(extra)) params[k] = extra[k][i];
     return { level: i + 1, params };
   });
@@ -155,11 +154,11 @@ const SEED_EFFECTS: SeedEffect[] = [
 
 const SEED_SKILLS: SeedSkill[] = [
   { name: '八极崩', description: '玄阶中级斗技，近身强攻，暗含八重劲气，携带破甲', base_damage: 10, attr: 'power', rank: 32, max_level: 5, energy_cost: 15,
-    levels: lv([1.2, 1.4, 1.6, 1.8, 2.0], { '破甲倍率': [0.30, 0.32, 0.34, 0.36, 0.38] }),
-    carried: [{ buff: 'pojia', paramKey: '破甲倍率' }], target_effects: [{ buff: 'trauma' }, { buff: 'weak' }], self_effects: [{ buff: 'power_surge' }] },
+    levels: lv([1.2, 1.4, 1.6, 1.8, 2.0], { 'armorPen': [0.30, 0.32, 0.34, 0.36, 0.38] }),
+    carried: [{ buff: 'pojia', paramKey: 'armorPen' }], target_effects: [{ buff: 'trauma' }, { buff: 'weak' }], self_effects: [{ buff: 'power_surge' }] },
   { name: '焰分噬浪尺', description: '地阶低级斗技，以玄重尺凝聚火焰，高倍率破甲', base_damage: 15, attr: 'power', rank: 21, max_level: 5, energy_cost: 20,
-    levels: lv([1.4, 1.6, 1.9, 2.2, 2.5], { '破甲倍率': [0.40, 0.42, 0.44, 0.46, 0.48], '灼烧倍率': [1.0, 1.1, 1.2, 1.3, 1.4] }),
-    carried: [{ buff: 'pojia', paramKey: '破甲倍率' }], target_effects: [{ buff: 'burn', paramKey: '灼烧倍率' }], self_effects: [{ buff: 'power_surge' }] },
+    levels: lv([1.4, 1.6, 1.9, 2.2, 2.5], { 'armorPen': [0.40, 0.42, 0.44, 0.46, 0.48], 'burnRate': [1.0, 1.1, 1.2, 1.3, 1.4] }),
+    carried: [{ buff: 'pojia', paramKey: 'armorPen' }], target_effects: [{ buff: 'burn', paramKey: 'burnRate' }], self_effects: [{ buff: 'power_surge' }] },
   { name: '三千雷动', description: '地阶低级身法，身形如电，附闪避', base_damage: 5, attr: 'quick', rank: 21, max_level: 5, energy_cost: 15,
     levels: lv([1.0, 1.2, 1.5, 1.8, 2.2]),
     target_effects: [{ buff: 'stun' }], self_effects: [{ buff: 'evasion' }, { buff: 'power_surge' }] },
@@ -172,16 +171,16 @@ const SEED_SKILLS: SeedSkill[] = [
   { name: '玄冰龙翔', description: '玄阶高级斗技，冰龙冻结万物', base_damage: 12, attr: 'intelligence', rank: 31, max_level: 5, energy_cost: 18,
     levels: lv([1.3, 1.5, 1.8, 2.1, 2.4]), target_effects: [{ buff: 'stun' }, { buff: 'slow' }], self_effects: [{ buff: 'shield' }] },
   { name: '风卷尘生', description: '黄阶高级斗技，狂暴龙卷撕裂', base_damage: 6, attr: 'quick', rank: 41, max_level: 5, energy_cost: 12,
-    levels: lv([0.9, 1.1, 1.4, 1.6, 1.9], { '流血倍率': [1.0, 1.2, 1.4, 1.6, 1.8] }),
-    target_effects: [{ buff: 'bleed', paramKey: '流血倍率' }], self_effects: [{ buff: 'power_surge' }] },
+    levels: lv([0.9, 1.1, 1.4, 1.6, 1.9], { 'bleedRate': [1.0, 1.2, 1.4, 1.6, 1.8] }),
+    target_effects: [{ buff: 'bleed', paramKey: 'bleedRate' }], self_effects: [{ buff: 'power_surge' }] },
   { name: '铁山靠', description: '黄阶中级斗技，土属性近身，附石化皮肤', base_damage: 8, attr: 'stamina', rank: 42, max_level: 5, energy_cost: 14,
     levels: lv([1.0, 1.2, 1.5, 1.7, 2.0]), target_effects: [{ buff: 'stun' }], self_effects: [{ buff: 'shield' }] },
   { name: '水龙吟', description: '黄阶中级斗技，水龙旋转冲击', base_damage: 7, attr: 'intelligence', rank: 42, max_level: 5, energy_cost: 12,
     levels: lv([1.0, 1.2, 1.4, 1.7, 1.9]), self_effects: [{ buff: 'shield' }] },
   { name: '火云掌', description: '黄阶高级斗技，火云蔽日', base_damage: 8, attr: 'power', rank: 41, max_level: 5, energy_cost: 14,
-    levels: lv([1.1, 1.3, 1.5, 1.8, 2.1], { '灼烧倍率': [1.0, 1.1, 1.2, 1.3, 1.4] }),
-    target_effects: [{ buff: 'burn', paramKey: '灼烧倍率' }], self_effects: [{ buff: 'power_surge' }] },
+    levels: lv([1.1, 1.3, 1.5, 1.8, 2.1], { 'burnRate': [1.0, 1.1, 1.2, 1.3, 1.4] }),
+    target_effects: [{ buff: 'burn', paramKey: 'burnRate' }], self_effects: [{ buff: 'power_surge' }] },
   { name: '雷霆一击', description: '黄阶高级斗技，雷霆万钧，携带破甲', base_damage: 9, attr: 'power', rank: 41, max_level: 5, energy_cost: 16,
-    levels: lv([1.1, 1.3, 1.6, 1.9, 2.2], { '破甲倍率': [0.35, 0.37, 0.39, 0.41, 0.43] }),
-    carried: [{ buff: 'pojia', paramKey: '破甲倍率' }], target_effects: [{ buff: 'stun' }], self_effects: [{ buff: 'shield' }] },
+    levels: lv([1.1, 1.3, 1.6, 1.9, 2.2], { 'armorPen': [0.35, 0.37, 0.39, 0.41, 0.43] }),
+    carried: [{ buff: 'pojia', paramKey: 'armorPen' }], target_effects: [{ buff: 'stun' }], self_effects: [{ buff: 'shield' }] },
 ];

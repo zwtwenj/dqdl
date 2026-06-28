@@ -10,7 +10,10 @@
         <div class="tr-slots">
           <div v-for="slot in 5" :key="slot" class="tr-slot" :class="{ occupied: slotTreasure(slot) }">
             <template v-if="slotTreasure(slot)">
-              <div class="tr-icon">{{ slotTreasure(slot).name?.[0] || '宝' }}</div>
+              <div class="tr-icon">
+                <img v-if="isImg(slotTreasure(slot).icon)" :src="slotTreasure(slot).icon" :alt="slotTreasure(slot).name" class="tr-img">
+                <template v-else>{{ slotTreasure(slot).name?.[0] || '宝' }}</template>
+              </div>
               <div class="tr-name">{{ slotTreasure(slot).name }}</div>
               <div class="tr-stat">{{ statSummary(slotTreasure(slot).stats) }}</div>
               <button class="tr-unequip" :disabled="busy" @click="unequip(slot)">卸下</button>
@@ -40,6 +43,11 @@ const busy = ref(false)
 const treasures = computed(() => player.value?.treasures || [])
 function slotTreasure(slot) {
   return treasures.value.find((t) => Number(t.slot) === slot) || null
+}
+// icon 是否为图片地址
+function isImg(icon) {
+  if (!icon) return false
+  return icon.startsWith('/') || /^https?:\/\//.test(icon) || /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(icon)
 }
 const ATTR_LABEL = { power: '力量', intelligence: '智力', quick: '敏捷', stamina: '体质', lucky: '运气', hp: '生命', energy: '斗气' }
 function statSummary(stats) {
@@ -78,6 +86,7 @@ async function unequip(slot) {
 }
 .tr-slot.occupied { border-color: rgba(240,192,64,0.4); }
 .tr-icon { font-size: 2rem; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+.tr-img { width: 2.4rem; height: 2.4rem; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); pointer-events: none; }
 .tr-name { font-size: 0.78rem; color: #e0d8c0; text-align: center; }
 .tr-stat { font-size: 0.68rem; color: #6fbfa8; text-align: center; }
 .tr-unequip {

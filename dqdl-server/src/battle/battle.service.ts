@@ -213,7 +213,7 @@ export class BattleService implements OnModuleInit {
       const levelsArr = parseJson<any[]>(def?.levels, []);
       const lvEntry = levelsArr.find(l => l && l.level === s.level) || levelsArr[levelsArr.length - 1] || {};
       const params: Record<string, number> = lvEntry.params || {};
-      const scalingRate = params['伤害倍率'] ?? parseJson<number[]>(def?.scaling, [])[s.level - 1] ?? 1;
+      const scalingRate = params.damageRate ?? 1;
       return {
         id: s.id,
         name: def?.name || '未知斗技',

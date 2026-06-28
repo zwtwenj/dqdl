@@ -294,7 +294,10 @@
               @mouseleave="hideItemTip"
               @contextmenu.prevent="item.usable && !usingItem && usePlayerItem(item.name)"
             >
-              <div class="bp-slot__icon">{{ itemIcon(item) }}</div>
+              <div class="bp-slot__icon">
+                <img v-if="isImgIcon(item.icon)" :src="item.icon" :alt="item.name" class="bp-slot__img">
+                <template v-else>{{ itemIcon(item) }}</template>
+              </div>
               <div class="bp-slot__name">{{ item.name }}</div>
               <span v-if="item.count > 1" class="bp-slot__count">{{ item.count }}</span>
             </div>
@@ -326,7 +329,10 @@
                 @mouseenter="showItemTip(item, $event, 'buy')"
                 @mouseleave="hideItemTip"
               >
-                <div class="bp-slot__icon">{{ itemIcon(item) }}</div>
+                <div class="bp-slot__icon">
+                <img v-if="isImgIcon(item.icon)" :src="item.icon" :alt="item.name" class="bp-slot__img">
+                <template v-else>{{ itemIcon(item) }}</template>
+              </div>
                 <div class="bp-slot__name">{{ item.name }}</div>
                 <button
                   class="trade-slot-btn trade-slot-btn--buy"
@@ -352,7 +358,10 @@
                 @mouseenter="showItemTip(item, $event)"
                 @mouseleave="hideItemTip"
               >
-                <div class="bp-slot__icon">{{ itemIcon(item) }}</div>
+                <div class="bp-slot__icon">
+                <img v-if="isImgIcon(item.icon)" :src="item.icon" :alt="item.name" class="bp-slot__img">
+                <template v-else>{{ itemIcon(item) }}</template>
+              </div>
                 <div class="bp-slot__name">{{ item.name }}</div>
                 <span v-if="item.count > 1" class="bp-slot__count">{{ item.count }}</span>
                 <button
@@ -660,6 +669,11 @@ function buyShopItem(itemId, count) { backpackStore.buy(itemId, count) }
 function usePlayerItem(name) { backpackStore.use(name) }
 // 物品图标：icon 字段为空时使用占位符
 function itemIcon(item) { return item?.icon || '📦' }
+// icon 是否为图片地址（绝对路径 / http(s) / 带图片扩展名）
+function isImgIcon(icon) {
+  if (!icon) return false
+  return icon.startsWith('/') || /^https?:\/\//.test(icon) || /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(icon)
+}
 function acceptCurrentTask(card) { taskStore.acceptCurrentTask(card) }
 function navigateToLocation(locId) {
   if (trainingMode.value) return
@@ -1057,7 +1071,6 @@ function typeClass(type) {
 .cult-critical { color: #f0c040; font-weight: bold; }
 .cult-capped { color: #e06060; }
 .attr-cultivation { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2a2a3a; }
-.role-level { font-size: 0.82rem; color: var(--gold); margin-left: auto; }
 .attr-cult-row { display: flex; align-items: center; gap: 8px; }
 .btn-breakthrough { padding: 3px 12px; border: 1px solid #9b59b6; background: #1a1028; color: #c39bdb; border-radius: 4px; cursor: pointer; font-size: 0.78rem; flex-shrink: 0; }
 .btn-breakthrough:hover:not(:disabled) { background: #2a1848; color: #e0b0f0; }
@@ -1395,190 +1408,6 @@ function typeClass(type) {
   margin-top: 4px;
 }
 
-/* 角色面板 */
-.role-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-5);
-  background: rgba(5, 5, 12, 0.7);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-}
-.role-panel {
-  background: var(--bg-elev-1);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-panel);
-  width: 540px;
-  max-width: 95vw;
-  color: var(--text);
-}
-.role-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #2a2a3a;
-}
-.role-title {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: var(--gold);
-}
-.role-close {
-  background: none;
-  border: none;
-  color: #888;
-  font-size: 1.4rem;
-  cursor: pointer;
-}
-.role-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-}
-.role-tab {
-  flex: 1;
-  text-align: center;
-  padding: 10px 0;
-  cursor: pointer;
-  color: var(--text-muted);
-  font-size: 0.92rem;
-  letter-spacing: 0.12em;
-  border-bottom: 2px solid transparent;
-  transition: color var(--transition), border-color var(--transition);
-}
-.role-tab:hover { color: var(--text); }
-.role-tab.active {
-  color: var(--gold);
-  border-bottom-color: var(--gold);
-}
-.role-body {
-  padding: 16px;
-}
-
-/* 生命斗气 · 状态格 */
-.attr-vital {
-  display: flex;
-  gap: 12px;
-  padding: 4px 0 14px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
-}
-.vital-item {
-  flex: 1;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.vital-label {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
-}
-.vital-val {
-  color: var(--gold);
-  font-weight: bold;
-  font-size: 1.05rem;
-}
-/* 生命/斗气配色：生命红、斗气蓝，左侧色条更显眼 */
-.vital-item.is-hp { border-left: 3px solid #d9404a; }
-.vital-item.is-hp .vital-label { color: #e0505a; }
-.vital-item.is-hp .vital-val { color: #ff5a66; }
-.vital-item.is-energy { border-left: 3px solid #3a86e0; }
-.vital-item.is-energy .vital-label { color: #5aa0ff; }
-.vital-item.is-energy .vital-val { color: #66b2ff; }
-
-/* 属性行 */
-.attr-row {
-  display: flex;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-.attr-label {
-  width: 52px;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-.attr-base {
-  color: var(--text);
-  font-size: 0.95rem;
-  width: 40px;
-  text-align: right;
-}
-.attr-bonus {
-  color: var(--green);
-  font-size: 0.8rem;
-  margin-left: 5px;
-}
-.attr-final {
-  margin-left: auto;
-  color: var(--gold);
-  font-weight: bold;
-  font-size: 1.02rem;
-}
-
-/* 功法卡片 */
-.tech-card {
-  background: var(--bg-elev-2);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-}
-.tech-name {
-  font-size: 1.15rem;
-  font-weight: bold;
-  color: var(--gold);
-}
-.tech-meta {
-  margin-top: 6px;
-  display: flex;
-  gap: 12px;
-  font-size: 0.85rem;
-}
-.tech-attr { color: var(--danger); }
-.tech-rank { color: var(--purple); }
-.tech-desc {
-  margin-top: 8px;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  line-height: 1.55;
-  font-style: italic;
-}
-.tech-stats {
-  margin-top: 8px;
-  display: flex;
-  gap: 16px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-.tech-bonus {
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-.bonus-title {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-.bonus-item {
-  background: rgba(80, 200, 120, 0.12);
-  color: var(--green);
-  padding: 2px 9px;
-  border-radius: var(--radius-pill);
-  font-size: 0.8rem;
-}
-
 /* 加载遮罩 */
 .loading-overlay {
   position: fixed;
@@ -1901,6 +1730,13 @@ function typeClass(type) {
   line-height: 1;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
+.bp-slot__img {
+  width: 2.6rem;
+  height: 2.6rem;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+}
 .bp-slot__name {
   font-size: 0.76rem;
   color: var(--text-muted);
@@ -2047,65 +1883,6 @@ function typeClass(type) {
   font-size: 1.2rem;
   font-weight: bold;
 }
-.skill-inventory-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  min-height: 80px;
-}
-.skill-item {
-  width: 64px;
-  height: 80px;
-  background: #1a1a28;
-  border: 1px solid #3a3a4a;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  transition: all 0.15s;
-}
-.skill-item:hover {
-  border-color: #e08060;
-  background: #252232;
-}
-.skill-item:active { cursor: grabbing; }
-.skill-icon {
-  width: 36px;
-  height: 36px;
-  background: #3a3020;
-  border: 1px solid #5a4a30;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #f0c040;
-  font-weight: bold;
-  font-size: 0.95rem;
-}
-.skill-name {
-  margin-top: 6px;
-  font-size: 0.72rem;
-  color: #c0c0cc;
-  max-width: 58px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.skill-lv {
-  font-size: 0.7rem;
-  color: #888;
-  margin-top: 2px;
-}
-.skill-empty {
-  color: #5a5a6a;
-  font-size: 0.85rem;
-  padding: 16px 0;
-  text-align: center;
-  width: 100%;
-}
-
 /* 战斗/副本按钮 → 统一使用 .btn 基类 */
 
 /* ===== 副本界面 ===== */

@@ -12,33 +12,62 @@
       </div>
 
       <!-- 人物 Tab -->
-      <div class="role-body" v-if="tab === 'attr'">
-        <div class="attr-vital">
-          <div class="vital-item is-hp">
-            <span class="vital-label">生命</span>
-            <span class="vital-val">{{ player?.hp ?? 0 }} / {{ player?.final_attrs?.max_hp ?? player?.max_hp ?? 100 }}</span>
+      <div class="role-body char-body" v-if="tab === 'attr'">
+        <div class="char-layout">
+          <!-- 左：立绘 -->
+          <div class="char-portrait">
+            <img class="char-portrait-img" :src="portrait" :alt="player?.name" @error="onPortraitError" />
+            <div class="char-portrait-mask"></div>
           </div>
-          <div class="vital-item is-energy">
-            <span class="vital-label">斗气</span>
-            <span class="vital-val">{{ player?.energy ?? 0 }} / {{ player?.final_attrs?.max_energy ?? player?.max_energy ?? 100 }}</span>
-          </div>
-        </div>
-        <div class="attr-row" v-for="key in baseAttrKeys" :key="key">
-          <span class="attr-label">{{ attrLabels[key] }}</span>
-          <span class="attr-base">{{ player?.[key] ?? 0 }}</span>
-          <span class="attr-bonus" v-if="(player?.final_attrs?.[key] ?? 0) - (player?.[key] ?? 0) > 0">
-            +{{ (player?.final_attrs?.[key] ?? 0) - (player?.[key] ?? 0) }}
-          </span>
-          <span class="attr-final">{{ player?.final_attrs?.[key] ?? player?.[key] ?? 0 }}</span>
-        </div>
-        <div class="attr-cult-row">
-          <div class="cult-top">
-            <span class="attr-label">修为</span>
-            <button class="role-break-btn" :disabled="!canBreakthrough" @click="doBreakthrough">突破</button>
-          </div>
-          <div class="cult-bar" :class="{ 'is-full': canBreakthrough }">
-            <div class="cult-bar-fill" :style="{ width: cultPct + '%' }"></div>
-            <span class="cult-bar-text">{{ player?.cultivation ?? 0 }} / {{ player?.level_cultivation ?? 100 }}</span>
+
+          <!-- 右：属性 -->
+          <div class="char-info">
+            <!-- 固定：生命 / 斗气 -->
+            <div class="attr-vital">
+              <div class="vital-item is-hp">
+                <span class="vital-label">生命</span>
+                <span class="vital-val">{{ player?.hp ?? 0 }} / {{ player?.final_attrs?.max_hp ?? player?.max_hp ?? 100 }}</span>
+              </div>
+              <div class="vital-item is-energy">
+                <span class="vital-label">斗气</span>
+                <span class="vital-val">{{ player?.energy ?? 0 }} / {{ player?.final_attrs?.max_energy ?? player?.max_energy ?? 100 }}</span>
+              </div>
+            </div>
+
+            <!-- 可滚动：基础属性 / 随机属性 -->
+            <div class="char-scroll">
+              <div class="char-section">
+                <div class="char-section-title">基础属性</div>
+                <div class="attr-row" v-for="key in baseAttrKeys" :key="key">
+                  <span class="attr-label">{{ attrLabels[key] }}</span>
+                  <span class="attr-base">{{ player?.[key] ?? 0 }}</span>
+                  <span class="attr-bonus" v-if="(player?.final_attrs?.[key] ?? 0) - (player?.[key] ?? 0) > 0">
+                    +{{ (player?.final_attrs?.[key] ?? 0) - (player?.[key] ?? 0) }}
+                  </span>
+                  <span class="attr-final">{{ player?.final_attrs?.[key] ?? player?.[key] ?? 0 }}</span>
+                </div>
+              </div>
+
+              <div class="char-section">
+                <div class="char-section-title">其他属性</div>
+                <div class="char-extra-row" v-for="a in extraAttrs" :key="a.key">
+                  <span class="char-extra-label">{{ a.label }}</span>
+                  <span class="char-extra-val">{{ a.text }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 固定在右栏底部：修为 / 突破（不随滚动） -->
+            <div class="attr-cult-row char-cult-fixed">
+              <div class="cult-top">
+                <span class="attr-label">修为</span>
+                <button class="role-break-btn" :disabled="!canBreakthrough" @click="doBreakthrough">突破</button>
+              </div>
+              <div class="cult-bar" :class="{ 'is-full': canBreakthrough }">
+                <div class="cult-bar-fill" :style="{ width: cultPct + '%' }"></div>
+                <span class="cult-bar-text">{{ player?.cultivation ?? 0 }} / {{ player?.level_cultivation ?? 100 }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -183,6 +212,20 @@ const cultPct = computed(() => {
   if (max <= 0) return 0
   return Math.max(0, Math.min(100, (cur / max) * 100))
 })
+
+// 立绘：来自后端 player.portrait，缺失时回退默认
+const DEFAULT_PORTRAIT = '/image/hero-char.webp'
+const portrait = computed(() => player.value?.portrait || DEFAULT_PORTRAIT)
+function onPortraitError(e) { if (e.target.src !== DEFAULT_PORTRAIT) e.target.src = DEFAULT_PORTRAIT }
+
+// 其他属性（特殊/常驻加成）：修炼效率等。修炼效率基础 100%，宝物加成叠加其上
+const extraAttrs = computed(() => {
+  const ce = Number(player.value?.cultivation_efficiency) || 0
+  return [
+    { key: 'cultivation_efficiency', label: '修炼效率', text: (100 + ce) + '%' },
+  ]
+})
+
 function doBreakthrough() { gameStore.doBreakthrough() }
 function clearBreakthrough() { gameStore.clearBreakthrough() }
 
@@ -265,6 +308,79 @@ function openBreakthrough(t) { tbStore.open(t) }
 </script>
 
 <style scoped>
+/* 加大角色弹框（scoped 仅作用于本组件的 .role-panel，不影响其它面板） */
+.role-panel { width: 760px; max-width: 96vw; }
+
+/* 人物面板：左立绘 + 右属性（经典 RPG 布局，立绘:属性 ≈ 4:6） */
+.char-layout {
+  display: flex;
+  gap: 16px;
+  height: 500px;
+}
+.char-portrait {
+  position: relative;
+  flex: 4;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(180deg, #14141f, #0a0a12);
+}
+.char-portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+.char-portrait-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(10, 10, 18, 0) 55%, rgba(10, 10, 18, 0.55) 100%);
+}
+.char-info {
+  flex: 6;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.char-info .attr-vital {
+  flex-shrink: 0;
+  padding: 0 0 12px;
+  margin-bottom: 0;
+}
+.char-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px 4px 0;
+}
+.char-section { margin-bottom: 14px; }
+.char-section-title {
+  font-size: 0.8rem;
+  color: #b0a878;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(201, 168, 106, 0.18);
+}
+.char-extra-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.char-extra-label { color: var(--text-muted); font-size: 0.88rem; }
+.char-extra-val { color: var(--green); font-weight: bold; font-size: 0.92rem; }
+/* 修为条固定在右栏底部，不随滚动 */
+.char-cult-fixed { flex-shrink: 0; margin-top: 4px; }
+.char-empty { color: #6a6a78; font-size: 0.82rem; font-style: italic; padding: 6px 0; }
+/* 滚动条美化 */
+.char-scroll::-webkit-scrollbar { width: 6px; }
+.char-scroll::-webkit-scrollbar-thumb { background: rgba(201, 168, 106, 0.3); border-radius: 3px; }
+.char-scroll::-webkit-scrollbar-track { background: transparent; }
+
 .attr-cult-row {
   display: block;
   margin-top: 8px;

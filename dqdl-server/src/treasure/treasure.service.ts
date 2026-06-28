@@ -27,4 +27,10 @@ export class TreasureService {
     if (!statsJson) return {};
     try { const v = JSON.parse(statsJson); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
   }
+
+  /** 解析宝物被动效果 JSON：如 { cultivation_efficiency: 5 } */
+  parseEffects(effectsJson: string | null): Record<string, number> {
+    if (!effectsJson) return {};
+    try { const v = JSON.parse(effectsJson); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+  }
 }

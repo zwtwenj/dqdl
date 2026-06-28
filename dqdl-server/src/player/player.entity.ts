@@ -8,6 +8,10 @@ export class Player {
   @Column({ type: 'varchar', length: 32 })
   name: string;
 
+  /** 立绘图片地址（如 /image/hero-char.webp），由后端提供，前端直接用 URL */
+  @Column({ type: 'varchar', length: 128, default: '/image/hero-char.webp', comment: '立绘图片地址' })
+  portrait: string;
+
   @Column({ type: 'int', default: 1 })
   level: number;
 

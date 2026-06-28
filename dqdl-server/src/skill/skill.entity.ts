@@ -4,7 +4,7 @@ import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
  * 斗技表
  * rank 编码: 天阶=1x, 地阶=2x, 玄阶=3x, 黄阶=4x; 上品=1, 中品=2, 下品=3
  * 如 31 = 玄阶上品, 43 = 黄阶下品
- * 伤害公式: base_damage + scaling[level-1] * attr  上下浮动10%
+ * 伤害公式: base_damage + levels[level-1].params.damageRate * attr
  */
 @Entity('skill')
 export class Skill {
@@ -25,11 +25,7 @@ export class Skill {
   @Column({ type: 'varchar', length: 16, comment: '关联属性' })
   attr: string;
 
-  /** 倍率数组 JSON: [1.2, 1.4, 1.6, 1.8, 2.0] 对应各等级 */
-  @Column({ type: 'text', comment: '倍率数组(JSON)' })
-  scaling: string;
-
-  /** 按等级的命名参数表 JSON: [{level:1, params:{伤害倍率,破甲倍率,...}}, ...] */
+  /** 按等级的命名参数表 JSON: [{level:1, params:{damageRate,armorPen,burnRate,bleedRate}}, ...] */
   @Column({ type: 'text', nullable: true, comment: '按等级命名参数表(JSON)' })
   levels: string | null;
 

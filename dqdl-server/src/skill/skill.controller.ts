@@ -16,7 +16,6 @@ export class SkillController {
     if (!skill) return { error: '斗技不存在' };
     return {
       ...skill,
-      scaling: this.skillService.parseScaling(skill.scaling),
       target_effects: this.skillService.parseEffects(skill.target_effects),
       self_effects: this.skillService.parseEffects(skill.self_effects),
     };

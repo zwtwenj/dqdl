@@ -51,6 +51,10 @@ export class Location {
   @Column({ type: 'text', nullable: true, comment: '常见怪物列表' })
   common_mobs: string | null;
 
+  /** 可采集草药 JSON: [{item_id, name}] —— 仅野外地点，按 danger_level 匹配 */
+  @Column({ type: 'text', nullable: true, comment: '可采集草药列表' })
+  gather_herbs: string | null;
+
   @Column({ type: 'int', nullable: true })
   parent_id: number | null;
 

@@ -1,0 +1,64 @@
+{
+  "_comment": "炼丹系统单一数据源。docx 生成器(scripts/build_alchemy_docx.py)与后端 seed(dqdl-server/src/alchemy/seed.ts)均从此读取。元素词表: 金木水火土雷风",
+  "elements": ["金", "木", "水", "火", "土", "雷", "风"],
+
+  "herbs": [
+    {"item_id": "yb-001", "name": "赤血藤", "tier": 1, "category": "疗伤", "element": {"木": 10, "火": 5}, "rarity": "常见", "habitat": "干燥山坡或石缝中，阳光充足处", "appearance": "藤蔓暗红，约拇指粗，叶椭圆带血丝纹路", "effect": "止血生肌，加快伤口愈合", "price": 15},
+    {"item_id": "yb-002", "name": "清灵花", "tier": 1, "category": "凝神", "element": {"水": 10, "土": 5}, "rarity": "常见", "habitat": "溪流旁、湿润林下", "appearance": "花瓣洁白半透，蕊心泛淡蓝光", "effect": "清心凝神，安抚神识", "price": 15},
+    {"item_id": "yb-003", "name": "回气草", "tier": 1, "category": "补气", "element": {"土": 10}, "rarity": "常见", "habitat": "广阔草原、丘陵地带", "appearance": "三叶轮生，叶脉含淡淡斗气纹", "effect": "温补斗气，恢复体力", "price": 12},
+    {"item_id": "yb-004", "name": "烈阳叶", "tier": 1, "category": "强化", "element": {"金": 10}, "rarity": "常见", "habitat": "向阳山崖、裸岩地带", "appearance": "叶面金黄反光，边缘如刃", "effect": "淬炼筋骨，短暂增力", "price": 12},
+    {"item_id": "yb-005", "name": "寒潭藻", "tier": 1, "category": "解毒", "element": {"木": 6, "水": 6}, "rarity": "常见", "habitat": "寒冷潭底、阴凉水涧", "appearance": "墨绿丝状，触手冰凉", "effect": "清热解毒，化解低阶毒素", "price": 14},
+    {"item_id": "yb-006", "name": "火心草", "tier": 1, "category": "突破", "element": {"火": 8, "雷": 2}, "rarity": "常见", "habitat": "死火山附近、地热裂隙", "appearance": "通体赤红，中心常含一点明火", "effect": "激发血脉，冲击瓶颈", "price": 18},
+    {"item_id": "yb-007", "name": "风铃草", "tier": 1, "category": "凝神", "element": {"风": 10}, "rarity": "常见", "habitat": "高山峰顶、风口崖壁", "appearance": "花形如铃，随风轻响", "effect": "提神醒脑，提升反应", "price": 14},
+    {"item_id": "yb-008", "name": "铁骨藤", "tier": 1, "category": "强化", "element": {"金": 6, "土": 4}, "rarity": "常见", "habitat": "矿脉旁、岩壁缝隙", "appearance": "藤条灰白坚硬，敲之有金属声", "effect": "强健筋骨，增加体魄", "price": 14},
+    {"item_id": "yb-009", "name": "紫叶兰", "tier": 1, "category": "疗伤", "element": {"木": 12, "火": 3}, "rarity": "不常见", "habitat": "古林深处、阴湿谷地", "appearance": "叶面深紫，根茎渗紫汁", "effect": "生肌续脉，疗效胜于赤血藤", "price": 35},
+    {"item_id": "yb-010", "name": "凝冰花", "tier": 1, "category": "解毒", "element": {"水": 12}, "rarity": "不常见", "habitat": "万年冰窟、雪线之上", "appearance": "通体晶莹，触之刺骨", "effect": "清热拔毒，镇压火毒", "price": 35},
+    {"item_id": "yb-011", "name": "凝神藤", "tier": 2, "category": "凝神", "element": {"水": 50}, "rarity": "不常见", "habitat": "深潭水眼、地底暗河", "appearance": "通体水蓝，内含流转液体", "effect": "大幅凝神，聚敛神识", "price": 120},
+    {"item_id": "yb-012", "name": "紫心髓", "tier": 2, "category": "突破", "element": {"雷": 35, "金": 15}, "rarity": "稀有", "habitat": "雷暴频发之高地", "appearance": "紫色晶芯，常带电弧流光", "effect": "引雷淬体，助冲大瓶颈", "price": 200},
+    {"item_id": "yb-013", "name": "赤焰果", "tier": 2, "category": "强化", "element": {"火": 40, "土": 10}, "rarity": "不常见", "habitat": "熔岩边缘、火脉之上", "appearance": "果实赤红，表皮有焰纹", "effect": "淬体增力，激发火属", "price": 110},
+    {"item_id": "yb-014", "name": "金刚叶", "tier": 2, "category": "强化", "element": {"金": 45}, "rarity": "不常见", "habitat": "金属矿脉深处", "appearance": "叶如金箔，坚不可摧", "effect": "强化筋骨，刀剑难伤", "price": 110},
+    {"item_id": "yb-015", "name": "翠灵根", "tier": 2, "category": "补气", "element": {"土": 40, "木": 10}, "rarity": "不常见", "habitat": "古木根部、肥沃壤土", "appearance": "根系翠绿，断口溢清汁", "effect": "大补斗气，固本培元", "price": 100},
+    {"item_id": "yb-016", "name": "风旋草", "tier": 2, "category": "凝神", "element": {"风": 45}, "rarity": "稀有", "habitat": "长年风暴的峡谷", "appearance": "叶片螺旋，自带旋风", "effect": "提速凝神，身法大增", "price": 190},
+    {"item_id": "yb-017", "name": "天雷果", "tier": 3, "category": "突破", "element": {"雷": 100}, "rarity": "珍稀", "habitat": "雷霆降临之巅峰", "appearance": "果实紫黑，雷弧环绕", "effect": "破障冲关，倍增突破之机", "price": 600},
+    {"item_id": "yb-018", "name": "九幽莲", "tier": 3, "category": "解毒", "element": {"木": 70, "水": 50}, "rarity": "珍稀", "habitat": "九幽寒泉之底", "appearance": "七瓣幽蓝，寒气逼人", "effect": "解百毒，续断脉", "price": 650},
+    {"item_id": "yb-019", "name": "地心炎晶", "tier": 3, "category": "强化", "element": {"火": 80, "金": 40}, "rarity": "珍稀", "habitat": "地心火脉结晶处", "appearance": "赤金交错晶体，灼热烫手", "effect": "强力淬体，筋骨大成", "price": 680},
+    {"item_id": "yb-020", "name": "万年土精", "tier": 3, "category": "补气", "element": {"土": 120}, "rarity": "珍稀", "habitat": "万年地脉汇聚之处", "appearance": "土黄晶块，沉如山岳", "effect": "固本培元，斗气大补", "price": 620}
+  ],
+
+  "furnaces": [
+    {"item_id": "dl-1", "name": "黄阶丹炉", "tier": 1, "spec": {"slots": 4, "cap": 100, "max_durability": 50}, "price": 0, "desc": "最常见的丹炉，最多投放4种材料，单元素能量上限100。新手炼药师入门之物。"},
+    {"item_id": "dl-2", "name": "玄阶丹炉", "tier": 2, "spec": {"slots": 6, "cap": 300, "max_durability": 80}, "price": 800, "desc": "可炼二阶丹药，最多投放6种材料，单元素能量上限300。"},
+    {"item_id": "dl-3", "name": "地阶丹炉", "tier": 3, "spec": {"slots": 8, "cap": 800, "max_durability": 120}, "price": 3000, "desc": "可炼三阶丹药，最多投放8种材料，单元素能量上限800。"},
+    {"item_id": "dl-4", "name": "天阶丹炉", "tier": 4, "spec": {"slots": 10, "cap": 2000, "max_durability": 200}, "price": 12000, "desc": "传闻中的天阶丹炉，可炼顶级丹药，单元素能量上限2000。"}
+  ],
+
+  "buffs": [
+    {"key": "zengli_t1", "name": "增力", "icon": "💪", "description": "力量 +3（增力丹）", "effects": [{"hook": "passive", "fnId": "stat", "params": {"attr": "power", "op": "add", "value": 3}}]},
+    {"key": "qingxin_t1", "name": "清心", "icon": "🧊", "description": "智力 +3（清心丹）", "effects": [{"hook": "passive", "fnId": "stat", "params": {"attr": "intelligence", "op": "add", "value": 3}}]},
+    {"key": "leihuo_t2", "name": "雷火之力", "icon": "⚡", "description": "力量 +15%（雷火丹）", "effects": [{"hook": "passive", "fnId": "stat", "params": {"attr": "power", "op": "mul", "value": 0.15}}]}
+  ],
+
+  "pills": [
+    {"item_id": "dp-001", "name": "回春丹", "tier": 1, "category": "疗伤", "price": 20, "usable": true, "use_effect": {"type": "instant", "fn": "heal_hp", "params": {"amount": 30}}, "desc": "服用后恢复 30 点生命。"},
+    {"item_id": "dp-002", "name": "回气丹", "tier": 1, "category": "补气", "price": 18, "usable": true, "use_effect": {"type": "instant", "fn": "restore_energy", "params": {"amount": 20}}, "desc": "服用后恢复 20 点斗气。"},
+    {"item_id": "dp-003", "name": "清心丹", "tier": 1, "category": "凝神", "price": 25, "usable": true, "use_effect": {"type": "buff", "buff": "qingxin_t1", "scope": "next_battle"}, "desc": "服用后下次战斗中智力 +3。"},
+    {"item_id": "dp-004", "name": "增力丹", "tier": 1, "category": "强化", "price": 25, "usable": true, "use_effect": {"type": "buff", "buff": "zengli_t1", "scope": "next_battle"}, "desc": "服用后下次战斗中力量 +3。"},
+    {"item_id": "dp-005", "name": "解毒丹", "tier": 1, "category": "解毒", "price": 22, "usable": true, "use_effect": {"type": "instant", "fn": "heal_hp", "params": {"amount": 15}}, "desc": "服用后恢复 15 点生命，并化解低阶毒素。"},
+    {"item_id": "dp-006", "name": "凝元丹", "tier": 2, "category": "修炼", "price": 150, "usable": true, "use_effect": {"type": "instant", "fn": "gain_cultivation", "params": {"amount": 50}}, "desc": "服用后立即获得 50 点修为。"},
+    {"item_id": "dp-007", "name": "雷火丹", "tier": 2, "category": "战斗", "price": 180, "usable": true, "use_effect": {"type": "buff", "buff": "leihuo_t2", "scope": "next_battle"}, "desc": "服用后下次战斗中力量 +15%。"},
+    {"item_id": "dp-008", "name": "破障丹", "tier": 3, "category": "突破", "price": 600, "usable": true, "use_effect": {"type": "instant", "fn": "add_breakthrough_bonus", "params": {"amount": 15}}, "desc": "服用后下次突破成功率 +15%。"},
+    {"item_id": "dp-009", "name": "九幽解毒丹", "tier": 3, "category": "解毒", "price": 650, "usable": true, "use_effect": {"type": "instant", "fn": "heal_hp", "params": {"amount": 150}}, "desc": "服用后恢复 150 点生命，可解百毒。"}
+  ],
+
+  "recipes": [
+    {"recipe_id": "pf-001", "output_item_id": "dp-001", "name": "回春丹丹方", "tier": 1, "required": {"木": 20, "火": 10}, "tolerance": {"木": 4, "火": 2}, "min_furnace_tier": 1, "base_yield": 1, "price": 50},
+    {"recipe_id": "pf-002", "output_item_id": "dp-002", "name": "回气丹丹方", "tier": 1, "required": {"土": 20}, "tolerance": {"土": 4}, "min_furnace_tier": 1, "base_yield": 1, "price": 50},
+    {"recipe_id": "pf-003", "output_item_id": "dp-003", "name": "清心丹丹方", "tier": 1, "required": {"水": 20, "土": 10}, "tolerance": {"水": 4, "土": 2}, "min_furnace_tier": 1, "base_yield": 1, "price": 60},
+    {"recipe_id": "pf-004", "output_item_id": "dp-004", "name": "增力丹丹方", "tier": 1, "required": {"金": 20}, "tolerance": {"金": 4}, "min_furnace_tier": 1, "base_yield": 1, "price": 60},
+    {"recipe_id": "pf-005", "output_item_id": "dp-005", "name": "解毒丹丹方", "tier": 1, "required": {"木": 12, "水": 12}, "tolerance": {"木": 3, "水": 3}, "min_furnace_tier": 1, "base_yield": 1, "price": 55},
+    {"recipe_id": "pf-006", "output_item_id": "dp-006", "name": "凝元丹丹方", "tier": 2, "required": {"水": 50}, "tolerance": {"水": 10}, "min_furnace_tier": 2, "base_yield": 1, "price": 250},
+    {"recipe_id": "pf-007", "output_item_id": "dp-007", "name": "雷火丹丹方", "tier": 2, "required": {"雷": 35, "金": 15}, "tolerance": {"雷": 7, "金": 3}, "min_furnace_tier": 2, "base_yield": 1, "price": 280},
+    {"recipe_id": "pf-008", "output_item_id": "dp-008", "name": "破障丹丹方", "tier": 3, "required": {"雷": 100}, "tolerance": {"雷": 20}, "min_furnace_tier": 3, "base_yield": 1, "price": 900},
+    {"recipe_id": "pf-009", "output_item_id": "dp-009", "name": "九幽解毒丹丹方", "tier": 3, "required": {"木": 140, "水": 100}, "tolerance": {"木": 28, "水": 20}, "min_furnace_tier": 3, "base_yield": 1, "price": 950}
+  ]
+}

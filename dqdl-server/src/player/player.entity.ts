@@ -93,6 +93,22 @@ export class Player {
   @Column({ type: 'text', default: '[]', comment: '已装备宝物(JSON):[{id,slot}]' })
   treasures: string;
 
+  /** 已习得丹方列表(JSON)：[recipe_id, ...] */
+  @Column({ type: 'text', default: '[]', comment: '已习得丹方(JSON数组)' })
+  recipes: string;
+
+  /** 下次突破成功率加成（百分比，服用破障丹获得，突破后清零） */
+  @Column({ type: 'int', default: 0, comment: '下次突破成功率加成(百分比)' })
+  breakthrough_bonus: number;
+
+  /** 当前装备的丹炉 item_id（type=丹炉 的物品） */
+  @Column({ type: 'varchar', length: 32, nullable: true, comment: '装备的丹炉item_id' })
+  equipped_furnace: string | null;
+
+  /** 当前丹炉耐久（失败时扣减，归零则丹炉报废） */
+  @Column({ type: 'int', default: 0, comment: '当前丹炉耐久' })
+  furnace_durability: number;
+
   @CreateDateColumn({ comment: '创建时间' })
   created_at: Date;
 

@@ -33,6 +33,7 @@
         <button class="btn btn--sm btn--primary" @click="showRole = true">角色</button>
         <button class="btn btn--sm btn--warning" @click="showSkillPanel = true">斗技</button>
         <button class="btn btn--sm btn--primary" @click="showTreasurePanel = true">宝物</button>
+        <button class="btn btn--sm btn--success" @click="showAlchemyPanel = true">炼丹</button>
         <button class="btn btn--sm btn--info" @click="encounterStore.open">
           奇遇
           <span v-if="encounterStore.list.length" class="badge task-badge">{{ encounterStore.list.length }}</span>
@@ -70,7 +71,7 @@
       <!-- 属性条：危险 / 斗气 / 魔兽种数 单行排布 -->
       <div
         class="loc-stats"
-        v-if="currentLocation.danger_level > 0 || currentLocation.qi_density > 0 || parseMobs(currentLocation.common_mobs).length"
+        v-if="currentLocation.danger_level > 0 || currentLocation.qi_density > 0 || parseMobs(currentLocation.common_mobs).length || parseMobs(currentLocation.gather_herbs).length"
       >
         <span class="stat stat--danger" v-if="currentLocation.danger_level > 0">
           <i>⚔</i>危险 {{ dangerLabel(currentLocation.danger_level) }}
@@ -80,6 +81,9 @@
         </span>
         <span class="stat stat--mob" v-if="parseMobs(currentLocation.common_mobs).length">
           <i>🐺</i>{{ parseMobs(currentLocation.common_mobs).length }} 种魔兽
+        </span>
+        <span class="stat stat--herb" v-if="parseMobs(currentLocation.gather_herbs).length">
+          <i>🌿</i>{{ parseMobs(currentLocation.gather_herbs).length }} 种药草
         </span>
       </div>
 
@@ -93,10 +97,11 @@
         </span>
       </div>
 
-      <!-- 行动栏（仅野外） -->
-      <div class="loc-actions" v-if="['wild','wild2','wild3'].includes(currentLocation.loc_type)">
-        <button class="btn btn--danger" @click="openBattle" :disabled="trainingMode || player?.status !== 1">战斗</button>
-        <button class="btn btn--warning" @click="openDungeon" :disabled="trainingMode || player?.status !== 1">副本</button>
+      <!-- 常见药草名条 -->
+      <div class="loc-mobs" v-if="parseMobs(currentLocation.gather_herbs).length">
+        <span class="mob-tag herb-tag" v-for="herb in parseMobs(currentLocation.gather_herbs)" :key="herb.item_id">
+          <span class="mob-name">🌿 {{ herb.name }}</span>
+        </span>
       </div>
     </div>
 
@@ -383,6 +388,9 @@
     <!-- 宝物面板 -->
     <TreasurePanel v-if="showTreasurePanel" @close="showTreasurePanel = false" />
 
+    <!-- 炼丹面板 -->
+    <AlchemyPanel v-if="showAlchemyPanel" @close="showAlchemyPanel = false" />
+
     <!-- 浮动历练卡片（野外常显：未历练可开始，历练中可停止） -->
     <div v-if="isWild" class="training-float">
       <div class="training-float-header" @click="logCollapsed = !logCollapsed">
@@ -423,6 +431,32 @@
           <span class="float-log-meta" v-if="evt.battle">
             {{ evt.timestamp }}&nbsp;·&nbsp;{{ evt.mob?.name }}&nbsp;·&nbsp;{{ evt.won === false ? '逃跑' : evt.battle?.style }}&nbsp;·&nbsp;胜率{{ evt.battle?.win_rate }}%
           </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 浮动采集卡片（野外常显：可开始/停止采集草药） -->
+    <div v-if="isWild" class="training-float gather-float">
+      <div class="training-float-header" @click="gatherCollapsed = !gatherCollapsed">
+        <span class="training-float-title">🌿 采集</span>
+        <button v-if="!gatherMode" class="training-float-stop start" @click.stop="startAutoGather">开始采集</button>
+        <button v-else class="training-float-stop" @click.stop="stopAutoGather">停止采集</button>
+        <span class="training-float-toggle">{{ gatherCollapsed ? '▸' : '▾' }}</span>
+      </div>
+      <div v-if="!gatherCollapsed" class="training-float-body">
+        <div class="training-float-empty" v-if="!gatherEvents.length">
+          <div v-if="gatherMode" class="spinner-sm"></div>
+          <span>{{ gatherMode ? '采集中...' : '点击「开始采集」搜寻草药' }}</span>
+        </div>
+        <div
+          v-for="(evt, idx) in gatherEvents"
+          :key="idx"
+          class="float-log-entry"
+        >
+          <p class="float-log-text">{{ evt.text }}</p>
+          <div class="float-log-drops" v-if="evt.drops && evt.drops.length">
+            🎁 <span class="float-drop-item" v-for="(d, di) in evt.drops" :key="di">{{ d.name }}&times;{{ d.count }}<template v-if="di < evt.drops.length - 1">，</template></span>
+          </div>
         </div>
       </div>
     </div>
@@ -605,6 +639,7 @@ import RolePanel from './components/RolePanel.vue'
 import TaskPanel from './components/TaskPanel.vue'
 import SkillPanel from './components/SkillPanel.vue'
 import TreasurePanel from './components/TreasurePanel.vue'
+import AlchemyPanel from './components/AlchemyPanel.vue'
 import MessageToast from './components/MessageToast.vue'
 import RandomEventDialog from './components/RandomEventDialog.vue'
 import { attrLabels, baseAttrKeys, levelName } from './game/constants'
@@ -628,7 +663,7 @@ const { breadcrumb, currentLocation, currentChildren, currentNpcs, currentSiblin
 const { npc: dialogNpc, history: dialogHistory, loading: dialogLoading } = storeToRefs(dialogStore)
 const { items: backpackItems, shopItems, showPanel: showBackpack, showTrade, tradeSelling, tradeBuying, usingItem } = storeToRefs(backpackStore)
 const { list: tasks, loading: taskLoading } = storeToRefs(taskStore)
-const { started: gameStarted, trainingLog, cultivationLog, trainingLoading, trainingMode, trainingEvents } = storeToRefs(gameStore)
+  const { started: gameStarted, trainingLog, cultivationLog, trainingLoading, trainingMode, trainingEvents, gatherMode, gatherEvents, gatherLoading } = storeToRefs(gameStore)
 const { showBattle, battleLoading, mob, playerName: battlePlayerName, playerLevel: battlePlayerLevel, playerHp: battlePlayerHp, playerMaxHp, playerEnergy: battlePlayerEnergy, playerMaxEnergy, mobName: battleMobName, mobLevel: battleMobLevel, mobRank: battleMobRank, mobMaxHp, mobHp: battleMobHp, equippedSkills, battleOver, attacking, playerBuffs: battlePlayerBuffs, mobBuffs: battleMobBuffs, playerHurt: battlePlayerHurt, mobHurt: battleMobHurt, playerFloaters: battlePlayerFloaters, mobFloaters: battleMobFloaters, battleWinner } = storeToRefs(battleStore)
 const { showDungeon } = storeToRefs(dungeonStore)
 
@@ -659,7 +694,7 @@ const hasSave = computed(() => gameStore.hasSave())
 function newGame() { gameStore.newGame() }
 function continueGame() { gameStore.continueGame() }
 function moveTo(loc, idx) {
-  if (trainingMode.value) return
+  if (trainingMode.value || gatherMode.value) return
   mapStore.moveTo(loc, idx); dialogStore.close()
 }
 function openDialog(npc) { dialogStore.open(npc) }
@@ -680,13 +715,15 @@ function isImgIcon(icon) {
 }
 function acceptCurrentTask(card) { taskStore.acceptCurrentTask(card) }
 function navigateToLocation(locId) {
-  if (trainingMode.value) return
+  if (trainingMode.value || gatherMode.value) return
   mapStore.navigateToLocation(locId); dialogStore.close()
 }
 function navigateToTask(path) { if (path?.length) navigateToLocation(path[path.length - 1].id) }
 function doTrainingEvent() { gameStore.doTrainingEvent() }
 function startAutoTraining() { gameStore.startAutoTraining() }
 function stopAutoTraining() { gameStore.stopAutoTraining() }
+function startAutoGather() { gameStore.startAutoGather() }
+function stopAutoGather() { gameStore.stopAutoGather() }
 function openBattle() { battleStore.open() }
 function closeBattle() { battleStore.close() }
 function battleAttack() { battleStore.playerAttack() }
@@ -746,20 +783,22 @@ function hideItemTip() { itemTooltip.value = null }
 
 const showSkillPanel = ref(false)
 const showTreasurePanel = ref(false)
+const showAlchemyPanel = ref(false)
+const gatherCollapsed = ref(false)
 
-function typeLabel(type) { return {continent:'大陆',region:'区域',empire:'帝国',city:'城市',wild:'野外',wild2:'野外深处',wild3:'野外核心',sect:'宗派',secret:'秘境',district:'区域',scene:'场景',cultivation:'修炼室'}[type]||type }
+function typeLabel(type) { return {continent:'大陆',region:'区域',empire:'帝国',city:'城市',wild:'野外',wild2:'野外深处',wild3:'野外核心',sect:'宗派',secret:'秘境',district:'区域',scene:'场景',cultivation:'修炼室',market:'坊市',forging:'冶炼坊',alchemy:'丹房'}[type]||type }
 function dangerLabel(level) { return {1:'一阶(低危)',2:'二阶(中危)',3:'三阶(高危)'}[level]||level }
 function dangerShort(level) { return { 1: '一阶', 2: '二阶', 3: '三阶' }[level] || level }
 function parseMobs(raw) { try { const a = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(a) ? a : [] } catch { return [] } }
 
 // 地点类型 → 图标（玄幻辨识）
 function typeIcon(type) {
-  return { continent: '🌏', region: '🧭', empire: '🏛', city: '🏯', district: '🏮', scene: '📍', wild: '🌲', wild2: '🌲', wild3: '🌲', sect: '⛩️', secret: '✨', cultivation: '🧘' }[type] || '📍'
+  return { continent: '🌏', region: '🧭', empire: '🏛', city: '🏯', district: '🏮', scene: '📍', wild: '🌲', wild2: '🌲', wild3: '🌲', sect: '⛩️', secret: '✨', cultivation: '🧘', market: '🏪', forging: '🔨', alchemy: '⚗️' }[type] || '📍'
 }
 // 地点类型 → 配色族（卡片左边强调色 / 悬停光晕）
 function typeClass(type) {
   if (['wild', 'wild2', 'wild3'].includes(type)) return 'is-wild'
-  if (type === 'city' || type === 'district') return 'is-city'
+  if (['city', 'district', 'market', 'forging', 'alchemy', 'cultivation'].includes(type)) return 'is-city'
   if (type === 'sect') return 'is-sect'
   if (type === 'secret') return 'is-secret'
   if (type === 'empire' || type === 'continent' || type === 'region') return 'is-realm'
@@ -1053,6 +1092,13 @@ function typeClass(type) {
   background: rgba(231, 76, 60, 0.12);
   border: 1px solid rgba(231, 76, 60, 0.35);
 }
+.herb-tag {
+  color: #8fd88f;
+  background: rgba(80, 200, 120, 0.12);
+  border-color: rgba(80, 200, 120, 0.35);
+}
+.stat--herb { color: var(--text-muted); }
+.stat--herb i { color: #8fd88f; }
 .mob-name { font-weight: 500; }
 .mob-rank {
   font-size: 0.68rem;
@@ -2401,6 +2447,10 @@ function typeClass(type) {
   flex-direction: column;
   z-index: 1000;
   overflow: hidden;
+}
+/* 采集卡：与历练卡并排，偏移到左侧避免重叠遮挡 */
+.gather-float {
+  right: 400px;
 }
 .training-float-header {
   display: flex;

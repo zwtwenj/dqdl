@@ -99,4 +99,20 @@ export const applyEvent = (playerId, effects, context) => api.post('/event/apply
 export const syncEvent = (playerId, eventId, snapshot, ended) => api.post('/event/sync', { playerId, eventId, snapshot: snapshot || {}, ended: !!ended })
 export const getCurrentEvent = (playerId) => api.get(`/event/current?playerId=${playerId}`)
 
+// Gather API（野外采集草药，SSE 每 tick 一次）
+export const doGather = (playerId, locationId) => api.post(`/gather?playerId=${playerId}&locationId=${locationId}`)
+export const startGather = (playerId) => api.post(`/gather/start?playerId=${playerId}`)
+export const stopGather = (playerId) => api.post(`/gather/stop?playerId=${playerId}`)
+export const gatherStreamUrl = (playerId, locationId) => `/api/gather/stream?playerId=${playerId}&locationId=${locationId}`
+
+// Alchemy API（炼丹）
+export const getAlchemyRecipes = (playerId) => api.get(`/alchemy/recipes/${playerId}`)
+export const getAlchemyMaterials = () => api.get('/alchemy/materials')
+export const getAlchemyFurnaces = (playerId) => api.get(`/alchemy/furnaces/${playerId}`)
+export const equipFurnace = (playerId, itemId) => api.post('/alchemy/furnace/equip', { player_id: playerId, item_id: itemId })
+export const getAlchemyShop = () => api.get('/alchemy/shop')
+export const alchemyBuy = (playerId, kind, id) => api.post('/alchemy/buy', { player_id: playerId, kind, id })
+export const learnRecipe = (playerId, recipeId) => api.post('/alchemy/recipe/learn', { player_id: playerId, recipe_id: recipeId })
+export const alchemyAttempt = (playerId, recipeId, ingredients) => api.post('/alchemy/attempt', { player_id: playerId, recipe_id: recipeId, ingredients })
+
 export default api

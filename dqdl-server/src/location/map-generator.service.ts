@@ -38,6 +38,17 @@ export class MapGeneratorService {
     { match: '坊市', type: 'market' },
     { match: '修炼室', type: 'cultivation' },
     { match: '冶炼坊', type: 'forging' },
+    { match: '丹房', type: 'alchemy' },
+  ];
+
+  // 每个城市必须且只能各包含一个的核心功能地点（防 AI 生成"铁血佣兵公会"/"紫云丹阁"等同功能变体）
+  // match: 判定某生成项是否属于该核心类别（按 loc_type 或名称关键字）
+  private static readonly CITY_MANDATORY: {
+    canonical: string; type: string; desc: string; match: (it: GeneratedLocation) => boolean;
+  }[] = [
+    { canonical: '坊市', type: 'market', desc: '城中最热闹的交易之地', match: (it) => it.loc_type === 'market' || it.name.includes('坊市') },
+    { canonical: '佣兵公会', type: 'district', desc: '佣兵与散修接取委托的所在', match: (it) => it.name.includes('佣兵公会') },
+    { canonical: '丹房', type: 'alchemy', desc: '城中炼药师炼制丹药之处', match: (it) => it.loc_type === 'alchemy' || it.name.includes('丹房') || it.name.includes('丹阁') || it.name.includes('药庐') },
   ];
 
   constructor(private readonly agentClient: AgentClient) {}
@@ -51,11 +62,53 @@ export class MapGeneratorService {
     });
   }
 
+  /**
+   * 城市核心功能地点保障：每个城市必须且只能各包含一个 坊市/佣兵公会/丹房。
+   * - 若 AI 产出了某类的变体（如"铁血佣兵公会"、"紫云丹阁"），保留第一个并改名为标准名，丢弃其余变体；
+   * - 若某类缺失，则补一个标准地点。
+   * 匹配同时按 loc_type 与名称关键字，避免 AI 自设 loc_type 或用异名（丹阁/药庐）时漏判。
+   * 仅在 depth=4 且父节点为 city 时调用。
+   */
+  private enforceCityMandatory(items: GeneratedLocation[], parent: Location): GeneratedLocation[] {
+    const out: GeneratedLocation[] = [];
+    const usedNames = new Set<string>();
+
+    for (const m of MapGeneratorService.CITY_MANDATORY) {
+      const variants = items.filter((it) => m.match(it));
+      if (variants.length > 0) {
+        // 保留首个变体并标准化为标准名/类型
+        out.push({ ...variants[0], name: m.canonical, loc_type: m.type });
+      } else {
+        out.push({
+          name: m.canonical,
+          loc_type: m.type,
+          description: `${m.canonical}，${m.desc}。`,
+          danger_level: 0,
+          qi_density: 0,
+          available_actions: ['explore'],
+          tags: ['核心功能'],
+          seed: String(Math.floor(Math.random() * 10000)),
+        });
+      }
+      usedNames.add(m.canonical);
+    }
+
+    // 补回 AI 生成的其余非冲突地点（命中任一核心类别或重名一律跳过）
+    for (const it of items) {
+      const isMandatoryVariant = MapGeneratorService.CITY_MANDATORY.some((m) => m.match(it));
+      if (isMandatoryVariant || usedNames.has(it.name)) continue;
+      usedNames.add(it.name);
+      out.push(it);
+    }
+    return out;
+  }
+
   async generate(input: GenerateInput): Promise<GeneratedLocation[]> {
     const { parent, rule, count, existingNames } = input;
 
     this.logger.log(`请求 agent 生成 [${parent.name}] 的 ${count} 个子节点...`);
 
+    let items: GeneratedLocation[];
     try {
       const data = await this.agentClient.generateMap({
         parent: {
@@ -80,7 +133,7 @@ export class MapGeneratorService {
         seed: parent.seed,
       });
 
-      const items = data.map((item: any) => ({
+      items = data.map((item: any) => ({
         name: String(item.name || ''),
         loc_type: String(item.loc_type || 'district'),
         description: String(item.description || ''),
@@ -91,11 +144,17 @@ export class MapGeneratorService {
         seed: String(item.seed || ''),
         common_mobs: Array.isArray(item.common_mobs) ? item.common_mobs : null,
       }));
-      return this.normalizeTypes(items);
     } catch (err) {
       this.logger.error(`Agent 生成失败: ${(err as Error).message}，使用降级方案`);
-      return this.normalizeTypes(this.fallbackGenerate(parent, count));
+      items = this.fallbackGenerate(parent, count);
     }
+
+    items = this.normalizeTypes(items);
+    // 城市核心功能保障：必含且仅各一个 坊市/佣兵公会/丹房
+    if (rule.depth === 4 && parent.loc_type === 'city') {
+      items = this.enforceCityMandatory(items, parent);
+    }
+    return items;
   }
 
   /** 降级方案：根据父节点类型生成合理的子地点 */
@@ -131,7 +190,7 @@ export class MapGeneratorService {
         locType = 'district';
       } else {
         // city 或其他
-        pool = ['坊市', '佣兵公会', '修炼室', '冶炼坊', '药材商行', '城主府', '修炼场'];
+        pool = ['坊市', '佣兵公会', '修炼室', '冶炼坊', '丹房', '药材商行', '城主府', '修炼场'];
         locType = 'district';
       }
     } else {

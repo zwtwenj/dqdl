@@ -36,4 +36,16 @@ export class Item {
   /** 使用效果描述 JSON：{ type:'instant'|'buff', fn|buff, params|scope } */
   @Column({ type: 'text', nullable: true, comment: '使用效果描述(JSON)' })
   use_effect: string | null;
+
+  /** 炼丹相关：元素能量向量 JSON，如 {"木":10,"火":5}（草药/材料/魔核用） */
+  @Column({ type: 'text', nullable: true, comment: '元素能量向量(JSON)' })
+  element_energy: string | null;
+
+  /** 炼丹相关品阶：1/2/3 阶（草药/丹药输出用） */
+  @Column({ type: 'int', default: 0, comment: '炼丹品阶(0=非炼丹物)' })
+  alchemy_tier: number;
+
+  /** 丹炉规格 JSON：{ tier, slots, cap, max_durability }（type=丹炉 用） */
+  @Column({ type: 'text', nullable: true, comment: '丹炉规格(JSON)' })
+  furnace_spec: string | null;
 }

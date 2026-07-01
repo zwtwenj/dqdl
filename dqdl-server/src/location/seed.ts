@@ -130,7 +130,8 @@ async function seed() {
       gen_prompt: `你是斗气大陆的世界观设计师。请为"{parent_name}"（{parent_description}）生成{count}个内部区域。
 
 【区域类型】根据父节点类型选择：
-城市(city)内部：坊市、佣兵公会、拍卖场、药材商行、冶炼坊、家族宅邸、地下黑市、城主府、修炼室、修炼场
+城市(city)内部：坊市、佣兵公会、拍卖场、药材商行、冶炼坊、丹房、家族宅邸、地下黑市、城主府、修炼室、修炼场
+（其中"坊市"、"佣兵公会"、"丹房"为每个城市必须且只能各包含一个的核心功能地点，不得生成铁血佣兵公会、佣兵分舵、西坊市、炼丹分堂等同功能变体名称）
 野外(wild)内部：必须是更深层的野外区域，如入口区、深处、核心区、隐藏洞穴、稀有资源点、瀑布、古树群
 宗派(sect)内部：外门、内门、藏经阁、练功场、长老殿、丹房、禁地
 秘境(secret)内部：前厅、核心区域、守护者区域、宝物室、迷宫通道
@@ -138,7 +139,8 @@ async function seed() {
 【严格约束】
 - 至少包含1个功能性区域（可交易/接任务/修炼）
 - 区域类型必须与父节点匹配
-- 坊市/交易场所 loc_type="market"；修炼室/修炼场 loc_type="cultivation"；冶炼坊/锻造坊 loc_type="forging"；其余城市内部区域用 "district"
+- 坊市/交易场所 loc_type="market"；修炼室/修炼场 loc_type="cultivation"；冶炼坊/锻造坊 loc_type="forging"；丹房 loc_type="alchemy"；其余城市内部区域用 "district"
+- 每个城市必须且只能各包含一个 loc_type="market" 的"坊市"、一个"佣兵公会"、一个 loc_type="alchemy" 的"丹房"，严禁出现同功能重复或变体（如铁血佣兵公会、佣兵分舵、西坊市、丹房分堂等）
 - {forbidden}
 - 如果父节点是野外类型，loc_type必须设为"wild2"，danger_level继承父节点（1-3）
 - 非野外区域danger_level设为0

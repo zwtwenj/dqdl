@@ -726,7 +726,9 @@ export class PlayerService {
     if (player.cultivation < lc) throw new Error('修为不足，无法突破');
 
     const K = PlayerService.breakthroughRate(player.level);
-    const success = Math.random() * 100 < K;
+    const bonus = Number(player.breakthrough_bonus) || 0;
+    const effK = Math.min(95, K + bonus);
+    const success = Math.random() * 100 < effK;
     const equipped = this.getEquippedEntry(player);
     const tech = equipped ? await this.techniqueService.findOne(equipped.id) : null;
     const oldLevel = player.level;
@@ -775,6 +777,7 @@ export class PlayerService {
       max_energy: maxEnergy as any,
       hp: success ? maxHp : (player.hp as any),
       energy: success ? maxEnergy : (player.energy as any),
+      breakthrough_bonus: 0 as any,
       ...(attrUpdate as any),
     });
 

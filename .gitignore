@@ -31,4 +31,8 @@ npm-debug.log*
 _*.js
 _*.py
 
+# 丹炉抠图备份与原始上传（中间文件，不入库）
+*_orig.png
+dqdl-web/public/image/image_*.png
+
 logs

@@ -11,7 +11,7 @@ export interface BackpackItem {
 }
 
 /** NPC 商店固定出售的物品主键 ID（无数量限制，售价 = item.price） */
-export const SHOP_ITEM_IDS = [595, 596];
+export const SHOP_ITEM_IDS = [620, 621];
 
 @Injectable()
 export class BackpackService {
@@ -28,8 +28,13 @@ export class BackpackService {
   async getByPlayer(playerId: number): Promise<Backpack> {
     let bp = await this.backpackRepo.findOneBy({ player_id: playerId });
     if (!bp) {
-      bp = this.backpackRepo.create({ player_id: playerId, items: '[]' });
-      bp = await this.backpackRepo.save(bp);
+      try {
+        bp = this.backpackRepo.create({ player_id: playerId, items: '[]' });
+        bp = await this.backpackRepo.save(bp);
+      } catch {
+        // 并发创建兜底：另一并发调用已插入该 player 的背包行，直接取回
+        bp = await this.backpackRepo.findOneByOrFail({ player_id: playerId });
+      }
     }
     return bp;
   }

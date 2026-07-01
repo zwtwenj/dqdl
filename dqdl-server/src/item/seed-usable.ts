@@ -25,16 +25,6 @@ function loadEnv() {
 
 const ITEMS = [
   {
-    item_id: 'dy-hcq1', name: '一阶回春丹', type: '丹药', price: 200, usable: true,
-    use_effect: JSON.stringify({ type: 'instant', fn: 'heal_hp', params: { amount: 200 } }),
-    description: '服用后恢复 200 点生命。',
-  },
-  {
-    item_id: 'dy-bqq1', name: '一阶补气丸', type: '丹药', price: 150, usable: true,
-    use_effect: JSON.stringify({ type: 'instant', fn: 'restore_energy', params: { amount: 50 } }),
-    description: '服用后恢复 50 点斗气。',
-  },
-  {
     item_id: 'dy-lhq1', name: '一阶龙虎丹', type: '丹药', price: 300, usable: true,
     use_effect: JSON.stringify({ type: 'buff', buff: 'longhu_t1', scope: 'next_battle' }),
     description: '服用后下次战斗中力量 +20%。',

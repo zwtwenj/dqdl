@@ -7,6 +7,7 @@ import { useBackpackStore } from './backpack'
 import { useTaskStore } from './task'
 import { useRandomEventStore } from './randomEvent'
 import { startAutoTraining, stopAutoTraining } from '../services/trainingSession'
+import { startAutoGather, stopAutoGather } from '../services/gatherSession'
 
 const SAVE_KEY = 'dqdl_save'
 
@@ -21,6 +22,12 @@ export const useGameStore = defineStore('game', () => {
   const trainingMode = ref(false)
   const trainingEvents = ref([])
   const trainingInterval = ref(0)
+
+  // ── 自动采集模式（SSE 连接由 services/gatherSession.js 持有）──
+  const gatherMode = ref(false)
+  const gatherEvents = ref([])
+  const gatherInterval = ref(0)
+  const gatherLoading = ref(false)
 
   // ── 突破结果弹框（由玩家点击任意区域关闭）──
   const breakthroughResult = ref(null)
@@ -203,9 +210,11 @@ export const useGameStore = defineStore('game', () => {
   return {
     started, trainingLog, trainingLoading, cultivationLog,
     trainingMode, trainingEvents, trainingInterval,
+    gatherMode, gatherEvents, gatherInterval, gatherLoading,
     breakthroughResult,
     hasSave, writeSave, clearSave, loadSave,
     newGame, continueGame, doTrainingEvent, doCultivate, doBreakthrough,
     clearBreakthrough, startAutoTraining, stopAutoTraining,
+    startAutoGather, stopAutoGather,
   }
 })

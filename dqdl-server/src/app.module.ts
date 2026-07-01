@@ -23,6 +23,8 @@ import { CultivationRoomModule } from './cultivation-room/cultivation-room.modul
 import { RandomEventModule } from './random-event/random-event.module';
 import { DialogEventModule } from './dialog-event/dialog-event.module';
 import { TreasureModule } from './treasure/treasure.module';
+import { AlchemyModule } from './alchemy/alchemy.module';
+import { GatherModule } from './gather/gather.module';
 
 @Module({
   imports: [
@@ -61,6 +63,8 @@ import { TreasureModule } from './treasure/treasure.module';
     RandomEventModule,
     DialogEventModule,
     TreasureModule,
+    AlchemyModule,
+    GatherModule,
   ],
   controllers: [AppController],
   providers: [AppService],

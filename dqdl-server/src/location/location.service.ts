@@ -6,6 +6,8 @@ import { LocationGenRule } from './location-gen-rule.entity';
 import { CreateLocationDto, ExpandLocationDto } from './dto/location.dto';
 import { MapGeneratorService } from './map-generator.service';
 import { MobService } from '../mob/mob.service';
+import { ItemService } from '../item/item.service';
+import { Item } from '../item/item.entity';
 
 @Injectable()
 export class LocationService {
@@ -18,6 +20,7 @@ export class LocationService {
     private readonly ruleRepo: Repository<LocationGenRule>,
     private readonly mapGenerator: MapGeneratorService,
     private readonly mobService: MobService,
+    private readonly itemService: ItemService,
   ) {}
 
   /** 查询某个节点的子节点（如果未展开则自动触发生成）
@@ -43,6 +46,27 @@ export class LocationService {
       where: { parent_id: locationId },
       order: { id: 'ASC' },
     });
+  }
+
+  /** 为某阶野外地点挑选 3-4 种常见药草，返回 JSON: [{item_id, name}] */
+  private async buildGatherHerbs(tier: number): Promise<string> {
+    try {
+      const all = await this.itemService.findByType('草药');
+      const common = all.filter((h) => h.alchemy_tier === tier && !!h.description?.includes('常见'));
+      const pool = this.sampleItems(common, Math.min(common.length, 3 + Math.floor(Math.random() * 2)));
+      return JSON.stringify(pool.map((h) => ({ item_id: h.item_id, name: h.name })));
+    } catch {
+      return JSON.stringify([]);
+    }
+  }
+
+  private sampleItems(arr: Item[], n: number): Item[] {
+    const copy = [...arr];
+    const out: Item[] = [];
+    while (out.length < n && copy.length > 0) {
+      out.push(copy.splice(Math.floor(Math.random() * copy.length), 1)[0]);
+    }
+    return out;
   }
 
   /** 展开：AI 生成子节点 */
@@ -139,6 +163,11 @@ export class LocationService {
       // wild2/wild3：继承父级 wild 的 common_mobs
       else if (parentWildMobs) {
         loc.common_mobs = parentWildMobs;
+      }
+
+      // wild 系列节点：按 danger_level 填充常见药草 gather_herbs（3-4 种常见草药）
+      if ((loc.loc_type === 'wild' || loc.loc_type === 'wild2' || loc.loc_type === 'wild3') && loc.danger_level > 0) {
+        loc.gather_herbs = await this.buildGatherHerbs(loc.danger_level);
       }
 
       const saved = await this.locationRepo.save(loc);

@@ -48,6 +48,18 @@ export const instantLibrary: Record<string, InstantFn> = {
     const energy = Math.min(p.max_energy, before + amount);
     return { patch: { energy }, message: `斗气恢复 ${energy - before}` };
   },
+  gain_cultivation: (p, params) => {
+    const amount = Number(params.amount) || 0;
+    const cap = Number(p.level_cultivation) || 0;
+    const before = Number(p.cultivation) || 0;
+    const cultivation = cap > 0 ? Math.min(cap, before + amount) : before + amount;
+    return { patch: { cultivation }, message: `修为增加 ${cultivation - before}` };
+  },
+  add_breakthrough_bonus: (p, params) => {
+    const amount = Number(params.amount) || 0;
+    const before = Number(p.breakthrough_bonus) || 0;
+    return { patch: { breakthrough_bonus: before + amount }, message: `下次突破成功率 +${amount}%` };
+  },
 };
 
 /** 解析并结算一个使用效果描述符（不直接写库，只返回要应用的变更） */

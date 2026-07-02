@@ -70,7 +70,7 @@ watch(
 .re-overlay {
   position: fixed;
   inset: 0;
-  z-index: 3500;
+  z-index: 6000;
   display: flex;
   align-items: center;
   justify-content: center;

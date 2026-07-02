@@ -1,11 +1,14 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 /**
- * 场景事件（数据驱动：触发条件 + 概率 + 节点图回调）。
+ * 场景事件模板（数据驱动：触发条件 + 概率 + 节点图回调）。
  * conditions / nodes 为 JSON 文本，由 service 解析。
+ *
+ * source 区分手工配置(manual)与 agent 动态编排(agent)。
+ * trigger_kind 区分触发方式：probabilistic(玩家动作后概率roll) / push(agent 强制塞入派发队列)。
  */
-@Entity('random_event')
-export class RandomEvent {
+@Entity('event_template')
+export class EventTemplate {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -34,7 +37,7 @@ export class RandomEvent {
   @Column({ type: 'int', default: 0, comment: '同时命中时的优先级(大优先)' })
   weight: number;
 
-  /** 是否仅触发一次(每玩家)：true 时查 random_event_log 去重 */
+  /** 是否仅触发一次(每玩家)：true 时查 event_instance 去重 */
   @Column({ type: 'tinyint', default: 0, comment: '是否每玩家仅触发一次' })
   once: number;
 
@@ -43,6 +46,12 @@ export class RandomEvent {
 
   @Column({ type: 'tinyint', default: 1, comment: '是否启用' })
   enabled: number;
+
+  @Column({ type: 'varchar', length: 16, default: 'manual', comment: '来源: manual/agent' })
+  source: string;
+
+  @Column({ type: 'varchar', length: 16, default: 'probabilistic', comment: '触发方式: probabilistic(概率roll)/push(强制塞)' })
+  trigger_kind: string;
 
   @CreateDateColumn({ comment: '创建时间' })
   created_at: Date;

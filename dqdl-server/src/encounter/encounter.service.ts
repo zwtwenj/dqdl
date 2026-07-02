@@ -69,6 +69,14 @@ export class EncounterService {
   /** 历练中尝试触发奇遇：10% 概率，且 pending 未满。返回生成的奇遇或 null */
   async tryGenerate(playerId: number): Promise<Encounter | null> {
     if (Math.random() > TRIGGER_RATE) return null;
+    return this.generateForced(playerId);
+  }
+
+  /**
+   * 强制触发一次奇遇（跳过概率掷骰，但仍受 pending 上限约束）。
+   * 供事件 effect(triggerEncounter) 使用——agent 编排"发现一处秘境"时可强制派发。
+   */
+  async generateForced(playerId: number): Promise<Encounter | null> {
     const pendingCount = await this.repo.count({ where: { player_id: playerId, status: 'pending' } });
     if (pendingCount >= MAX_PENDING) return null;
 

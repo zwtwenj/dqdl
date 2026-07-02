@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Player } from './player.entity';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { TechniqueService, techniqueBreakthroughBaseRate } from '../technique/technique.service';
@@ -9,6 +10,7 @@ import { SkillService } from '../skill/skill.service';
 import { BuffService } from '../buff/buff.service';
 import { Buff } from '../buff/buff.entity';
 import { AgentClient } from '../agent/agent.client';
+import { playerEvent, PLAYER_EVENTS } from '../event-bus/events';
 
 /** 等阶 K 常量：1-9=100, 11-19=200, 21-29=300, 31-39=400 */
 export function getLevelK(level: number): number {
@@ -44,6 +46,7 @@ export class PlayerService {
     private readonly skillService: SkillService,
     private readonly buffService: BuffService,
     private readonly agentClient: AgentClient,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(dto: CreatePlayerDto): Promise<Player> {
@@ -658,6 +661,18 @@ export class PlayerService {
     if (player.status === 2) throw new BadRequestException('历练中，无法移动');
     if (player.status === 5) throw new BadRequestException('室内修炼中，无法移动');
     await this.playerRepo.update(id, { position: position as any });
+
+    // 事件总线：玩家进入新地点。position 是地点 id 的 JSON 数组字符串，末位即当前地点 id。
+    try {
+      const ids: number[] = JSON.parse(position || '[]');
+      const locationId = ids.length ? ids[ids.length - 1] : null;
+      if (locationId != null) {
+        this.eventEmitter.emit(
+          PLAYER_EVENTS.ENTER_LOCATION,
+          playerEvent(id, 'enter_location', { locationId, position: ids }),
+        );
+      }
+    } catch { /* position 非合法 JSON，静默忽略，不影响移动主流程 */ }
   }
 
   /** 修炼 */
@@ -795,7 +810,28 @@ export class PlayerService {
     }
 
     this.logger.log('玩家 ' + id + ' 突破：' + (success ? '成功' : '失败') + ' ' + oldName + ' -> ' + newName);
+
+    // 事件总线：通知 agent 编排器玩家完成突破（失败也通知，编排器自行决定是否编排）
+    this.eventEmitter.emit(
+      PLAYER_EVENTS.BREAKTHROUGH,
+      playerEvent(id, 'breakthrough', { success, newLevel, oldLevel, levelName: newName }),
+    );
+
     return { success, narrative, newLevel, newCultivation, level_cultivation: newLc, levelName: newName, oldLevel, gained };
+  }
+
+  /** 一次性增减修为（事件效果用）：自动夹到 [0, 当前等阶上限]，避免越界 */
+  async grantCultivation(id: number, amount: number): Promise<{ cultivation: number; gained: number; capped: boolean }> {
+    if (!amount) return { cultivation: 0, gained: 0, capped: false };
+    const player = await this.playerRepo.findOneBy({ id });
+    if (!player) throw new Error('玩家不存在');
+    const cap = calcLevelCultivation(player.level);
+    let next = player.cultivation + amount;
+    const capped = next > cap || next < 0;
+    next = Math.max(0, Math.min(cap, next));
+    const gained = next - player.cultivation;
+    await this.playerRepo.update(id, { cultivation: next as any });
+    return { cultivation: next, gained, capped };
   }
 
 }

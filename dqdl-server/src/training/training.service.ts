@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PlayerService } from '../player/player.service';
 import { MobService } from '../mob/mob.service';
 import { TechniqueService } from '../technique/technique.service';
@@ -11,6 +12,7 @@ import { SkillService } from '../skill/skill.service';
 import { AgentClient } from '../agent/agent.client';
 import { BattleService } from '../battle/battle.service';
 import { EncounterService } from '../encounter/encounter.service';
+import { playerEvent, PLAYER_EVENTS } from '../event-bus/events';
 
 interface PlayerSkillEntry {
   id: number;
@@ -104,6 +106,7 @@ export class TrainingService {
     private agentClient: AgentClient,
     private battleService: BattleService,
     private readonly encounterService: EncounterService,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     this.trainingInterval = config.get<number>('TRAINING_INTERVAL', 180000);
     this.trainingMaxDuration = config.get<number>('TRAINING_MAX_DURATION', 10800000);
@@ -290,6 +293,14 @@ export class TrainingService {
     const task_updates = won
       ? await this.taskService.checkAndUpdateProgress(playerId, mob.name || '')
       : [];
+
+    // 事件总线：玩家击杀魔兽（仅胜利通知，编排器自行决定是否编排）
+    if (won) {
+      this.eventEmitter.emit(
+        PLAYER_EVENTS.KILL_MOB,
+        playerEvent(playerId, 'kill_mob', { mobId: mob.mob_id, mobName: mob.name || '' }),
+      );
+    }
 
     // 7. 调 agent 生成叙事文本（胜利/失败都调用）
     const equippedSkills = await this.parseEquippedSkills(player.skill);

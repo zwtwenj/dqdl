@@ -3,17 +3,17 @@
  * 运行方式: npx ts-node src/random-event/seed.ts
  */
 import { DataSource } from 'typeorm';
-import { RandomEvent } from './random-event.entity';
+import { EventTemplate } from './event-template.entity';
 import { dbOptions } from '../db.config';
 
 async function seed() {
-  const ds = new DataSource(dbOptions([RandomEvent]));
+  const ds = new DataSource(dbOptions([EventTemplate]));
 
   await ds.initialize();
   console.log('✅ 数据库连接成功');
-  const repo = ds.getRepository(RandomEvent);
+  const repo = ds.getRepository(EventTemplate);
 
-  const events: Partial<RandomEvent>[] = [
+  const events: Partial<EventTemplate>[] = [
     {
       event_id: 'shady_pill_seller',
       title: '坊市奇遇',

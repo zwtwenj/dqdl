@@ -5,6 +5,7 @@ dqdl-agent: AI 生成服务
 - POST /generate/dialog   NPC 对话生成
 - POST /generate/training 历练叙事生成
 - POST /generate/dungeon  箱庭副本五幕蓝图生成
+- POST /generate/event    场景事件规格生成（agent 动态编排）
 - GET  /health            健康检查
 """
 import os
@@ -800,6 +801,269 @@ def generate_dungeon():
     except Exception as e:
         app.logger.error(f'副本生成失败: {e}，使用降级方案')
         return jsonify(_fallback_dungeon(scene_type)), 200
+
+
+# ============================================================
+#  场景事件规格生成（agent 动态编排）
+# ============================================================
+
+# 与后端 EffectRegistry 注册的 key 保持一致；prompt 与校验都引用此清单。
+EVENT_EFFECT_KEYS = [
+    'money', 'giveItem', 'forgeTask', 'createTask',
+    'startBattle', 'grantCultivation', 'triggerEncounter', 'movePlayer',
+]
+
+
+def _normalize_event(obj):
+    """校验并补全事件规格：必须有 title/nodes；nodes 必须是合法节点图；
+    剔除 effect 白名单之外的 key；钳制数值。结构不合法抛 ValueError（由调用方走降级）。"""
+    if not isinstance(obj, dict):
+        raise ValueError('event 规格非对象')
+    title = str(obj.get('title', '')).strip()
+    if not title:
+        raise ValueError('title 缺失')
+    title = title[:64]
+
+    event_id = str(obj.get('event_id') or '').strip()
+    if not event_id:
+        event_id = f'agent_{random.randint(10000, 99999)}'
+
+    nodes = obj.get('nodes')
+    if not isinstance(nodes, dict) or not isinstance(nodes.get('map'), dict):
+        raise ValueError('nodes.map 缺失')
+    start = nodes.get('start')
+    if not start or start not in nodes['map']:
+        raise ValueError('nodes.start 节点不存在')
+
+    # 校验并清洗每个节点
+    cleaned_map = {}
+    for nid, node in nodes['map'].items():
+        if not isinstance(node, dict):
+            raise ValueError(f'节点 {nid} 非对象')
+        new_node = {}
+        if isinstance(node.get('npc'), str):
+            new_node['npc'] = node['npc'][:600]
+        if isinstance(node.get('end'), bool):
+            new_node['end'] = node['end']
+        if isinstance(node.get('choices'), list):
+            new_node['choices'] = [_normalize_choice(c) for c in node['choices'] if isinstance(c, dict)]
+        if isinstance(node.get('effects'), list):
+            new_node['effects'] = [_normalize_effect(e) for e in node['effects'] if isinstance(e, dict)]
+        if isinstance(node.get('roll'), list):
+            new_node['roll'] = [
+                {'weight': max(1, int(r.get('weight', 1))), 'goto': str(r.get('goto', ''))}
+                for r in node['roll'] if isinstance(r, dict) and r.get('goto')
+            ]
+        cleaned_map[nid] = new_node
+
+    nodes_out = {'start': start, 'map': cleaned_map}
+
+    delivery = str(obj.get('delivery') or 'immediate')
+    if delivery not in ('immediate', 'enter_location', 'condition_met'):
+        delivery = 'immediate'
+
+    return {
+        'event_id': event_id,
+        'title': title,
+        'nodes': nodes_out,
+        'delivery': delivery,
+        'fire_conditions': obj.get('fire_conditions') if isinstance(obj.get('fire_conditions'), dict) else {},
+        'reason': str(obj.get('reason') or '')[:200],
+    }
+
+
+def _normalize_choice(c):
+    """清洗选项：保留 text/goto/require，require 仅保留 money 字段并夹紧"""
+    out = {'text': str(c.get('text', ''))[:80], 'goto': str(c.get('goto', ''))}
+    if not out['goto']:
+        out['goto'] = 'leave'
+    req = c.get('require')
+    if isinstance(req, dict):
+        m = req.get('money')
+        # bool 不是合法 money（isinstance(True,int) 为真，需排除）
+        if isinstance(m, bool):
+            m = None
+        if isinstance(m, (int, float)):
+            out['require'] = {'money': max(0, min(1000000, int(m)))}
+    return out
+
+
+def _normalize_effect(eff):
+    """清洗单条 effect：只保留白名单内第一个 key，并按 key 钳制数值。
+    与后端 EffectRegistry.runAll 的"取首个 key"语义保持一致。"""
+    for key in EVENT_EFFECT_KEYS:
+        if key in eff and eff[key] is not None:
+            return {key: _clamp_effect_value(key, eff[key])}
+    return {}  # 全部非法则丢弃（返回空对象，调用方会过滤）
+
+
+def _clamp_effect_value(key, val):
+    if key == 'money':
+        if isinstance(val, bool):
+            return 0
+        if isinstance(val, (int, float)):
+            return max(-1000000, min(1000000, int(val)))
+        return 0
+    if key == 'giveItem':
+        if not isinstance(val, dict):
+            return {'name': '一阶回春丹', 'count': 1}
+        return {
+            'name': str(val.get('name', '一阶回春丹'))[:32],
+            'count': max(1, min(99, int(val.get('count', 1) or 1))),
+        }
+    if key == 'forgeTask':
+        return True if val else False
+    if key == 'createTask':
+        if not isinstance(val, dict):
+            return {'name': '神秘委托', 'desc': '', 'target': [], 'reward': []}
+        return {
+            'name': str(val.get('name', '神秘委托'))[:32],
+            'desc': str(val.get('desc', ''))[:200],
+            'target': val.get('target', []) if isinstance(val.get('target'), list) else [],
+            'reward': val.get('reward', []) if isinstance(val.get('reward'), list) else [],
+            'star': max(1, min(5, int(val.get('star', 1) or 1))),
+        }
+    if key == 'startBattle':
+        return {'mobId': str(val.get('mobId', '') if isinstance(val, dict) else val)[:32]}
+    if key == 'grantCultivation':
+        if isinstance(val, dict):
+            amt = val.get('amount', 0)
+        else:
+            amt = val
+        if isinstance(amt, bool):
+            amt = 0
+        return {'amount': max(-100000, min(100000, int(amt) if isinstance(amt, (int, float)) else 0))}
+    if key == 'triggerEncounter':
+        return {'force': True}
+    if key == 'movePlayer':
+        pos = val.get('position', []) if isinstance(val, dict) else val
+        if not isinstance(pos, list):
+            pos = []
+        return {'position': [int(x) for x in pos if isinstance(x, (int, float)) and not isinstance(x, bool)][:20]}
+    return val
+
+
+def _fallback_event():
+    """降级事件规格（agent 失败时）：一个安全的"路遇散修"奇遇，仅含小额金钱与对话。"""
+    return {
+        'event_id': f'agent_fallback_{random.randint(10000, 99999)}',
+        'title': '路遇散修',
+        'nodes': {
+            'start': 'meet',
+            'map': {
+                'meet': {
+                    'npc': '一位云游散修与你擦肩而过，颔首致意后便匆匆离去，地上似落着一小袋金币。',
+                    'choices': [
+                        {'text': '捡起来', 'goto': 'take'},
+                        {'text': '不贪小便宜，离开', 'goto': 'leave'},
+                    ],
+                },
+                'take': {
+                    'effects': [{'money': 200}],
+                    'npc': '你拾起钱袋，里头约有二百金币。',
+                    'end': True,
+                },
+                'leave': {
+                    'npc': '你没有理会，继续赶路。',
+                    'end': True,
+                },
+            },
+        },
+        'delivery': 'immediate',
+        'fire_conditions': {},
+        'reason': 'agent 不可用时的降级事件',
+    }
+
+
+@app.route('/generate/event', methods=['POST'])
+def generate_event():
+    """
+    生成场景事件规格（沿用 random_event 节点图格式）。
+    Body: { trigger:{type,payload}, player:{name,level,money}, allowedEffects:[...], pendingTaskCount }
+    Returns: { event_id, title, nodes, delivery, fire_conditions, reason }
+    """
+    data = request.get_json(force=True) or {}
+    trigger = data.get('trigger') or {}
+    player = data.get('player') or {}
+    allowed = data.get('allowedEffects') or EVENT_EFFECT_KEYS
+
+    trig_type = trigger.get('type', 'enter_location')
+    payload = trigger.get('payload') or {}
+    plevel = player.get('level') if isinstance(player, dict) else None
+    pname = player.get('name', '玩家') if isinstance(player, dict) else '玩家'
+
+    # 触发情境描述（喂给 agent 做剧情编排）
+    trig_desc = {
+        'breakthrough': f'玩家{pname}刚完成突破（结果：{"成功" if payload.get("success") else "失败"}, 新等阶 {payload.get("newLevel", "?")})',
+        'kill_mob': f'玩家{pname}刚击杀了魔兽 {payload.get("mobName", "未知")}',
+        'enter_location': f'玩家{pname}进入了新地点(地点ID {payload.get("locationId", "?")})',
+    }.get(trig_type, f'玩家{pname}触发了事件 {trig_type}')
+
+    # RAG 世界观片段（首次把检索结果注入生成 prompt）
+    world_lore = ''
+    try:
+        ensure_rag()
+        from rag_service import get_context
+        query = f'{"仇怨" if trig_type == "kill_mob" else "奇遇"} 修真界 斗气大陆'
+        world_lore = get_context(query, top_k=5, max_chars=2000)
+    except Exception as e:
+        app.logger.warning(f'RAG 不可用，事件生成不注入世界观: {e}')
+
+    effects_hint = ', '.join(allowed)
+    system_prompt = (
+        '你是斗气大陆（斗破苍穹）世界观的事件设计师。'
+        '根据玩家刚触发的游戏事件，编排一段有起承转合的场景事件——可以是偶遇、仇家寻仇、'
+        '故人相赠、神秘委托、宝物线索等，要有戏剧性和世界观质感。'
+        '严格遵循斗破苍穹世界观（斗气、魔兽、佣兵、丹药、宗门等），不要出现现实事物。'
+        '只输出 JSON，不要输出任何其他内容。'
+    )
+    user_prompt = (
+        f'【触发情境】{trig_desc}\n'
+        f'【玩家等阶参考】{plevel or "未知"}\n'
+        f'【玩家待办任务数】{data.get("pendingTaskCount", 0)}（多则不宜再派新任务）\n'
+        '【可用的 effect 原子能力】（effects 数组里每条对象只能用以下 key 之一，不得编造）：\n'
+        f'  {effects_hint}\n'
+        '【effect 语义说明】\n'
+        '  money: {money: ±n} 金钱增减\n'
+        '  giveItem: {giveItem:{name,count}} 发放物品\n'
+        '  createTask: {createTask:{name,desc,target[],reward[],star?}} 派一个任务\n'
+        '  startBattle: {startBattle:{mobId}} 发起一场战斗\n'
+        '  grantCultivation: {grantCultivation:{amount}} 增减修为\n'
+        '  triggerEncounter: {} 触发一次奇遇\n'
+        '  movePlayer: {movePlayer:{position:[地点ID]}} 移动玩家\n'
+        '【结构要求】\n'
+        '- nodes 为分支对话节点图：{start:入口id, map:{节点id:节点}}\n'
+        '- 每个节点可含 npc(台词)、choices(选项[{text,goto,require?}])、effects(进节点即落地)、roll(加权跳转[{weight,goto}])、end(是否终止)\n'
+        '- 台词用第二人称"你"，符合斗气大陆口吻\n'
+        '- 数值要克制合理（金币通常几十~几千，物品 count 1~10），不要出现离谱大数\n'
+        '- delivery: immediate(立即弹) 或 enter_location(下次进匹配地点时弹)\n'
+        f'{("【世界观参考】\\n" + world_lore + "\\n") if world_lore else ""}'
+        '【输出格式】严格如下 JSON（不要 markdown，不要多余文字）：\n'
+        '{\n'
+        f'  "event_id": "agent_{trig_type}_简短英文标识",\n'
+        '  "title": "事件标题(6-14字)",\n'
+        '  "delivery": "immediate",\n'
+        '  "fire_conditions": {},\n'
+        '  "reason": "一句话说明编排动机",\n'
+        '  "nodes": {\n'
+        '    "start": "intro",\n'
+        '    "map": {\n'
+        '      "intro": {"npc":"...","choices":[{"text":"...","goto":"accept"}]},\n'
+        '      "accept": {"effects":[{"money":-100}],"npc":"...","end":true}\n'
+        '    }\n'
+        '  }\n'
+        '}'
+    )
+
+    app.logger.info(f'事件编排请求: type={trig_type}, player={pname}, level={plevel}')
+    try:
+        content = call_deepseek(system_prompt, user_prompt, temperature=0.9, max_tokens=1600)
+        spec = _normalize_event(_parse_json_object(content))
+        app.logger.info(f'事件编排成功: {spec["event_id"]} ({spec["title"]})')
+        return jsonify(spec)
+    except Exception as e:
+        app.logger.error(f'事件编排失败: {e}，使用降级事件')
+        return jsonify(_fallback_event()), 200
 
 
 # ============================================================

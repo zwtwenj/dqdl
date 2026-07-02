@@ -64,6 +64,11 @@ export class AgentClient {
     return this.postJson('/generate/dungeon', body);
   }
 
+  /** 事件规格生成 → 返回 { event_id, title, nodes, delivery, fire_conditions, reason } */
+  generateEvent(body: unknown): Promise<any> {
+    return this.postJson('/generate/event', body);
+  }
+
   /** RAG 语义检索 */
   ragSearch(body: unknown): Promise<any> {
     return this.postJson('/rag/search', body);

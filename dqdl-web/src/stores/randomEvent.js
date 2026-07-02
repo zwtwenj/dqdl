@@ -155,9 +155,17 @@ export const useRandomEventStore = defineStore('randomEvent', () => {
       const res = await getCurrentEvent(playerStore.playerId)
       const e = res.data
       if (!e || !e.event_id) return
+      const s = e.snapshot || {}
+      const hasSnapshot = Array.isArray(s.messages) && s.messages.length > 0
+      if (!hasSnapshot) {
+        // 快照为空（如 agent 编排的 immediate 事件刚入队、尚未被前端推进过）：
+        // 走首次触发流程，从 start 节点开始落地 effects / 推入台词 / 设置选项。
+        ctx.value = null
+        start({ event_id: e.event_id, title: e.title, nodes: e.nodes })
+        return
+      }
       nodes.value = e.nodes || {}
       current.value = { eventId: e.event_id, title: e.title || '事件' }
-      const s = e.snapshot || {}
       messages.value = s.messages || []
       choices.value = s.choices || []
       ended.value = !!s.ended

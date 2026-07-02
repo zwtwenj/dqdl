@@ -32,6 +32,24 @@ export const useGameStore = defineStore('game', () => {
   // ── 突破结果弹框（由玩家点击任意区域关闭）──
   const breakthroughResult = ref(null)
 
+  // ── agent 编排事件轮询句柄（兜底：击杀/进地点等非突破动作触发的编排）──
+  let eventPollTimer = null
+
+  /**
+   * 启动 agent 编排事件轮询：每 60s 拉一次进行中的事件。
+   * 兜底覆盖不在突破流程里触发的编排（击杀、进地点）。
+   * resumeInProgress 内部已用 current.value 防重入，无事件时静默返回。
+   */
+  function startEventPolling() {
+    if (eventPollTimer) return
+    eventPollTimer = setInterval(() => {
+      useRandomEventStore().resumeInProgress().catch(() => {})
+    }, 60000)
+  }
+  function stopEventPolling() {
+    if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null }
+  }
+
   // ── 存档 ──
   function hasSave() {
     try { return !!JSON.parse(localStorage.getItem(SAVE_KEY))?.playerId }
@@ -105,6 +123,7 @@ export const useGameStore = defineStore('game', () => {
 
       writeSave(playerStore.playerId)
       started.value = true
+      startEventPolling()
     } finally {
       playerStore.loading = false
     }
@@ -139,6 +158,7 @@ export const useGameStore = defineStore('game', () => {
       started.value = true
       // 恢复进行中的随机事件（页面刷新后）
       await useRandomEventStore().resumeInProgress()
+      startEventPolling()
 
       if (playerStore.data?.status === 2 && mapStore.currentLocation?.loc_type?.startsWith('wild')) {
         startAutoTraining()
@@ -200,6 +220,10 @@ export const useGameStore = defineStore('game', () => {
       const d = await playerStore.breakthrough()
       cultivationLog.value.unshift({ text: d.narrative, gained: d.gained, critical: d.success, capped: !d.success })
       breakthroughResult.value = { text: d.narrative, success: !!d.success }
+      // 突破会触发 agent 动态编排（player.breakthrough 事件，采样率 1.0，走 immediate 派发）。
+      // agent 编排是异步的（经 EventEmitter → DeepSeek → 写 event_instance），
+      // 这里延迟拉取一次进行中的事件，命中即立即弹出，无需玩家手动刷新页面。
+      setTimeout(() => { useRandomEventStore().resumeInProgress() }, 1500)
     } catch (err) {
       cultivationLog.value.unshift({ text: '突破失败: ' + (err.response?.data?.message || err.message), gained: 0, critical: false, capped: false })
       breakthroughResult.value = { text: '突破失败：' + (err.response?.data?.message || err.message), success: false }

@@ -1,21 +1,25 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 /**
- * 随机事件触发记录 / 事件总线：每玩家每事件去重的依据，并留存状态与过程，支持刷新后恢复进行中的事件。
+ * 事件实例：每玩家每事件的会话状态与对话快照。
  * status: started=已触发 / in_progress=进行中 / ended=已结束
  * process: 对话快照 JSON { messages, choices, ended, path }，用于页面刷新后恢复
+ *
+ * 来源有两种：
+ *  1) 手工模板/概率事件经 check() 命中后写入；
+ *  2) agent 编排的事件经派发队列(event_dispatch)转写为本表记录后弹出。
  */
-@Entity('random_event_log')
+@Entity('event_instance')
 @Index('idx_player_event', ['player_id', 'event_id'])
 @Index('idx_player_status', ['player_id', 'status'])
-export class RandomEventLog {
+export class EventInstance {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ type: 'int', comment: '玩家ID' })
   player_id: number;
 
-  @Column({ type: 'varchar', length: 64, comment: '随机事件 event_id' })
+  @Column({ type: 'varchar', length: 64, comment: '事件 event_id' })
   event_id: string;
 
   @Column({ type: 'varchar', length: 16, default: 'started', comment: '状态: started/in_progress/ended' })
@@ -31,4 +35,3 @@ export class RandomEventLog {
   @UpdateDateColumn({ comment: '更新时间' })
   updated_at: Date;
 }
-

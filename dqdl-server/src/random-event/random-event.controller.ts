@@ -1,9 +1,9 @@
 import { Controller, Get, Post, Body, Query } from '@nestjs/common';
-import { RandomEventService, EventEffect, TriggerPayload } from './random-event.service';
+import { EventInstanceService, EventEffect, TriggerPayload } from './event-instance.service';
 
 @Controller('event')
 export class RandomEventController {
-  constructor(private readonly randomEventService: RandomEventService) {}
+  constructor(private readonly randomEventService: EventInstanceService) {}
 
   /** 触发检测：返回掷中的事件节点图，或 null */
   @Post('check')

@@ -337,17 +337,18 @@ onMounted(loadAll)
 </script>
 
 <style scoped>
-.alchemy-panel { width: 1200px; max-width: 95vw; }
+.alchemy-panel { width: 1200px; max-width: 95vw; height: 760px; max-height: 92vh; display: flex; flex-direction: column; }
 .al-tab-switch { display: flex; gap: 6px; }
 .al-tab { background: transparent; border: 1px solid var(--border, #555); color: var(--text-dim, #aaa); padding: 3px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
 .al-tab.is-active { background: var(--primary, #7c5cff); color: #fff; border-color: transparent; }
-.al-body { display: flex; gap: 14px; height: 70vh; overflow: hidden; }
-.al-col { flex: 1 1 0; min-width: 0; overflow-y: auto; padding-right: 4px; }
-/* 三栏：左=丹方列表(固定宽)，中=丹炉(略宽)，右=材料 */
-.al-recipes { flex: 0 0 240px; max-width: 240px; }
-.al-center { flex: 1.2 1 0; display: flex; flex-direction: column; overflow: hidden; padding-right: 0; }
-.al-materials { flex: 1 1 0; }
-.al-furnace-info { background: rgba(124,92,255,.12); border: 1px solid var(--primary,#7c5cff); border-radius: 8px; padding: 6px 10px; margin-bottom: 8px; font-size: 12px; }
+/* 三栏主体：固定高度，左中右各自独立滚动，互不影响 */
+.al-body { display: flex; gap: 14px; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.al-col { min-width: 0; height: 100%; overflow-y: auto; padding-right: 4px; }
+/* 左=丹方列表(固定宽)，中=丹炉(略宽)，右=材料 */
+.al-recipes { flex: 0 0 240px; max-width: 240px; padding: 10px 0; }
+.al-center { flex: 1.2 1 0; display: flex; flex-direction: column; overflow: hidden; padding-right: 0; gap: 6px; padding: 10px 0; }
+.al-materials { flex: 1 1 0; padding: 10px 0; }
+.al-furnace-info { background: rgba(124,92,255,.12); border: 1px solid var(--primary,#7c5cff); border-radius: 8px; padding: 6px 10px; margin-bottom: 2px; font-size: 12px; flex-shrink: 0; }
 .al-furnace-name { font-weight: 600; color: var(--primary,#c0a0f0); margin-right: 6px; }
 .al-furnace-meta { color: var(--text-dim,#999); }
 .al-recipe { border: 1px solid var(--border,#444); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; transition: .15s; }
@@ -360,11 +361,21 @@ onMounted(loadAll)
 .al-band-item { margin-right: 8px; color: var(--accent,#e0c060); }
 .al-locked-mark { font-size: 11px; color: #e08060; margin-top: 2px; }
 
-.al-ws-title { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.al-ws-title { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin-bottom: 2px; flex-shrink: 0; }
 .al-section-title { font-size: 13px; color: var(--text-dim,#bbb); margin: 10px 0 6px; border-bottom: 1px solid var(--border,#333); padding-bottom: 3px; display: flex; justify-content: space-between; }
 .al-slots { font-size: 12px; }
 
-.al-elems { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* 丹炉舞台：中间栏的弹性区，吸收高度变化，丹炉图垂直居中并按可用高度等比缩放 */
+.al-furnace-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  flex: 1 1 auto;
+  min-height: 160px;
+  overflow: hidden;
+}
+.al-elems { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-shrink: 0; }
 .al-elem { border: 1px solid var(--border,#444); border-radius: 6px; padding: 6px 8px; }
 .al-elem.is-ok { border-color: #5fae5f; background: rgba(95,174,95,.1); }
 .al-elem.is-over { border-color: #e06060; background: rgba(224,96,96,.12); }
@@ -392,32 +403,29 @@ onMounted(loadAll)
 .al-pool-elem { font-size: 11px; color: var(--text-dim,#999); }
 .al-pool-count { font-size: 11px; color: var(--accent,#e0c060); }
 
-.al-craft-btn { width: 100%; margin-top: auto;margin-bottom:15px; padding: 10px; border-radius: 8px; border: none; background: var(--primary,#7c5cff); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+.al-craft-btn { width: 100%; padding: 10px; margin-top: 10px; border-radius: 8px; border: none; background: var(--primary,#7c5cff); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
 .al-craft-btn:disabled { opacity: .5; cursor: not-allowed; }
-.al-result { margin-top: 8px; padding: 8px; border-radius: 6px; background: rgba(224,128,96,.15); border: 1px solid #e08060; font-size: 13px; display:flex; align-items:center; gap:6px; }
+.al-result { margin-top: 6px; padding: 8px; border-radius: 6px; background: rgba(224,128,96,.15); border: 1px solid #e08060; font-size: 13px; display:flex; align-items:center; gap:6px; flex-shrink: 0; }
 .al-result.is-ok { background: rgba(95,174,95,.15); border-color: #5fae5f; }
 .al-result-icon { font-size: 16px; }
 .al-fade-enter-active { transition: all .35s ease; }
 .al-fade-enter-from { opacity: 0; transform: translateY(8px); }
 
 /* ===== 丹炉舞台 + 火焰 + 抖动 ===== */
-.al-furnace-stage {
+/* 丹炉盒子：火焰与图片的定位锚点，抖动施加在盒子上使整体一起颤动 */
+.al-furnace-box {
   position: relative;
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  margin: 10px 0 4px;
-}
-/* 丹炉盒子：火焰与图片的定位锚点，抖动施加在盒子上使整体一起颤动 */
-.al-furnace-box {
-  position: relative;
-  display: inline-block;
+  height: 100%;
   transform-origin: bottom center;
 }
 .al-furnace {
   display: block;
-  width: 400px;
-  height: 280px;
+  height: 100%;
+  width: 300px;
+  max-width: 100%;
   object-fit: cover;
   filter: drop-shadow(0 6px 10px rgba(0,0,0,.5));
   user-select: none;

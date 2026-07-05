@@ -269,9 +269,11 @@ export class AlchemyService {
       await this.backpackService.removeItem(playerId, ing.name, ing.count);
     }
 
-    // 判定：每种要求元素须落在公差区间，且任一元素不超丹炉 cap
+    // 判定阶段一：硬约束——任一元素超丹炉 cap 直接炸炉；需要元素须落在公差区间。
+    // 超出区间 = 配比严重失衡，直接失败（无概率）。
     let success = true;
     let reason = '';
+    let rate = 1;            // 最终成功率（区间内时由杂质比例决定）
     // 超 cap 直接炸炉
     for (const e of Object.keys(totals)) {
       if (totals[e] > furnace.cap) {
@@ -297,6 +299,35 @@ export class AlchemyService {
       reason = '丹方配置异常';
     }
 
+    // 判定阶段二：硬约束通过后，按"杂质比例"计算成功率。
+    // 需要元素 = 丹方 required 中的元素；不需要元素（杂质）= 丹炉里出现但不在 required 中的元素。
+    // 杂质可被中和：投入带负元素量的草药（如赤血藤雷-10）能削减对应杂质总量。
+    // 比例 X = 杂质总量 / 需要元素总量：X ≤ 1 → 成功率 90%；X > 1 → 成功率 90% / X。
+    if (success) {
+      const requiredKeys = new Set(Object.keys(required));
+      let neededSum = 0;     // 需要元素的总量
+      let impuritySum = 0;   // 不需要元素（杂质）的总量，按绝对值累加（含被负元素中和的部分）
+      for (const e of Object.keys(totals)) {
+        const v = totals[e];
+        if (requiredKeys.has(e)) {
+          neededSum += v;
+        } else {
+          impuritySum += Math.abs(v);
+        }
+      }
+      const ratio = neededSum > 0 ? impuritySum / neededSum : (impuritySum > 0 ? 99 : 0);
+      rate = ratio <= 1 ? 0.9 : 0.9 / ratio;
+      // 掷骰
+      const roll = Math.random();
+      const impurityNote = `杂质比例 ${ratio.toFixed(2)}（成功率 ${(rate * 100).toFixed(0)}%）`;
+      if (roll > rate) {
+        success = false;
+        reason = `${impurityNote}，本次炼制未能成丹`;
+      } else {
+        reason = impurityNote;  // 成功基线提示，下面产出分支会拼接产出信息
+      }
+    }
+
     let output: { name: string; count: number } | null = null;
     if (success) {
       const outItem = await this.itemService.findByItemId(recipe.output_item_id);
@@ -304,7 +335,7 @@ export class AlchemyService {
       if (outItem) {
         await this.backpackService.addItem(playerId, outItem.name, yield_);
         output = { name: outItem.name, count: yield_ };
-        reason = `炼制成功，获得 ${outItem.name} ×${yield_}`;
+        reason = `${reason}，获得 ${outItem.name} ×${yield_}`;
       }
     } else {
       // 失败扣耐久，归零报废

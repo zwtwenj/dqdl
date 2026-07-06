@@ -1,5 +1,5 @@
 <template>
-  <div class="role-overlay" @click.self="emit('close')">
+  <div class="role-overlay" :style="{ zIndex: overlayZ }" @click.self="emit('close')">
     <div class="role-panel alchemy-panel">
       <div class="role-header">
         <span class="role-title">炼丹</span>
@@ -140,6 +140,7 @@ import {
 } from '../api'
 import { Message } from '../utils/message'
 
+const props = defineProps({ overlayZ: { type: Number, default: 0 } })
 const emit = defineEmits(['close'])
 const playerStore = usePlayerStore()
 const backpackStore = useBackpackStore()

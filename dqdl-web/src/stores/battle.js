@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { usePlayerStore } from './player'
+import { useOverlayStore } from './overlay'
 import { battleStart, battleAction } from '../api'
 
 export const useBattleStore = defineStore('battle', () => {
@@ -28,6 +29,13 @@ export const useBattleStore = defineStore('battle', () => {
   const mobHurt = ref(false)
   let evtPtr = 0
   let fid = 0
+
+  // 战斗结束回调（事件编排用）：open(mobId, onOver) 传入，战斗结束时自动 close 并回调
+  // 不传则保持原行为（手动关闭）。winner: 'player' | 'mob' | 'flee'
+  let pendingOnOver = null
+
+  // 动态 z-index（由 overlay store 分配，保证后开的弹窗在上）
+  const overlayZ = ref(0)
 
   const playerStore = usePlayerStore()
 
@@ -95,7 +103,15 @@ export const useBattleStore = defineStore('battle', () => {
     }
   }
 
-  async function open(mobId = 'WB-004') {
+  /**
+   * 打开战斗面板。
+   * @param mobId 对手 mob_id（图鉴魔兽 WB-xxx 或事件生成的 AGENT-xxx）
+   * @param onOver 可选回调，战斗结束时（自动关闭后）调用，参数为 winner：'player'|'mob'|'flee'。
+   *               不传则保持原行为：战斗结束需手动关闭。
+   */
+  async function open(mobId = 'WB-004', onOver = null) {
+    pendingOnOver = onOver
+    overlayZ.value = useOverlayStore().acquire('battle')
     showBattle.value = true
     battleLoading.value = true
     battleOver.value = false
@@ -112,6 +128,11 @@ export const useBattleStore = defineStore('battle', () => {
       evtPtr = 0
     } catch (e) {
       battleLoading.value = false
+      // 战斗开启失败（如 mob 不存在）：关闭面板；若有回调，通知"战斗失败"避免事件卡死
+      showBattle.value = false
+      const cb = pendingOnOver
+      pendingOnOver = null
+      if (cb) { try { cb('mob') } catch (_) {} }
       return
     }
     battleLoading.value = false
@@ -128,6 +149,18 @@ export const useBattleStore = defineStore('battle', () => {
     mobBuffs.value = []
     playerHurt.value = false
     mobHurt.value = false
+    pendingOnOver = null
+    useOverlayStore().release('battle')
+  }
+
+  /** 触发 pendingOnOver 回调（若有）并清空。事件编排战斗结束时用。 */
+  function fireOnOverIfNeeded(winner) {
+    const cb = pendingOnOver
+    pendingOnOver = null
+    if (cb) {
+      close()
+      try { cb(winner) } catch (e) { console.error('battle onOver 回调失败', e) }
+    }
   }
 
   async function act(body) {
@@ -141,14 +174,26 @@ export const useBattleStore = defineStore('battle', () => {
       /* 错误静默 */
     }
     attacking.value = false
-    if (battleOver.value) savePlayerState()
+    if (battleOver.value) {
+      savePlayerState()
+      // 有回调时延迟自动关闭并通知事件编排（让玩家看到结果横幅）
+      if (pendingOnOver) {
+        const w = battleWinner.value === 'player' ? 'player' : 'mob'
+        setTimeout(() => fireOnOverIfNeeded(w), 1200)
+      }
+    }
   }
 
   function playerAttack() { return act({ type: 'normal' }) }
   function skillAttack(slotIndex) { return act({ type: 'skill', slot: slotIndex }) }
   async function flee() {
     await act({ type: 'flee' })
-    setTimeout(() => close(), 900)
+    // 逃跑视为 flee 结果；有回调时通知事件编排，无回调则保持原行为（手动关闭）
+    if (pendingOnOver) {
+      setTimeout(() => fireOnOverIfNeeded('flee'), 900)
+    } else {
+      setTimeout(() => close(), 900)
+    }
   }
 
   async function savePlayerState() {
@@ -160,7 +205,7 @@ export const useBattleStore = defineStore('battle', () => {
   }
 
   return {
-    showBattle, battleLoading, mob, battleOver, battleWinner, attacking,
+    showBattle, battleLoading, mob, battleOver, battleWinner, attacking, overlayZ,
     playerName, playerLevel, playerPower, playerStamina,
     playerHp: curPlayerHp, playerMaxHp, playerEnergy: curPlayerEnergy, playerMaxEnergy,
     mobName, mobLevel, mobRank, mobMaxHp, mobHp: curMobHp,

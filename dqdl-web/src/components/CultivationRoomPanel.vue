@@ -1,5 +1,5 @@
 <template>
-  <div class="role-overlay" v-if="store.showPanel" @click.self="store.close">
+  <div class="role-overlay" v-if="store.showPanel" :style="{ zIndex: store.overlayZ }" @click.self="store.close">
     <div class="role-panel cultivation-room-panel">
       <div class="role-header">
         <span class="role-title">修炼室</span>

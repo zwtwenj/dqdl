@@ -53,6 +53,11 @@ export class MobService {
     return this.mobRepo.findOneBy({ mob_id: mobId });
   }
 
+  /** 保存（更新）一个已加载的 Mob 实体 */
+  async save(mob: Mob): Promise<Mob> {
+    return this.mobRepo.save(mob);
+  }
+
   /** 图鉴魔兽(WB-)按等级区间检索，副本战斗幕挂魔兽用 */
   async findWBByLevelRange(lvMin: number, lvMax: number, order: 'ASC' | 'DESC' = 'ASC'): Promise<Mob[]> {
     return this.mobRepo

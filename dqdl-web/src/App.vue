@@ -42,7 +42,7 @@
     </div>
 
     <!-- 角色面板（独立组件） -->
-    <RolePanel v-if="showRole" @close="showRole = false" />
+    <RolePanel v-if="showRole" :overlay-z="zRole" @close="showRole = false" />
 
     <!-- 地图导航（面包屑） -->
     <div class="breadcrumb">
@@ -272,10 +272,10 @@
     </div>
 
     <!-- 任务面板（独立组件） -->
-    <TaskPanel v-if="showTaskPanel" @close="showTaskPanel = false" />
+    <TaskPanel v-if="showTaskPanel" :overlay-z="zTaskPanel" @close="showTaskPanel = false" />
 
     <!-- 背包弹窗 -->
-    <div class="role-overlay" v-if="showBackpack" @click="showBackpack = false">
+    <div class="role-overlay" v-if="showBackpack" :style="{ zIndex: zBackpack }" @click="showBackpack = false">
       <div class="role-panel backpack-panel" @click.stop>
         <div class="role-header">
           <span class="role-title">背包</span>
@@ -312,7 +312,7 @@
     </div>
 
     <!-- 交易弹窗 -->
-    <div class="role-overlay" v-if="showTrade">
+    <div class="role-overlay" v-if="showTrade" :style="{ zIndex: zTrade }">
       <div class="role-panel trade-panel">
         <div class="role-header">
           <span class="role-title">交易</span>
@@ -383,13 +383,13 @@
     </div>
 
     <!-- 斗技面板（独立组件） -->
-    <SkillPanel v-if="showSkillPanel" @close="showSkillPanel = false" />
+    <SkillPanel v-if="showSkillPanel" :overlay-z="zSkillPanel" @close="showSkillPanel = false" />
 
     <!-- 宝物面板 -->
-    <TreasurePanel v-if="showTreasurePanel" @close="showTreasurePanel = false" />
+    <TreasurePanel v-if="showTreasurePanel" :overlay-z="zTreasurePanel" @close="showTreasurePanel = false" />
 
     <!-- 炼丹面板 -->
-    <AlchemyPanel v-if="showAlchemyPanel" @close="showAlchemyPanel = false" />
+    <AlchemyPanel v-if="showAlchemyPanel" :overlay-z="zAlchemyPanel" @close="showAlchemyPanel = false" />
 
     <!-- 浮动历练卡片（野外常显：未历练可开始，历练中可停止） -->
     <div v-if="isWild" class="training-float">
@@ -477,7 +477,7 @@
     </div>
 
     <!-- 战斗界面 -->
-    <div class="battle-overlay" v-if="showBattle">
+    <div class="battle-overlay" v-if="showBattle" :style="{ zIndex: battleStore.overlayZ }">
       <div class="battle-box">
         <button class="battle-close" @click="closeBattle">&times;</button>
         <div class="battle-field" v-if="!battleLoading">
@@ -625,6 +625,7 @@ import { useBackpackStore } from './stores/backpack'
 import { useTaskStore } from './stores/task'
 import { useGameStore } from './stores/game'
 import { useBattleStore } from './stores/battle'
+import { useOverlayStore } from './stores/overlay'
 import { useDungeonStore } from './stores/dungeon'
 import { useEncounterStore } from './stores/encounter'
 import { useCultivationStore } from './stores/cultivation'
@@ -755,6 +756,17 @@ const pendingTaskCount = computed(() => tasks.value.filter(t => t.status === 'pe
 
 const showRole = ref(false)
 
+// ── 动态 z-index：App.vue 本地 ref 控制的弹窗，watch 显隐自动 acquire/release ──
+const overlay = useOverlayStore()
+const zRole = ref(0)
+const zTaskPanel = ref(0)
+const zBackpack = ref(0)
+const zTrade = ref(0)
+watch(showRole, v => { zRole.value = v ? overlay.acquire('role') : (overlay.release('role'), 0) })
+watch(showTaskPanel, v => { zTaskPanel.value = v ? overlay.acquire('taskPanel') : (overlay.release('taskPanel'), 0) })
+watch(() => backpackStore.showPanel, v => { zBackpack.value = v ? overlay.acquire('backpack') : (overlay.release('backpack'), 0) })
+watch(() => backpackStore.showTrade, v => { zTrade.value = v ? overlay.acquire('trade') : (overlay.release('trade'), 0) })
+
 // 物品悬浮组件：定位到所指向的格子下方，并夹紧在视口内（脱离背包滚动容器裁切）
 const itemTooltip = ref(null)
 const itemTipEl = ref(null)
@@ -784,6 +796,12 @@ function hideItemTip() { itemTooltip.value = null }
 const showSkillPanel = ref(false)
 const showTreasurePanel = ref(false)
 const showAlchemyPanel = ref(false)
+const zSkillPanel = ref(0)
+const zTreasurePanel = ref(0)
+const zAlchemyPanel = ref(0)
+watch(showSkillPanel, v => { zSkillPanel.value = v ? overlay.acquire('skillPanel') : (overlay.release('skillPanel'), 0) })
+watch(showTreasurePanel, v => { zTreasurePanel.value = v ? overlay.acquire('treasurePanel') : (overlay.release('treasurePanel'), 0) })
+watch(showAlchemyPanel, v => { zAlchemyPanel.value = v ? overlay.acquire('alchemyPanel') : (overlay.release('alchemyPanel'), 0) })
 const gatherCollapsed = ref(false)
 
 function typeLabel(type) { return {continent:'大陆',region:'区域',empire:'帝国',city:'城市',wild:'野外',wild2:'野外深处',wild3:'野外核心',sect:'宗派',secret:'秘境',district:'区域',scene:'场景',cultivation:'修炼室',market:'坊市',forging:'冶炼坊',alchemy:'丹房'}[type]||type }
@@ -1817,7 +1835,7 @@ function typeClass(type) {
 /* 物品悬浮信息（fixed + Teleport，脱离背包滚动容器裁切） */
 .item-tip {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-tooltip);
   background: var(--bg-elev-1);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
@@ -2134,7 +2152,6 @@ function typeClass(type) {
 .battle-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2100;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2283,7 +2300,7 @@ function typeClass(type) {
 /* buff 悬浮组件（fixed，脱离战斗框 overflow:hidden） */
 .buff-tooltip {
   position: fixed;
-  z-index: 9999;
+  z-index: var(--z-tooltip);
   padding: 7px 10px;
   background: rgba(15, 15, 22, 0.97);
   border: 1px solid rgba(255, 210, 74, 0.5);

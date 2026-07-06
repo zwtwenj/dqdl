@@ -12,6 +12,8 @@ import { BackpackModule } from '../backpack/backpack.module';
 import { TaskModule } from '../task/task.module';
 import { BattleModule } from '../battle/battle.module';
 import { EncounterModule } from '../encounter/encounter.module';
+import { LocationModule } from '../location/location.module';
+import { MobModule } from '../mob/mob.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { EncounterModule } from '../encounter/encounter.module';
     TaskModule,
     BattleModule,
     EncounterModule,
+    LocationModule,
+    MobModule,
   ],
   providers: [EventInstanceService, EffectRegistry, AgentOrchestrator],
   controllers: [RandomEventController],

@@ -8,8 +8,8 @@ export class Mob {
   @PrimaryGeneratedColumn()
   id: number;
 
-  /** 图鉴中的怪物ID，如 WB-001 */
-  @Column({ type: 'varchar', length: 16, comment: '图鉴ID' })
+  /** 图鉴中的怪物ID，如 WB-001；agent 编排生成的用 AGENT- 前缀或自定义名 */
+  @Column({ type: 'varchar', length: 64, comment: '图鉴ID' })
   mob_id: string;
 
   @Column({ type: 'varchar', length: 64, nullable: true, comment: '怪物名称' })

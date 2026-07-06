@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { cultivationRoomConfig, enterCultivationRoom, getCultivationRoom, stopCultivationRoom } from '../api'
 import { usePlayerStore } from './player'
+import { useOverlayStore } from './overlay'
 import { Message } from '../utils/message'
 import { startRoomStream, stopRoomStream } from '../services/cultivationRoomSession'
 
@@ -17,6 +18,12 @@ export const useCultivationRoomStore = defineStore('cultivationRoom', () => {
   const progress = ref(null)   // { mode, name, level, current, max } 当前进度（斗气槽/功法槽）
   const loading = ref(false)
   const stopReason = ref(null)
+
+  // 动态 z-index
+  const overlayZ = ref(0)
+  watch(showPanel, v => {
+    overlayZ.value = v ? useOverlayStore().acquire('cultivationRoom') : (useOverlayStore().release('cultivationRoom'), 0)
+  })
 
   // 选择向导状态
   const step = ref('tier')          // 'tier' | 'type' | 'technique' | 'skill'
@@ -116,7 +123,7 @@ export const useCultivationRoomStore = defineStore('cultivationRoom', () => {
   }
 
   return {
-    showPanel, tiers, interval, session, progress, loading, stopReason, isActive,
+    showPanel, overlayZ, tiers, interval, session, progress, loading, stopReason, isActive,
     step, selectedTier,
     open, close, fetchConfig, fetchCurrent, enter, stop, applySettle,
     pickTier, goTier, goType, goTechniquePicker, goSkillPicker,

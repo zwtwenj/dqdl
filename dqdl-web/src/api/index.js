@@ -98,6 +98,7 @@ export const checkEvent = (playerId, type, payload) => api.post('/event/check', 
 export const applyEvent = (playerId, effects, context) => api.post('/event/apply', { playerId, effects, context: context || {} })
 export const syncEvent = (playerId, eventId, snapshot, ended) => api.post('/event/sync', { playerId, eventId, snapshot: snapshot || {}, ended: !!ended })
 export const getCurrentEvent = (playerId) => api.get(`/event/current?playerId=${playerId}`)
+export const debugOrchestrate = (playerId, type = 'breakthrough') => api.post('/event/debug-orchestrate', { playerId, type })
 
 // Gather API（野外采集草药，SSE 每 tick 一次）
 export const doGather = (playerId, locationId) => api.post(`/gather?playerId=${playerId}&locationId=${locationId}`)

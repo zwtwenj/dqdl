@@ -1,5 +1,5 @@
 <template>
-  <div class="role-overlay" @click.self="emit('close')">
+  <div class="role-overlay" :style="{ zIndex: overlayZ }" @click.self="emit('close')">
     <div class="role-panel task-panel" @click.stop>
       <div class="role-header">
         <span class="role-title">任务</span>
@@ -85,6 +85,7 @@ import { storeToRefs } from 'pinia'
 import { useTaskStore } from '../stores/task'
 import { useMapStore } from '../stores/map'
 
+const props = defineProps({ overlayZ: { type: Number, default: 0 } })
 const emit = defineEmits(['close'])
 
 const taskStore = useTaskStore()

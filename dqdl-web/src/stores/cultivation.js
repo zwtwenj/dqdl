@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { usePlayerStore } from './player'
+import { useOverlayStore } from './overlay'
 import { cultivationEnter, cultivationCurrent, cultivationStop } from '../api'
 import { startCultivation, stopCultivation } from '../services/cultivationSession'
 import { Message } from '../utils/message'
@@ -10,6 +11,12 @@ export const useCultivationStore = defineStore('cultivation', () => {
   const loading = ref(false)
   const session = ref(null)
   const events = ref([])
+
+  // 动态 z-index
+  const overlayZ = ref(0)
+  watch(show, v => {
+    overlayZ.value = v ? useOverlayStore().acquire('cultivation') : (useOverlayStore().release('cultivation'), 0)
+  })
 
   const star = computed(() => session.value?.star || 1)
   const rounds = computed(() => session.value?.rounds || 0)
@@ -72,7 +79,7 @@ export const useCultivationStore = defineStore('cultivation', () => {
   }
 
   return {
-    show, loading, session, events,
+    show, overlayZ, loading, session, events,
     star, rounds, maxRounds, totalGained,
     enterFromEncounter, resume, minimize, finish, stop,
   }

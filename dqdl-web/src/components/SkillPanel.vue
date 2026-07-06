@@ -1,5 +1,5 @@
 <template>
-  <div class="role-overlay" @click.self="emit('close')">
+  <div class="role-overlay" :style="{ zIndex: overlayZ }" @click.self="emit('close')">
     <div class="role-panel skill-panel" @click.stop>
       <div class="role-header">
         <span class="role-title">斗技</span>
@@ -91,6 +91,7 @@ import { updatePlayerSkills } from '../api'
 import { Message } from '../utils/message'
 import { attrLabels } from '../game/constants'
 
+const props = defineProps({ overlayZ: { type: Number, default: 0 } })
 const emit = defineEmits(['close'])
 const playerStore = usePlayerStore()
 const { data: player } = storeToRefs(playerStore)

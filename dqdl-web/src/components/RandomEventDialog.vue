@@ -1,5 +1,5 @@
 <template>
-  <div class="re-overlay" v-if="current">
+  <div class="re-overlay" v-if="current" :style="{ zIndex: store.overlayZ }">
     <div class="re-box" @click.stop>
       <!-- 头部：标题 + 关闭 -->
       <div class="re-header">
@@ -70,7 +70,6 @@ watch(
 .re-overlay {
   position: fixed;
   inset: 0;
-  z-index: 6000;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -1,11 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 /**
- * 效应执行上下文：每个 effect handler 在执行时可获得的现场信息。
+ * 效果执行上下文：每个 effect handler 在执行时可获得的现场信息。
  * locationId 通常来自当前事件的 check() 上下文（玩家所在地点）。
+ * out 是可变的产出收集器：handler 把需要回传给调用方/前端的产出写进 out（如 startBattle 的 mobId）。
  */
 export interface EffectContext {
   locationId?: number;
+  out?: {
+    battleMobId?: string;
+    [k: string]: any;
+  };
 }
 
 /**
@@ -59,6 +64,7 @@ export class EffectRegistry {
    * 批量执行一组 effect。逐条调用，单条失败仅记日志不中断（保证玩家体验）。
    */
   async runAll(playerId: number, effects: any[], ctx: EffectContext): Promise<void> {
+    if (!ctx.out) ctx.out = {};
     for (const eff of effects || []) {
       if (!eff || typeof eff !== 'object') continue;
       // 每条 effect 形如 { money: -100 } / { giveItem: {...} }，取第一个 key 作为路由键

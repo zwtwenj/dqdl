@@ -1,5 +1,5 @@
 <template>
-  <div class="dq-overlay" @click.self="close">
+  <div class="dq-overlay" :style="{ zIndex: dungeonStore.overlayZ }" @click.self="close">
     <div class="dq-box">
       <button class="dq-leave" @click="confirmLeave" :disabled="acting || dungeonBattling">退出副本</button>
       <button class="dq-close" @click="close">&times;</button>
@@ -276,7 +276,6 @@ function actTypeLabel(t) {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2050;
 }
 
 .dq-box {

@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { usePlayerStore } from './player'
 import { useBackpackStore } from './backpack'
+import { useOverlayStore } from './overlay'
 import { Message } from '../utils/message'
 import { enterDungeon, getCurrentDungeon, nextDungeonAct, pickDungeonAct, useDungeonTempItem, escapeDungeon, failDungeon, lootDungeon, enterFromEncounter as enterFromEncounterApi } from '../api'
 
@@ -10,6 +11,12 @@ export const useDungeonStore = defineStore('dungeon', () => {
   const dungeonLoading = ref(false)   // 仅初始进入/生成时占位用
   const acting = ref(false)           // 操作中(下一幕/拾取/撤退)：只禁用按钮，不隐藏内容
   const instance = ref(null)
+
+  // 动态 z-index：watch showDungeon 自动 acquire/release
+  const overlayZ = ref(0)
+  watch(showDungeon, v => {
+    overlayZ.value = v ? useOverlayStore().acquire('dungeon') : (useOverlayStore().release('dungeon'), 0)
+  })
 
   const playerStore = usePlayerStore()
 
@@ -175,7 +182,7 @@ export const useDungeonStore = defineStore('dungeon', () => {
   }
 
   return {
-    showDungeon, dungeonLoading, acting, instance,
+    showDungeon, dungeonLoading, acting, instance, overlayZ,
     title, sceneType, difficulty, intro, acts, currentAct, status, totalActs,
     isLastAct, isCompleted, activeAct, tempItems,
     enter, enterFromEncounter, resume, next, escape, fail, loot, pick, useTemp, close,

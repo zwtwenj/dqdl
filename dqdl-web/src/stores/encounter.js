@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { usePlayerStore } from './player'
 import { useDungeonStore } from './dungeon'
 import { useCultivationStore } from './cultivation'
+import { useOverlayStore } from './overlay'
 import { getEncounters, abandonEncounter } from '../api'
 import { Message } from '../utils/message'
 
@@ -10,6 +11,12 @@ export const useEncounterStore = defineStore('encounter', () => {
   const show = ref(false)
   const list = ref([])
   const loading = ref(false)
+
+  // 动态 z-index
+  const overlayZ = ref(0)
+  watch(show, v => {
+    overlayZ.value = v ? useOverlayStore().acquire('encounter') : (useOverlayStore().release('encounter'), 0)
+  })
 
   async function fetch() {
     const pid = usePlayerStore().playerId
@@ -72,5 +79,5 @@ export const useEncounterStore = defineStore('encounter', () => {
     await fetch()
   }
 
-  return { show, list, loading, fetch, open, close, abandon, enter }
+  return { show, overlayZ, list, loading, fetch, open, close, abandon, enter }
 })

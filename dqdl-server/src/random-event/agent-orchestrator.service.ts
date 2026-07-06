@@ -9,29 +9,36 @@ import { EventInstanceService, EventSpec } from './event-instance.service';
 import { EffectRegistry } from './effect-registry';
 import { PlayerService } from '../player/player.service';
 import { TaskService } from '../task/task.service';
+import { LocationService } from '../location/location.service';
 import { AgentClient } from '../agent/agent.client';
 import { PlayerEvent, PLAYER_EVENTS } from '../event-bus/events';
 
 /**
  * 默认采样率（每种玩家事件触发 agent 编排的概率）与冷却时间。
  * 重事件（突破）100%、轻事件（击杀 10%、进地点 5%）。
+ * combat 是争斗类，通常由击杀派生或调试触发，采样率 1.0。
  * 冷却：每玩家每事件类型独立，默认 30 分钟；通过查 event_dispatch 最近记录实现持久化冷却。
  */
 const DEFAULT_SAMPLE: Record<string, number> = {
   breakthrough: 1.0,
   kill_mob: 0.1,
   enter_location: 0.05,
+  combat: 1.0,
 };
 const DEFAULT_COOLDOWN_MS = 30 * 60 * 1000;
 
 /**
- * 事件类型 → 默认投递策略。突破这类"即时高光"用 immediate；其它倾向进地点触发。
+ * 事件类型 → 默认投递策略。突破/争斗这类"即时高光"用 immediate；其它倾向进地点触发。
  */
 const DEFAULT_DELIVERY: Record<string, string> = {
   breakthrough: 'immediate',
   kill_mob: 'enter_location',
   enter_location: 'enter_location',
+  combat: 'immediate',
 };
+
+/** 击杀魔兽后派生 combat 事件的采样率（仇家寻仇的自然来源） */
+const KILL_DERIVE_COMBAT_RATE = 0.25;
 
 /** effect 数值钳制上限（按玩家等级动态算） */
 function moneyCap(playerLevel: number): number {
@@ -55,6 +62,7 @@ export class AgentOrchestrator implements OnApplicationBootstrap {
     private readonly effectRegistry: EffectRegistry,
     private readonly playerService: PlayerService,
     private readonly taskService: TaskService,
+    private readonly locationService: LocationService,
     private readonly config: ConfigService,
     @InjectRepository(EventDispatch)
     private readonly dispatchRepo: Repository<EventDispatch>,
@@ -72,21 +80,47 @@ export class AgentOrchestrator implements OnApplicationBootstrap {
   private async onEvent(e: PlayerEvent): Promise<void> {
     try {
       if (!(await this.gate(e))) return;
+      await this.orchestrateOnce(e);
 
-      const ctx = await this.buildContext(e);
-      const spec = await this.agent.generateEvent(ctx);
-      if (!spec) return;
-
-      const validated = this.validate(spec as EventSpec, ctx);
-      if (!validated) return;
-
-      // 若 agent 没给投递策略，按事件类型给默认值
-      if (!validated.delivery) validated.delivery = DEFAULT_DELIVERY[e.type] || 'immediate';
-
-      await this.eventInstanceService.enqueueDispatch(e.playerId, validated);
+      // 击杀魔兽后派生"争斗事件"（仇家寻仇的自然来源）：按采样率额外编排一场 combat
+      if (e.type === 'kill_mob' && Math.random() < KILL_DERIVE_COMBAT_RATE) {
+        const combatEvt: PlayerEvent = {
+          playerId: e.playerId,
+          type: 'combat',
+          ts: Date.now(),
+          payload: { ...e.payload, derivedFrom: 'kill_mob' },
+        };
+        // 派生事件走独立的门控判定（combat 自身的采样率 + 冷却）
+        if (await this.gate(combatEvt)) {
+          await this.orchestrateOnce(combatEvt);
+        }
+      }
     } catch (err) {
       // 降级策略：编排失败 = 本次不编排，等下个事件。绝不影响玩家主流程。
       this.logger.warn(`编排失败(player=${e.playerId}, type=${e.type}): ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * 执行一次完整编排（无门控）：收集上下文 → 调 agent → 校验 → 入派发队列。
+   * 调试端点直接调它，强制 100% 触发编排。
+   * 返回编排结果（规格或错误原因），便于调试展示。
+   */
+  async orchestrateOnce(e: PlayerEvent): Promise<{ ok: boolean; spec?: EventSpec; reason?: string }> {
+    try {
+      const ctx = await this.buildContext(e);
+      const spec = await this.agent.generateEvent(ctx);
+      if (!spec) return { ok: false, reason: 'agent 返回空' };
+
+      const validated = this.validate(spec as EventSpec, ctx);
+      if (!validated) return { ok: false, reason: '校验未通过' };
+
+      if (!validated.delivery) validated.delivery = DEFAULT_DELIVERY[e.type] || 'immediate';
+      await this.eventInstanceService.enqueueDispatch(e.playerId, validated);
+      return { ok: true, spec: validated };
+    } catch (err) {
+      this.logger.warn(`编排执行失败(player=${e.playerId}, type=${e.type}): ${(err as Error).message}`);
+      return { ok: false, reason: (err as Error).message };
     }
   }
 
@@ -120,6 +154,8 @@ export class AgentOrchestrator implements OnApplicationBootstrap {
   private async buildContext(e: PlayerEvent): Promise<Record<string, any>> {
     const player = await this.playerService.findByIdRaw(e.playerId);
     const tasks = await this.taskService.findByPlayer(e.playerId, 'pending');
+    // 解析玩家当前所在地点链为名称（position 是 ID 数组 JSON，末位是当前地点）
+    const location = await this.resolveLocationName(player?.position);
     return {
       trigger: {
         type: e.type,
@@ -129,12 +165,27 @@ export class AgentOrchestrator implements OnApplicationBootstrap {
         name: player.name,
         level: player.level,
         money: player.money,
-        levelName: '', // agent 端会按 level 自行换算
+        levelName: '',
+        location,  // 当前所在地（如"乌坦城"或"加玛帝国/乌坦城"）
       } : null,
       pendingTaskCount: tasks.length,
       // effect 白名单传给 agent，约束其只用合法 key
       allowedEffects: this.effectRegistry.keys(),
     };
+  }
+
+  /** 把玩家 position(JSON ID数组) 解析为地点名称链，如"加玛帝国/乌坦城"。失败返回空串。 */
+  private async resolveLocationName(positionJson?: string): Promise<string> {
+    if (!positionJson) return '';
+    try {
+      const ids: number[] = JSON.parse(positionJson);
+      if (!ids.length) return '';
+      const current = ids[ids.length - 1];
+      const loc = await this.locationService.findOneOrNull(current);
+      return loc?.name || '';
+    } catch {
+      return '';
+    }
   }
 
   // ---------------------------------------------------------------

@@ -1,5 +1,5 @@
 <template>
-  <div class="enc-overlay" @click.self="encounterStore.close">
+  <div class="enc-overlay" :style="{ zIndex: encounterStore.overlayZ }" @click.self="encounterStore.close">
     <div class="enc-box">
       <button class="enc-close" @click="encounterStore.close">&times;</button>
 
@@ -54,7 +54,6 @@ function cardScene(en) {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
 }
 .enc-box {
   position: relative;

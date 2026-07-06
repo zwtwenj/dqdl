@@ -50,6 +50,7 @@
   --transition: 0.25s ease;
 
   /* —— 层级 —— */
-  --z-overlay: 100;
-  --z-toast: 200;
+  --z-overlay: 100;          /* 全屏加载遮罩（最低弹窗层） */
+  --z-toast: 10002;          /* Message Toast 永远在最顶 */
+  --z-tooltip: 10001;        /* 物品/buff 悬浮提示，盖在所有弹窗之上 */
 }

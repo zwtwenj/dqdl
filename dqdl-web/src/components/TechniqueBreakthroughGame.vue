@@ -1,5 +1,5 @@
 <template>
-  <div class="tbg-overlay" @contextmenu.prevent>
+  <div class="tbg-overlay" :style="{ zIndex: store.overlayZ }" @contextmenu.prevent>
     <div class="tbg-box">
       <div class="tbg-header">
         <span class="tbg-title">功法突破 · {{ technique?.name }}</span>
@@ -182,7 +182,7 @@ onUnmounted(() => {
 
 <style scoped>
 .tbg-overlay {
-  position: fixed; inset: 0; z-index: 6000;
+  position: fixed; inset: 0;
   display: flex; align-items: center; justify-content: center;
   background: rgba(4, 4, 10, 0.82); backdrop-filter: blur(3px);
 }

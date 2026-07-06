@@ -854,6 +854,11 @@ def _normalize_event(obj):
                 {'weight': max(1, int(r.get('weight', 1))), 'goto': str(r.get('goto', ''))}
                 for r in node['roll'] if isinstance(r, dict) and r.get('goto')
             ]
+        # 战斗节点的胜负跳转目标（仅保留字符串 goto，长度限制）
+        for k in ('win', 'lose', 'flee'):
+            v = node.get(k)
+            if isinstance(v, str) and v.strip():
+                new_node[k] = v.strip()[:32]
         cleaned_map[nid] = new_node
 
     nodes_out = {'start': start, 'map': cleaned_map}
@@ -924,7 +929,23 @@ def _clamp_effect_value(key, val):
             'star': max(1, min(5, int(val.get('star', 1) or 1))),
         }
     if key == 'startBattle':
-        return {'mobId': str(val.get('mobId', '') if isinstance(val, dict) else val)[:32]}
+        # 两种合法格式：
+        #  ① {mobId:"WB-001"}            引用图鉴魔兽
+        #  ② {name,level,power,intelligence,quick,stamina,description?}  agent 生成的对手(NPC/魔兽)
+        if not isinstance(val, dict):
+            return {'mobId': str(val)[:32] if val else ''}
+        if val.get('mobId'):
+            return {'mobId': str(val['mobId'])[:32]}
+        # agent 生成的对手：保留属性字段，数值夹紧
+        return {
+            'name': str(val.get('name', '神秘对手'))[:32],
+            'description': str(val.get('description', ''))[:200],
+            'level': max(1, min(99, int(val.get('level', 1) or 1))),
+            'power': max(0, min(99999, int(val.get('power', 0) or 0))),
+            'intelligence': max(0, min(99999, int(val.get('intelligence', 0) or 0))),
+            'quick': max(0, min(99999, int(val.get('quick', 0) or 0))),
+            'stamina': max(0, min(99999, int(val.get('stamina', 0) or 0))),
+        }
     if key == 'grantCultivation':
         if isinstance(val, dict):
             amt = val.get('amount', 0)
@@ -991,20 +1012,29 @@ def generate_event():
     payload = trigger.get('payload') or {}
     plevel = player.get('level') if isinstance(player, dict) else None
     pname = player.get('name', '玩家') if isinstance(player, dict) else '玩家'
+    ploc = player.get('location', '') if isinstance(player, dict) else ''
 
     # 触发情境描述（喂给 agent 做剧情编排）
+    loc_suffix = f'（玩家当前所在地：{ploc}）' if ploc else ''
     trig_desc = {
-        'breakthrough': f'玩家{pname}刚完成突破（结果：{"成功" if payload.get("success") else "失败"}, 新等阶 {payload.get("newLevel", "?")})',
-        'kill_mob': f'玩家{pname}刚击杀了魔兽 {payload.get("mobName", "未知")}',
-        'enter_location': f'玩家{pname}进入了新地点(地点ID {payload.get("locationId", "?")})',
-    }.get(trig_type, f'玩家{pname}触发了事件 {trig_type}')
+        'breakthrough': f'玩家{pname}刚完成突破（结果：{"成功" if payload.get("success") else "失败"}, 新等阶 {payload.get("newLevel", "?")}）{loc_suffix}',
+        'kill_mob': f'玩家{pname}在{ploc or "某处"}刚击杀了魔兽 {payload.get("mobName", "未知")}',
+        'enter_location': f'玩家{pname}进入了{ploc or "新地点"}',
+        'combat': f'玩家{pname}在{ploc or "某处"}陷入了一场争斗（可能源自仇家寻仇/比试挑衅/路遇劫匪）',
+    }.get(trig_type, f'玩家{pname}在{ploc or "某处"}触发了事件 {trig_type}')
 
     # RAG 世界观片段（首次把检索结果注入生成 prompt）
     world_lore = ''
     try:
         ensure_rag()
         from rag_service import get_context
-        query = f'{"仇怨" if trig_type == "kill_mob" else "奇遇"} 修真界 斗气大陆'
+        # combat 类多塞"仇怨/决斗/比试"关键词
+        if trig_type == 'combat':
+            query = '仇怨 决斗 比试 寻仇 斗气大陆 修真界'
+        elif trig_type == 'kill_mob':
+            query = f'{payload.get("mobName", "")} 仇怨 修真界 斗气大陆'
+        else:
+            query = '奇遇 修真界 斗气大陆'
         world_lore = get_context(query, top_k=5, max_chars=2000)
     except Exception as e:
         app.logger.warning(f'RAG 不可用，事件生成不注入世界观: {e}')
@@ -1019,6 +1049,7 @@ def generate_event():
     )
     user_prompt = (
         f'【触发情境】{trig_desc}\n'
+        f'【玩家所在地】{ploc or "未知"}（事件剧情应贴合此地风物）\n'
         f'【玩家等阶参考】{plevel or "未知"}\n'
         f'【玩家待办任务数】{data.get("pendingTaskCount", 0)}（多则不宜再派新任务）\n'
         '【可用的 effect 原子能力】（effects 数组里每条对象只能用以下 key 之一，不得编造）：\n'
@@ -1027,17 +1058,32 @@ def generate_event():
         '  money: {money: ±n} 金钱增减\n'
         '  giveItem: {giveItem:{name,count}} 发放物品\n'
         '  createTask: {createTask:{name,desc,target[],reward[],star?}} 派一个任务\n'
-        '  startBattle: {startBattle:{mobId}} 发起一场战斗\n'
+        '  startBattle: 发起一场真实回合制战斗（玩家进入战斗界面，非掷骰）。两种格式：\n'
+        '    {startBattle:{mobId:"WB-001"}} 引用图鉴魔兽；或\n'
+        '    {startBattle:{name,level,power,intelligence,quick,stamina,description?}} 生成一个NPC/魔兽对手，\n'
+        '      level对应玩家等阶(1=斗之气一段...), 四维属性(力/智/敏/体)按玩家实力±20%安排以保持挑战性\n'
         '  grantCultivation: {grantCultivation:{amount}} 增减修为\n'
         '  triggerEncounter: {} 触发一次奇遇\n'
         '  movePlayer: {movePlayer:{position:[地点ID]}} 移动玩家\n'
         '【结构要求】\n'
         '- nodes 为分支对话节点图：{start:入口id, map:{节点id:节点}}\n'
         '- 每个节点可含 npc(台词)、choices(选项[{text,goto,require?}])、effects(进节点即落地)、roll(加权跳转[{weight,goto}])、end(是否终止)\n'
+        '- 含 startBattle 的战斗节点可额外配置 win/lose/flee 三个字段，值为战斗结束后跳转的节点id：\n'
+        '    {"effects":[{"startBattle":{...}}], "win":"victory_node", "lose":"defeat_node", "flee":"flee_node"}\n'
+        '    未配则战斗结束即终止事件；配了可衔接下一场战斗(连战)或结算对话\n'
         '- 台词用第二人称"你"，符合斗气大陆口吻\n'
         '- 数值要克制合理（金币通常几十~几千，物品 count 1~10），不要出现离谱大数\n'
         '- delivery: immediate(立即弹) 或 enter_location(下次进匹配地点时弹)\n'
-        f'{("【世界观参考】\\n" + world_lore + "\\n") if world_lore else ""}'
+        + (
+            '【★争斗事件专项要求★】本事件为 combat 争斗类型，必须满足：\n'
+            '- 必须包含至少一场 startBattle（玩家与NPC/魔兽的真实回合制战斗）\n'
+            '- 鼓励多场连续战斗：仇家带帮手(打完小的来老的)/车轮战/BOSS战，用 win 节点衔接下一场战斗\n'
+            '- 战斗节点务必配置 win 和 lose 两个跳转(可不含 flee)，让胜负都有后续剧情\n'
+            '- 生成的对手要有名字和符合等阶的属性，不要全员一模一样\n'
+            '- 剧情张力：挑衅/对峙/反转，要有修真界争斗的味道\n'
+            if trig_type == 'combat' else ''
+        )
+        + f'{("【世界观参考】\\n" + world_lore + "\\n") if world_lore else ""}'
         '【输出格式】严格如下 JSON（不要 markdown，不要多余文字）：\n'
         '{\n'
         f'  "event_id": "agent_{trig_type}_简短英文标识",\n'

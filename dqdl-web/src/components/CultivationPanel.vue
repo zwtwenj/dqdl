@@ -1,5 +1,5 @@
 <template>
-  <div class="cv-overlay" @click.self="cultivationStore.minimize">
+  <div class="cv-overlay" :style="{ zIndex: cultivationStore.overlayZ }" @click.self="cultivationStore.minimize">
     <div class="cv-box">
       <!-- 最小化（会话继续） -->
       <button class="cv-minimize" @click="cultivationStore.minimize" title="最小化（修炼继续）">&minus;</button>
@@ -47,7 +47,6 @@ const cultivationStore = useCultivationStore()
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2050;
 }
 .cv-box {
   position: relative;

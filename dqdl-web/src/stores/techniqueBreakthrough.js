@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { useOverlayStore } from './overlay'
 
 /**
  * 功法突破小游戏的状态：
@@ -12,6 +13,12 @@ export const useTechniqueBreakthroughStore = defineStore('techniqueBreakthrough'
   const technique = ref(null)
   const result = ref(null)
 
+  // 动态 z-index
+  const overlayZ = ref(0)
+  watch(show, v => {
+    overlayZ.value = v ? useOverlayStore().acquire('techniqueBreakthrough') : (useOverlayStore().release('techniqueBreakthrough'), 0)
+  })
+
   function open(t) {
     technique.value = t
     result.value = null
@@ -23,5 +30,5 @@ export const useTechniqueBreakthroughStore = defineStore('techniqueBreakthrough'
     result.value = null
   }
 
-  return { show, technique, result, open, close }
+  return { show, overlayZ, technique, result, open, close }
 })

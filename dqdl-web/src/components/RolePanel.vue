@@ -1,5 +1,5 @@
 <template>
-  <div class="role-overlay" @click.self="emit('close')">
+  <div class="role-overlay" :style="{ zIndex: overlayZ }" @click.self="emit('close')">
     <div class="role-panel">
       <div class="role-header">
         <span class="role-title">{{ player?.name }}</span>
@@ -62,6 +62,13 @@
               <div class="cult-top">
                 <span class="attr-label">修为</span>
                 <button class="role-break-btn" :disabled="!canBreakthrough" @click="doBreakthrough">突破</button>
+                <select v-model="debugEventType" class="role-debug-select" title="选择编排事件类型">
+                  <option value="breakthrough">突破</option>
+                  <option value="kill_mob">击杀</option>
+                  <option value="enter_location">进地点</option>
+                  <option value="combat">争斗</option>
+                </select>
+                <button class="role-debug-btn" :disabled="eventTesting" @click="testRandomEvent">{{ eventTesting ? '编排中…' : '测试事件' }}</button>
               </div>
               <div class="cult-bar" :class="{ 'is-full': canBreakthrough }">
                 <div class="cult-bar-fill" :style="{ width: cultPct + '%' }"></div>
@@ -151,7 +158,7 @@
     </Teleport>
 
     <!-- 装配确认弹框（替代浏览器原生 confirm） -->
-    <div v-if="pendingTech" class="tech-confirm-overlay" @click.self="pendingTech = null">
+    <div v-if="pendingTech" class="tech-confirm-overlay" :style="{ zIndex: overlayZ + 1 }" @click.self="pendingTech = null">
       <div class="tech-confirm-box">
         <div class="tech-confirm-title">装配功法</div>
         <p class="tech-confirm-text">是否装配「{{ pendingTech.name }}」？<br>装配后将替换当前已装备的功法。</p>
@@ -166,6 +173,7 @@
     <div
       v-if="breakthroughResult"
       class="break-modal"
+      :style="{ zIndex: overlayZ + 2 }"
       :class="{ 'is-success': breakthroughResult.success, 'is-fail': !breakthroughResult.success }"
       @click="clearBreakthrough"
     >
@@ -188,6 +196,7 @@ import { Message } from '../utils/message'
 import { useTechniqueBreakthroughStore } from '../stores/techniqueBreakthrough'
 import { attrLabels, baseAttrKeys, levelName } from '../game/constants'
 
+const props = defineProps({ overlayZ: { type: Number, default: 0 } })
 const emit = defineEmits(['close'])
 
 const playerStore = usePlayerStore()
@@ -227,6 +236,35 @@ const extraAttrs = computed(() => {
 })
 
 function doBreakthrough() { gameStore.doBreakthrough() }
+
+// 调试：强制触发一次 agent 随机事件编排（绕过门控，100% 触发）
+const eventTesting = ref(false)
+const debugEventType = ref('breakthrough')
+async function testRandomEvent() {
+  if (!playerStore.playerId || eventTesting.value) return
+  eventTesting.value = true
+  try {
+    const { debugOrchestrate } = await import('../api')
+    const res = await debugOrchestrate(playerStore.playerId, debugEventType.value)
+    const r = res.data
+    if (r.ok) {
+      Message.success(`编排成功：${r.spec?.title || '事件'}，稍候将弹出`)
+    } else {
+      Message.error(`编排失败：${r.reason || '未知原因'}`)
+    }
+    // 编排走 immediate 派发，延迟拉取让 event_instance 写入
+    setTimeout(() => { gameStore.fetchCurrentEvent?.() }, 800)
+    // 兜底：直接走 randomEvent store 的 resumeInProgress
+    setTimeout(async () => {
+      const { useRandomEventStore } = await import('../stores/randomEvent')
+      await useRandomEventStore().resumeInProgress()
+    }, 1200)
+  } catch (err) {
+    Message.error('编排请求失败：' + (err.response?.data?.message || err.message))
+  } finally {
+    eventTesting.value = false
+  }
+}
 function clearBreakthrough() { gameStore.clearBreakthrough() }
 
 // ── 功法装配 ──
@@ -440,6 +478,32 @@ function openBreakthrough(t) { tbStore.open(t) }
   cursor: pointer;
   transition: all 0.15s;
 }
+.role-debug-btn {
+  margin-left: 6px;
+  padding: 2px 10px;
+  font-size: 0.74rem;
+  letter-spacing: 1px;
+  color: #b7a3ff;
+  background: rgba(40, 30, 70, 0.4);
+  border: 1px solid #5a45a0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.role-debug-btn:hover:not(:disabled) { background: rgba(80, 60, 140, 0.5); }
+.role-debug-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.role-debug-select {
+  margin-left: 6px;
+  padding: 1px 4px;
+  font-size: 0.72rem;
+  color: #b7a3ff;
+  background: rgba(40, 30, 70, 0.4);
+  border: 1px solid #5a45a0;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+}
+.role-debug-select option { color: #ddd; background: #2a2240; }
 .role-break-btn:hover:not(:disabled) { background: rgba(80, 64, 28, 0.6); color: #f0d070; }
 .role-break-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -529,7 +593,6 @@ function openBreakthrough(t) { tbStore.open(t) }
 .tech-confirm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 5000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -576,7 +639,6 @@ function openBreakthrough(t) { tbStore.open(t) }
 .break-modal {
   position: fixed;
   inset: 0;
-  z-index: 4000;
   display: flex;
   align-items: center;
   justify-content: center;

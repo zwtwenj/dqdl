@@ -4,6 +4,7 @@ import { checkEvent, applyEvent, syncEvent, getCurrentEvent } from '../api'
 import { usePlayerStore } from './player'
 import { useBackpackStore } from './backpack'
 import { useTaskStore } from './task'
+import { useOverlayStore } from './overlay'
 import { Message } from '../utils/message'
 
 /**
@@ -23,6 +24,7 @@ export const useRandomEventStore = defineStore('randomEvent', () => {
   const busy = ref(false)        // 节点处理中（落地 effect/掷骰）
   const ctx = ref(null)          // 触发 payload（含 locationId 等，供 effect 落地使用）
   const path = ref([])           // 玩家过程：选项文本序列（close 时回传后端记录）
+  const overlayZ = ref(0)        // 动态 z-index
 
   /** 加权随机选分支 */
   function pickWeighted(rolls) {
@@ -50,12 +52,15 @@ export const useRandomEventStore = defineStore('randomEvent', () => {
     syncEvent(playerStore.playerId, eventId, snapshot, isEnd).catch(() => { /* ignore */ })
   }
 
-  /** 落地一批 effect：交后端 apply（money/giveItem/forgeTask），按需刷新背包/任务 */
+  /** 落地一批 effect：交后端 apply（money/giveItem/forgeTask/startBattle），按需刷新背包/任务。
+   *  返回 { hasBattle, mobId }：若含 startBattle，调用方应暂停节点推进，等战斗回调。 */
   async function applyEffects(effects) {
-    if (!effects?.length) return
+    if (!effects?.length) return { hasBattle: false }
     const playerStore = usePlayerStore()
     const backpackStore = useBackpackStore()
     const hasForge = effects.some((e) => e && e.forgeTask)
+    const hasBattleEff = effects.some((e) => e && e.startBattle)
+    let mobId = null
     try {
       const res = await applyEvent(playerStore.playerId, effects, { locationId: ctx.value?.locationId })
       if (res.data?.money != null) playerStore.patchMoney(res.data.money)
@@ -64,9 +69,12 @@ export const useRandomEventStore = defineStore('randomEvent', () => {
         await useTaskStore().fetch()
         Message.success('已接受锻造委托，查看任务面板了解详情')
       }
+      // startBattle：后端建好 mob 并返回 mobId，前端据此打开战斗面板
+      if (res.data?.battleMobId) mobId = res.data.battleMobId
     } catch (err) {
       console.error('事件效果落地失败', err)
     }
+    return { hasBattle: !!mobId, mobId }
   }
 
   /** 进入一个节点：落地 effect → 掷骰 → 推入台词 */
@@ -75,7 +83,19 @@ export const useRandomEventStore = defineStore('randomEvent', () => {
     if (!node) { ended.value = true; return }
     busy.value = true
     try {
-      if (node.effects?.length) await applyEffects(node.effects)
+      // 战斗节点特殊处理：落地 effect（含建 mob）后，若有 startBattle，暂停节点推进，
+      // 打开战斗面板；战斗结束回调里按 win/lose/flee 跳转后续节点。
+      if (node.effects?.length) {
+        const r = await applyEffects(node.effects)
+        if (r.hasBattle && r.mobId) {
+          // 先推入战斗前的台词（若有），再开战
+          if (node.npc != null) messages.value.push({ from: 'npc', text: node.npc })
+          sync()
+          const { useBattleStore } = await import('./battle')
+          useBattleStore().open(r.mobId, (winner) => onBattleOver(nodeId, node, winner))
+          return  // 暂停在此节点，等战斗回调
+        }
+      }
       if (node.roll?.length) {
         return await enterNode(pickWeighted(node.roll))
       }
@@ -88,6 +108,25 @@ export const useRandomEventStore = defineStore('randomEvent', () => {
     }
   }
 
+  /** 战斗结束回调：按胜负跳转到节点配置的 win/lose/flee 目标节点；未配则结束事件。 */
+  async function onBattleOver(nodeId, node, winner) {
+    const gotoMap = { player: node.win, mob: node.lose, flee: node.flee }
+    const target = gotoMap[winner]
+    if (target && nodes.value.map?.[target]) {
+      // 推入一句简短战果提示后进入下一节点（下一节点也可能是战斗，支持连战）
+      const resultText = winner === 'player' ? '（你取得了胜利）' : (winner === 'flee' ? '（你逃离了战斗）' : '（你不敌落败）')
+      messages.value.push({ from: 'system', text: resultText })
+      await enterNode(target)
+    } else {
+      // 未配跳转目标：胜负即事件终点
+      const resultText = winner === 'player' ? '你取得了胜利，事件了结。' : (winner === 'flee' ? '你逃离了战斗。' : '你不敌落败，事件就此结束。')
+      messages.value.push({ from: 'system', text: resultText })
+      ended.value = true
+      choices.value = []
+      sync(true)
+    }
+  }
+
   /** 开启事件对话 */
   function start(event) {
     nodes.value = event.nodes || {}
@@ -96,6 +135,7 @@ export const useRandomEventStore = defineStore('randomEvent', () => {
     choices.value = []
     ended.value = false
     path.value = []
+    overlayZ.value = useOverlayStore().acquire('randomEvent')
     enterNode(nodes.value.start)
   }
 
@@ -145,6 +185,7 @@ export const useRandomEventStore = defineStore('randomEvent', () => {
     choices.value = []
     ended.value = false
     path.value = []
+    useOverlayStore().release('randomEvent')
   }
 
   /** 从后端事件总线恢复进行中的事件（页面刷新后调用） */
@@ -177,7 +218,7 @@ export const useRandomEventStore = defineStore('randomEvent', () => {
   }
 
   return {
-    current, nodes, messages, choices, ended, checking, busy,
+    current, nodes, messages, choices, ended, checking, busy, overlayZ,
     tryTrigger, pickChoice, canPick, close, resumeInProgress,
   }
 })

@@ -9,6 +9,7 @@ import { BackpackService } from '../backpack/backpack.service';
 import { TaskService, TaskTarget, TaskReward } from '../task/task.service';
 import { BattleService } from '../battle/battle.service';
 import { EncounterService } from '../encounter/encounter.service';
+import { MobService } from '../mob/mob.service';
 import { EffectRegistry, EffectContext } from './effect-registry';
 
 /**
@@ -66,6 +67,7 @@ export class EventInstanceService implements OnApplicationBootstrap {
     private readonly taskService: TaskService,
     private readonly battleService: BattleService,
     private readonly encounterService: EncounterService,
+    private readonly mobService: MobService,
     private readonly effectRegistry: EffectRegistry,
   ) {}
 
@@ -115,10 +117,42 @@ export class EventInstanceService implements OnApplicationBootstrap {
         Number(params?.star) || 1,
       ),
     });
-    // 发起一场战斗（玩家 vs mob）
+    // 发起一场战斗（玩家 vs 对手）。三种入参：
+    //  ① {mobId:"WB-001"}            直接用图鉴里的魔兽（必须已存在）
+    //  ② {name,level,power,...}       agent 生成对手属性，建 AGENT- 前缀 mob 记录
+    //  ③ {mobId:"black_bandit"}      agent 编造的 mobId 但 mob 表无此记录 → 自动按 mobId 为名建记录
     r.register({
       key: 'startBattle',
-      apply: (pid, params) => this.battleService.start(pid, String(params?.mobId)),
+      apply: async (pid, params, ctx) => {
+        let mobId = String(params?.mobId || '');
+        // 情况②：agent 明确生成对手属性
+        if (!mobId && params?.name) {
+          mobId = `AGENT-${Date.now().toString(36)}`;
+          await this.ensureMobRecord(mobId, params, pid);
+        }
+        // 情况①③：给了 mobId。校验是否存在，不存在则按 mobId 为名自动建（按玩家等级给默认属性）
+        if (mobId) {
+          const existing = await this.mobService.findByMobId(mobId);
+          if (!existing) {
+            // agent 编造的 mobId（非图鉴），以 mobId 当名字建一条，属性按玩家等级推算
+            const player = await this.playerService.findByIdRaw(pid);
+            const pLevel = player?.level || 1;
+            await this.ensureMobRecord(mobId, {
+              name: mobId,
+              description: '神秘对手',
+              level: pLevel,
+              power: Math.round((player?.power || 50) * 0.9),
+              intelligence: Math.round((player?.intelligence || 50) * 0.9),
+              quick: Math.round((player?.quick || 50) * 0.9),
+              stamina: Math.round((player?.stamina || 50) * 0.9),
+            }, pid);
+          }
+        }
+        if (!mobId) throw new Error('startBattle 缺少 mobId 或对手属性');
+        // 不在此处 battleService.start（避免玩家在 apply 阶段就进战斗，时序错乱）。
+        // 仅建好 mob 并把 mobId 回传给前端，前端拿到后调 battle.open(mobId) 开战。
+        if (ctx?.out) ctx.out.battleMobId = mobId;
+      },
     });
     // 一次性增减修为（自动夹上限）
     r.register({
@@ -136,6 +170,21 @@ export class EventInstanceService implements OnApplicationBootstrap {
       apply: (pid, params) => this.playerService.updatePosition(pid, JSON.stringify(params?.position || [])),
     });
     this.logger.log(`effect 注册表已注册 ${r.keys().length} 个原子能力: ${r.keys().join(', ')}`);
+  }
+
+  /** 按 params 建/更新 mob 记录（写四维+等级+名字+描述）。供 startBattle effect 复用。 */
+  private async ensureMobRecord(mobId: string, params: any, _pid: number): Promise<void> {
+    const level = Math.max(1, Math.min(99, Number(params.level) || 1));
+    await this.mobService.findOrCreate(mobId, String(params.name || mobId), String(params.description || ''));
+    const mob = await this.mobService.findByMobId(mobId);
+    if (mob) {
+      mob.level = level;
+      mob.power = Math.max(0, Math.min(99999, Number(params.power) || 0));
+      mob.intelligence = Math.max(0, Math.min(99999, Number(params.intelligence) || 0));
+      mob.quick = Math.max(0, Math.min(99999, Number(params.quick) || 0));
+      mob.stamina = Math.max(0, Math.min(99999, Number(params.stamina) || 0));
+      await this.mobService.save(mob);
+    }
   }
 
   // ---------------------------------------------------------------
@@ -306,7 +355,7 @@ export class EventInstanceService implements OnApplicationBootstrap {
     playerId: number,
     effects: EventEffect[],
     context?: { locationId?: number },
-  ): Promise<{ money: number; items: any[] }> {
+  ): Promise<{ money: number; items: any[]; battleMobId?: string }> {
     const ctx: EffectContext = { locationId: context?.locationId };
     await this.effectRegistry.runAll(playerId, effects || [], ctx);
 
@@ -315,6 +364,7 @@ export class EventInstanceService implements OnApplicationBootstrap {
     return {
       money: player?.money ?? 0,
       items: this.backpackService.parseItems(bp.items),
+      battleMobId: ctx.out?.battleMobId,
     };
   }
 

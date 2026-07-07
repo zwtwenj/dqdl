@@ -50,6 +50,18 @@ export const useGameStore = defineStore('game', () => {
     if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null }
   }
 
+  // ── status 快照轮询句柄（每分钟轻量刷新玩家状态，兜底同步 SSE 断开等异常）──
+  let statusPollTimer = null
+  function startStatusPolling() {
+    if (statusPollTimer) return
+    statusPollTimer = setInterval(() => {
+      usePlayerStore().refreshStatus().catch(() => {})
+    }, 60000)
+  }
+  function stopStatusPolling() {
+    if (statusPollTimer) { clearInterval(statusPollTimer); statusPollTimer = null }
+  }
+
   // ── 存档 ──
   function hasSave() {
     try { return !!JSON.parse(localStorage.getItem(SAVE_KEY))?.playerId }
@@ -124,6 +136,7 @@ export const useGameStore = defineStore('game', () => {
       writeSave(playerStore.playerId)
       started.value = true
       startEventPolling()
+      startStatusPolling()
     } finally {
       playerStore.loading = false
     }
@@ -159,9 +172,20 @@ export const useGameStore = defineStore('game', () => {
       // 恢复进行中的随机事件（页面刷新后）
       await useRandomEventStore().resumeInProgress()
       startEventPolling()
-
-      if (playerStore.data?.status === 2 && mapStore.currentLocation?.loc_type?.startsWith('wild')) {
+      startStatusPolling()
+      // 刷新后按 status 分流恢复活动会话（SSE 可能在刷新时断开）
+      const st = playerStore.status
+      if (st === 2 && mapStore.currentLocation?.loc_type?.startsWith('wild')) {
         startAutoTraining()
+      } else if (st === 4) {
+        const { useCultivationStore } = await import('./cultivation')
+        useCultivationStore().resume?.()
+      } else if (st === 5) {
+        const { useCultivationRoomStore } = await import('./cultivationRoom')
+        useCultivationRoomStore().open?.()
+      } else if (st === 6) {
+        const { startAutoGather } = await import('../services/gatherSession')
+        startAutoGather()
       }
     } catch (err) {
       console.error('读档失败:', err)

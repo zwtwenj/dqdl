@@ -61,14 +61,15 @@ export const useCultivationStore = defineStore('cultivation', () => {
     show.value = false
   }
 
-  /** 修炼自动结束（满轮）：本地清理面板，不调后端（已 finished） */
-  function finish() {
+  /** 修炼自动结束（满轮）：本地清理面板，并刷新玩家状态（后端已置 status=1） */
+  async function finish() {
     show.value = false
     session.value = null
     events.value = []
+    await usePlayerStore().refresh()
   }
 
-  /** 停止修炼：后端结算 + 关 SSE + 关面板 */
+  /** 停止修炼：后端结算 + 关 SSE + 关面板，并刷新玩家状态 */
   async function stop() {
     const pid = usePlayerStore().playerId
     await cultivationStop(pid).catch(() => {})
@@ -76,6 +77,7 @@ export const useCultivationStore = defineStore('cultivation', () => {
     show.value = false
     session.value = null
     events.value = []
+    await usePlayerStore().refresh()
   }
 
   return {

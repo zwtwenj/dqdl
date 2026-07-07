@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DungeonInstance } from './dungeon_instance.entity';
-import { PlayerService } from '../player/player.service';
+import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 import { BackpackService } from '../backpack/backpack.service';
 import { ItemUseService } from '../item/item-use.service';
 import { MobService } from '../mob/mob.service';
@@ -50,9 +50,9 @@ export class DungeonService {
 
   /** 进入副本：生成蓝图并创建实例（旧进行中副本自动标记为放弃） */
   async enter(playerId: number, encounterId?: number): Promise<DungeonInstance> {
-    const player = await this.playerService.findOne(playerId);
+    await this.playerService.assertIdle(playerId, '进入副本');
+    const player = await this.playerService.findByIdRaw(playerId);
     if (!player) throw new NotFoundException('玩家不存在');
-    if (player.status !== 1) throw new BadRequestException('正在进行别的事物，请完成后再尝试进入');
 
     await this.repo.update({ player_id: playerId, status: 'active' }, { status: 'escaped' });
 
@@ -80,7 +80,7 @@ export class DungeonService {
       encounter_id: encounterRefId,
     });
     const saved = await this.repo.save(instance);
-    await this.playerService.setStatus(playerId, 3);
+    await this.playerService.setStatus(playerId, PLAYER_STATUS.DUNGEON);
     return this.enrich(saved);
   }
 

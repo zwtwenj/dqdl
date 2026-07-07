@@ -61,6 +61,9 @@ export class CultivationController {
       }
       await new Promise<void>((r) => setTimeout(r, this.cultivationService.interval));
     }
+    // 流结束兜底：若会话仍 active（客户端断开/刷新/崩溃），回收会话并恢复玩家为空闲，
+    // 避免 status 永久卡在 4 导致玩家无法进行其它活动
+    await this.cultivationService.abortActive(playerId);
     res.end();
   }
 }

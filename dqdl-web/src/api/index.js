@@ -14,6 +14,7 @@ export const getTree = (id) => api.get(`/location/${id}/tree`)
 // Player API
 export const createPlayer = (data) => api.post('/player', data)
 export const getPlayer = (id) => api.get(`/player/${id}`)
+export const getPlayerStatus = (id) => api.get(`/player/${id}/status`)
 export const updatePlayer = (id, data) => api.put(`/player/${id}`, data)
 export const updatePlayerPosition = (id, position) => api.patch(`/player/${id}/position`, { position })
 export const cultivate = (id, qiDensity) => api.post(`/player/${id}/cultivate`, { qi_density: qiDensity || 0 })
@@ -36,7 +37,6 @@ export const triggerNpcEvent = (npcId, eventId, playerId, history) => api.post(`
 export const doTraining = (playerId, locationId) => api.post(`/training?playerId=${playerId}&locationId=${locationId}`)
 export const startTraining = (playerId) => api.post(`/training/start?playerId=${playerId}`)
 export const stopTraining = (playerId) => api.post(`/training/stop?playerId=${playerId}`)
-export const setPlayerStatus = (playerId, status) => api.patch(`/player/${playerId}/status`, { status })
 export const trainingStreamUrl = (playerId, locationId) => `/api/training/stream?playerId=${playerId}&locationId=${locationId}`
 
 // Skill API

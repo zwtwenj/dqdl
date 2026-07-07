@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { CultivationSession } from './cultivation_session.entity';
-import { PlayerService } from '../player/player.service';
+import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 import { EncounterService } from '../encounter/encounter.service';
 
 /** 洞天福地基础斗气浓郁度（再乘星级倍率） */
@@ -12,9 +12,8 @@ const BASE_QI = 150;
 const STAR_MULT: Record<number, number> = { 1: 1, 2: 2, 3: 4 };
 /** 最大结算轮次 */
 const MAX_ROUNDS = 10;
-/** 玩家状态：4 = 修炼中 */
-const STATUS_CULTIVATING = 4;
-const STATUS_IDLE = 1;
+/** 玩家状态：4 = 修炼中（其余用 PLAYER_STATUS） */
+const STATUS_CULTIVATING = PLAYER_STATUS.CULTIVATING;
 
 @Injectable()
 export class CultivationService {
@@ -34,11 +33,7 @@ export class CultivationService {
 
   /** 进入洞天福地：校验空闲、消耗奇遇、创建会话、玩家状态置为修炼(4) */
   async enter(playerId: number, encounterId: number): Promise<CultivationSession> {
-    const player = await this.playerService.findByIdRaw(playerId);
-    if (!player) throw new NotFoundException('玩家不存在');
-    if (player.status !== STATUS_IDLE) {
-      throw new BadRequestException('正在进行别的事物，请完成后再尝试进入');
-    }
+    await this.playerService.assertIdle(playerId, '进入洞天福地');
 
     const enc = await this.encounterService.consume(encounterId, playerId);
     if (!enc || enc.kind !== 'cultivate') {
@@ -94,7 +89,7 @@ export class CultivationService {
 
     if (finished) {
       if (session.encounter_id) await this.encounterService.markDone(session.encounter_id, playerId);
-      await this.playerService.setStatus(playerId, STATUS_IDLE);
+      await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
       this.logger.log(`玩家 ${playerId} 洞天福地修炼完成，共获得 ${session.total_gained} 修为`);
     }
 
@@ -113,7 +108,29 @@ export class CultivationService {
     session.status = 'stopped';
     await this.repo.save(session);
     if (session.encounter_id) await this.encounterService.markDone(session.encounter_id, playerId);
-    await this.playerService.setStatus(playerId, STATUS_IDLE);
+    await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
     this.logger.log(`玩家 ${playerId} 中止洞天福地修炼`);
+  }
+
+  /**
+   * 兜底回收：SSE 流断开（客户端关闭/刷新/崩溃）时调用。
+   * 幂等：有 active 会话则标记停止 + 置玩家空闲；无则跳过。
+   * 防止玩家刷新页面后 status 卡在 4，无 UI 路径恢复。
+   */
+  async abortActive(playerId: number): Promise<void> {
+    const session = await this.getCurrent(playerId);
+    if (!session) {
+      // 无会话但 status 可能残留为 4，统一兜底置空闲
+      const p = await this.playerService.findByIdRaw(playerId);
+      if (p && p.status === PLAYER_STATUS.CULTIVATING) {
+        await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
+      }
+      return;
+    }
+    session.status = 'stopped';
+    await this.repo.save(session);
+    if (session.encounter_id) await this.encounterService.markDone(session.encounter_id, playerId);
+    await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
+    this.logger.log(`玩家 ${playerId} 洞天福地会话被兜底回收`);
   }
 }

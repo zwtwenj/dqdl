@@ -94,9 +94,10 @@ export const useDungeonStore = defineStore('dungeon', () => {
     try {
       const res = await nextDungeonAct(pid)
       instance.value = res.data
-      // 通关：临时背包已转入主背包，刷新主背包显示
+      // 通关：临时背包已转入主背包，刷新主背包显示；后端已置 status=1，同步玩家状态
       if (res.data?.status === 'completed') {
         await useBackpackStore().fetch()
+        await playerStore.refresh()
       }
     } catch (e) {
       // ignore
@@ -111,6 +112,7 @@ export const useDungeonStore = defineStore('dungeon', () => {
     try {
       const res = await escapeDungeon(pid)
       instance.value = res.data
+      await playerStore.refresh()  // 后端已置 status=1，同步玩家状态
     } catch (e) {
       // ignore
     }
@@ -125,6 +127,7 @@ export const useDungeonStore = defineStore('dungeon', () => {
     try {
       const res = await failDungeon(pid)
       instance.value = res.data
+      await playerStore.refresh()  // 后端已置 status=1，同步玩家状态
     } catch (e) {
       // ignore
     }

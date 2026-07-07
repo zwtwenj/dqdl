@@ -82,14 +82,10 @@ export class PlayerController {
     return this.playerService.breakthroughTechnique(id, body.techniqueId, body.rate);
   }
 
-  /** 设置玩家状态（1=正常 2=历练中） */
-  @Patch(':id/status')
-  async setStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: { status: number },
-  ) {
-    await this.playerService.setStatus(id, body.status);
-    return { success: true };
+  /** 轻量状态查询：只返回 status + 中文 label，供前端轮询刷新快照（不全量拉取玩家数据） */
+  @Get(':id/status')
+  getStatus(@Param('id', ParseIntPipe) id: number) {
+    return this.playerService.getStatus(id);
   }
 
   /** 部分更新玩家字段（如 hp, energy） */

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { CultivationRoomSession } from './cultivation_room_session.entity';
-import { PlayerService } from '../player/player.service';
+import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 
 /** 基础斗气浓郁度（与洞天福地一致） */
 const BASE_QI = 150;
@@ -12,9 +12,9 @@ const TIER_MULT: Record<number, number> = { 1: 1, 2: 2, 3: 4 };
 /** 档位 → 每跳金币消耗 */
 const TIER_COST: Record<number, number> = { 1: 200, 2: 400, 3: 800 };
 
-const STATUS_IDLE = 1;
+const STATUS_IDLE = PLAYER_STATUS.IDLE;
 /** 室内修炼专用状态（区别于洞天福地的 status=4）。该状态下玩家不能离开地图。 */
-const STATUS_ROOM_CULTIVATING = 5;
+const STATUS_ROOM_CULTIVATING = PLAYER_STATUS.ROOM_CULTIVATING;
 
 @Injectable()
 export class CultivationRoomService {
@@ -53,11 +53,7 @@ export class CultivationRoomService {
   ): Promise<any> {
     if (!TIER_COST[tier]) throw new BadRequestException('修炼室档位错误');
     const m = mode === 'technique' ? 'technique' : mode === 'skill' ? 'skill' : 'qi';
-    const player = await this.playerService.findByIdRaw(playerId);
-    if (!player) throw new NotFoundException('玩家不存在');
-    if (player.status !== STATUS_IDLE) {
-      throw new BadRequestException('正在进行别的事物，请完成后再尝试进入');
-    }
+    await this.playerService.assertIdle(playerId, '进入修炼室');
 
     let tid: number | null = null;
     if (m === 'technique') {

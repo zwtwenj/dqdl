@@ -93,19 +93,22 @@ export function startAutoTraining() {
   const pid = player.playerId
   const lid = map.currentLocation?.id
   if (!pid || !lid) return
-  // 互斥：副本/修炼中等（status≠1）不允许开始历练，并给出原因提示
-  const status = player.data?.status
-  if (status && status !== 1) {
-    const label = { 2: '历练', 3: '奇遇副本', 4: '洞天福地修炼', 5: '修炼室修炼' }[status] || '其它事务'
-    Message.warning(`你正在进行${label}，无法开始历练`)
-    return
-  }
+  // 状态校验由后端权威判断（assertIdle），前端只显示后端返回的具体原因，不做本地拦截
 
   game.trainingMode = true
   game.trainingEvents = []
   game.trainingLoading = true
   // 状态由后端统一管理：请求开始历练接口（后端校验并置 status=2）
-  startTraining(pid).catch(() => {})
+  startTraining(pid).then(async () => {
+    await player.refresh?.()
+  }).catch(async (err) => {
+    // 开始失败：回滚 UI + 显示后端错误 + 刷新状态
+    game.trainingMode = false
+    game.trainingLoading = false
+    await player.refresh?.()
+    const msg = err.response?.data?.message || err.message || '开始历练失败'
+    Message.warning(msg)
+  })
 
   trainingCtx = { pid, lid }
   trainingRetry = 0
@@ -123,8 +126,11 @@ export function stopAutoTraining() {
 
   game.trainingMode = false
   game.trainingLoading = false
-  // 请求后端停止历练（后端恢复 status=1），不再由前端直接改 status
-  if (player.playerId) stopTraining(player.playerId).catch(() => {})
+  // 请求后端停止历练（后端恢复 status=1），并刷新前端缓存的 status，
+  // 否则 player.data.status 仍停留在 2，导致再次开始时被前端旧状态误拒
+  if (player.playerId) {
+    stopTraining(player.playerId).then(() => player.refresh?.()).catch(() => player.refresh?.())
+  }
 }
 
 export function isAutoTraining() {

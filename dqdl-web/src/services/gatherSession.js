@@ -76,17 +76,22 @@ export function startAutoGather() {
   const pid = player.playerId
   const lid = map.currentLocation?.id
   if (!pid || !lid) return
-  const status = player.data?.status
-  if (status && status !== 1) {
-    const label = { 2: '历练', 3: '奇遇副本', 4: '洞天福地修炼', 5: '修炼室修炼', 6: '采集' }[status] || '其它事务'
-    Message.warning(`你正在进行${label}，无法开始采集`)
-    return
-  }
+  // 状态校验由后端权威判断（assertIdle），前端只显示后端返回的具体原因，不做本地拦截
 
   game.gatherMode = true
   game.gatherEvents = []
   game.gatherLoading = true
-  startGather(pid).catch(() => {})
+  startGather(pid).then(async () => {
+    // 开始成功：刷新玩家状态（确保前端 status 与后端一致）
+    await player.refresh?.()
+  }).catch(async (err) => {
+    // 开始失败：回滚 UI + 显示后端错误信息 + 刷新状态
+    game.gatherMode = false
+    game.gatherLoading = false
+    await player.refresh?.()
+    const msg = err.response?.data?.message || err.message || '开始采集失败'
+    Message.warning(msg)
+  })
   gatherCtx = { pid, lid }
   gatherRetry = 0
   openStream()
@@ -100,7 +105,10 @@ export function stopAutoGather() {
   closeStream()
   game.gatherMode = false
   game.gatherLoading = false
-  if (player.playerId) stopGather(player.playerId).catch(() => {})
+  // 停止后刷新前端 status，避免缓存旧状态导致再次开始时被误拒
+  if (player.playerId) {
+    stopGather(player.playerId).then(() => player.refresh?.()).catch(() => player.refresh?.())
+  }
 }
 
 export function isAutoGathering() {

@@ -54,13 +54,8 @@ export const useEncounterStore = defineStore('encounter', () => {
   async function enter(id) {
     const en = list.value.find((e) => e.id === id)
     if (!en) return
-    // pending 进入且正在历练：二次确认，确认后自动停止历练再进入
-    if (en.status === 'pending' && usePlayerStore().data?.status === 2) {
-      if (!window.confirm('进入将自动停止当前历练，是否确定进入？')) return
-      const { stopAutoTraining } = await import('../services/trainingSession')
-      stopAutoTraining()
-      await new Promise(r => setTimeout(r, 300)) // 等待后端恢复 status=1
-    }
+    // 状态校验由后端权威判断：若正在历练/修炼/副本，后端 enter 会拒绝并返回具体原因。
+    // 不再做前端的"自动停止历练"——把决定权交还玩家，避免时序 hack。
     show.value = false // 立即关闭奇遇面板，避免与副本/修炼面板叠加
     if (en.status === 'entered') {
       // 已进入（会话进行中）→ 恢复对应面板
@@ -77,6 +72,7 @@ export const useEncounterStore = defineStore('encounter', () => {
       }
     }
     await fetch()
+    await usePlayerStore().refresh()  // 进入会改变 status，同步快照
   }
 
   return { show, overlayZ, list, loading, fetch, open, close, abandon, enter }

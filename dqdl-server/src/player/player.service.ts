@@ -26,6 +26,23 @@ export function calcLevelCultivation(level: number): number {
 }
 
 /**
+ * 玩家活动状态码（后端唯一权威）。各活动 service 开始前用 assertIdle 校验。
+ */
+export const PLAYER_STATUS = {
+  IDLE: 1,            // 空闲
+  TRAINING: 2,        // 历练中
+  DUNGEON: 3,         // 奇遇副本中
+  CULTIVATING: 4,     // 洞天福地修炼
+  ROOM_CULTIVATING: 5,// 修炼室修炼
+  GATHERING: 6,       // 采集中
+} as const;
+
+/** 状态码 → 中文名（供 assertIdle 错误信息 + 前端显示） */
+export const STATUS_LABEL: Record<number, string> = {
+  1: '空闲', 2: '历练', 3: '奇遇副本', 4: '洞天福地修炼', 5: '修炼室修炼', 6: '采集',
+};
+
+/**
  * 等级带来的「全属性加成」：1-9 级每升 1 级全属性 +3；10 级起不再增长（后续等级待实现）。
  * 该规则只与等级有关；玩家属性 = 基础属性(创建时固定) + levelAttrBonus(等级)，
  * 突破只是把属性按新等级重算（同步），而非在事件里硬写 +3。
@@ -634,6 +651,27 @@ export class PlayerService {
 
   async setStatus(id: number, status: number): Promise<void> {
     await this.playerRepo.update(id, { status: status as any });
+  }
+
+  /**
+   * 统一活动准入校验：若玩家非空闲，抛出带具体原因的 BadRequest。
+   * 所有活动(历练/采集/修炼/副本)开始前调用，取代散落各处的 status!==1 判断。
+   * @param activity 本次想开始的活动名，如 '采集' / '历练' / '进入副本'
+   */
+  async assertIdle(playerId: number, activity: string): Promise<void> {
+    const p = await this.findByIdRaw(playerId);
+    if (!p) throw new NotFoundException('玩家不存在');
+    if (p.status !== PLAYER_STATUS.IDLE) {
+      const ongoing = STATUS_LABEL[p.status] || '其它事务';
+      throw new BadRequestException(`正在进行${ongoing}，无法${activity}（请先停止当前${ongoing}）`);
+    }
+  }
+
+  /** 轻量状态查询：只返回 status + 中文 label，供前端轮询刷新快照（不全量拉取玩家数据） */
+  async getStatus(playerId: number): Promise<{ status: number; label: string }> {
+    const p = await this.findByIdRaw(playerId);
+    const status = p?.status ?? PLAYER_STATUS.IDLE;
+    return { status, label: STATUS_LABEL[status] || '未知' };
   }
 
   async patch(id: number, updates: Record<string, any>): Promise<void> {

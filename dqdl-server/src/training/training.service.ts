@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { PlayerService } from '../player/player.service';
+import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 import { MobService } from '../mob/mob.service';
 import { TechniqueService } from '../technique/technique.service';
 import { BackpackService } from '../backpack/backpack.service';
@@ -114,12 +114,8 @@ export class TrainingService {
 
   /** 开始历练：校验空闲 → 置历练中(2) → 颁发会话令牌。状态由后端统一管理 */
   async begin(playerId: number): Promise<{ token: number }> {
-    const player = await this.playerService.findByIdRaw(playerId);
-    if (!player) throw new NotFoundException('玩家不存在');
-    if (player.status !== 1) {
-      throw new BadRequestException('正在进行别的事物，请完成后再尝试进入');
-    }
-    await this.playerService.setStatus(playerId, 2);
+    await this.playerService.assertIdle(playerId, '历练');
+    await this.playerService.setStatus(playerId, PLAYER_STATUS.TRAINING);
     const token = (this.sessionToken.get(playerId) ?? 0) + 1;
     this.sessionToken.set(playerId, token);
     return { token };

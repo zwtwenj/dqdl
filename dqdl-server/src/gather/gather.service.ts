@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PlayerService } from '../player/player.service';
+import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 import { LocationService } from '../location/location.service';
 import { BackpackService } from '../backpack/backpack.service';
 import { ItemService } from '../item/item.service';
@@ -42,12 +42,8 @@ export class GatherService {
   }
 
   async begin(playerId: number): Promise<{ token: number }> {
-    const player = await this.playerService.findByIdRaw(playerId);
-    if (!player) throw new NotFoundException('玩家不存在');
-    if (player.status !== 1) {
-      throw new BadRequestException('正在进行别的事物，请完成后再尝试采集');
-    }
-    await this.playerService.setStatus(playerId, 6);
+    await this.playerService.assertIdle(playerId, '采集');
+    await this.playerService.setStatus(playerId, PLAYER_STATUS.GATHERING);
     const token = (this.sessionToken.get(playerId) ?? 0) + 1;
     this.sessionToken.set(playerId, token);
     return { token };

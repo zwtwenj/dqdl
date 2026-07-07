@@ -2,37 +2,38 @@
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import LoginPanel from '../components/LoginPanel.vue'
+import SaveSelectDialog from '../components/SaveSelectDialog.vue'
 
 const auth = useAuthStore()
 const loading = ref(false)
 
-/** 新游戏 */
-async function onNewGame() {
+/** 存档选择弹窗状态 */
+const saveDialogVisible = ref(false)
+const saveDialogMode = ref('new')  // 'new' | 'continue'
+
+/** 新游戏：弹出存档选择（仅显示空槽位） */
+function onNewGame() {
   if (loading.value) return
-  loading.value = true
-  try {
-    // TODO: 接入后端 createSave（创建一个新存档）
-    alert('新游戏（存档创建待接入）')
-  } finally {
-    loading.value = false
-  }
+  saveDialogMode.value = 'new'
+  saveDialogVisible.value = true
 }
 
-/** 继续游戏 */
-async function onContinue() {
+/** 继续游戏：弹出存档选择（仅显示已有存档） */
+function onContinue() {
   if (loading.value) return
-  loading.value = true
-  try {
-    const saves = await auth.fetchSaves()
-    if (!saves.length) {
-      alert('暂无存档，请新建游戏')
-      return
-    }
-    // TODO: 进入游戏主界面（选定存档后）
-    alert(`共 ${saves.length} 个存档，进入游戏（待接入）`)
-  } finally {
-    loading.value = false
+  if (!auth.saves.length) {
+    alert('暂无存档，请新建游戏')
+    return
   }
+  saveDialogMode.value = 'continue'
+  saveDialogVisible.value = true
+}
+
+/** 存档选择确认：进入游戏（待接入） */
+function onSaveSelect(slot) {
+  saveDialogVisible.value = false
+  // TODO: 进入游戏主界面（加载/创建指定 slot 的存档）
+  alert(`选中存档槽位 ${slot}（进入游戏待接入）`)
 }
 
 /** 退出登录 */
@@ -57,6 +58,25 @@ function onLogout() {
     <p class="subtitle">
       踏破苍穹，逆天改命
     </p>
+
+    <!-- 右上角：用户名 + 退出按钮（登录后显示） -->
+    <div
+      v-if="auth.isLoggedIn"
+      class="top-right"
+    >
+      <span class="user-name">{{ auth.user?.username }}</span>
+      <button
+        class="logout-btn"
+        @click="onLogout"
+      >
+        <img
+          class="logout-bg"
+          src="/ui/loginout.png"
+          alt=""
+        >
+        <span class="logout-text">退出</span>
+      </button>
+    </div>
 
     <!-- 未登录：显示登录面板 -->
     <LoginPanel v-if="!auth.isLoggedIn" />
@@ -90,17 +110,15 @@ function onLogout() {
         >
         <span class="btn-text">继续游戏</span>
       </button>
-
-      <div class="user-bar">
-        <span class="user-name">{{ auth.user?.username }}</span>
-        <button
-          class="logout-btn"
-          @click="onLogout"
-        >
-          退出
-        </button>
-      </div>
     </div>
+
+    <!-- 存档选择弹窗 -->
+    <SaveSelectDialog
+      v-model="saveDialogVisible"
+      :saves="auth.saves"
+      :mode="saveDialogMode"
+      @select="onSaveSelect"
+    />
   </div>
 </template>
 
@@ -137,13 +155,14 @@ function onLogout() {
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
 
+/* 副标题改色：偏冷的青金色，区别于主标题的暖金色 */
 .subtitle {
   position: relative;
   z-index: 1;
   font-size: 18px;
   letter-spacing: 6px;
   margin: 0 0 60px;
-  color: #b8a070;
+  color: #7ec8b0;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
@@ -204,34 +223,62 @@ function onLogout() {
   cursor: not-allowed;
 }
 
-/* 用户信息条（登录后显示在按钮下方） */
-.user-bar {
-  margin-top: 12px;
+/* 右上角用户信息区 */
+.top-right {
+  position: absolute;
+  top: 24px;
+  right: 32px;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 13px;
-  color: rgba(200, 180, 140, 0.7);
-  letter-spacing: 1px;
 }
 
+/* 玩家名字：浅青金色，区别于按钮金色 */
 .user-name {
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: #6ab8a0;
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
+/* 退出按钮：图片底 + 文字叠加 */
 .logout-btn {
-  padding: 2px 10px;
-  font-size: 12px;
-  color: rgba(200, 180, 140, 0.7);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 32px;
+  padding: 0;
+  border: none;
   background: transparent;
-  border: 1px solid rgba(180, 150, 90, 0.3);
-  border-radius: 3px;
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
+  transition: transform 0.2s, filter 0.2s;
+}
+
+.logout-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.logout-text {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #f0e0b0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  pointer-events: none;
 }
 
 .logout-btn:hover {
-  color: #e8d5a0;
-  border-color: rgba(212, 175, 106, 0.6);
+  transform: scale(1.05);
+  filter: brightness(1.15);
 }
 </style>

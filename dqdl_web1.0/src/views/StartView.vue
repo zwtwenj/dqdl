@@ -44,29 +44,61 @@ function onLogout() {
 <template>
   <div class="start-page">
     <!-- 背景大图 -->
-    <img class="bg" src="/ui/bg-continent.webp" alt="" />
+    <img
+      class="bg"
+      src="/ui/bg-continent.webp"
+      alt=""
+    >
 
     <!-- 标题 -->
-    <h1 class="title">斗气大陆</h1>
-    <p class="subtitle">踏破苍穹，逆天改命</p>
+    <h1 class="title">
+      斗气大陆
+    </h1>
+    <p class="subtitle">
+      踏破苍穹，逆天改命
+    </p>
 
     <!-- 未登录：显示登录面板 -->
     <LoginPanel v-if="!auth.isLoggedIn" />
 
     <!-- 已登录：显示新游戏 / 继续游戏 -->
-    <div v-else class="actions">
-      <button class="start-btn" :disabled="loading" @click="onNewGame">
-        <img class="btn-bg" src="/ui/btn-new.png" alt="" />
+    <div
+      v-else
+      class="actions"
+    >
+      <button
+        class="start-btn"
+        :disabled="loading"
+        @click="onNewGame"
+      >
+        <img
+          class="btn-bg"
+          src="/ui/btn-new.png"
+          alt=""
+        >
         <span class="btn-text">新游戏</span>
       </button>
-      <button class="start-btn" :disabled="loading" @click="onContinue">
-        <img class="btn-bg" src="/ui/btn-continue.png" alt="" />
+      <button
+        class="start-btn"
+        :disabled="loading"
+        @click="onContinue"
+      >
+        <img
+          class="btn-bg"
+          src="/ui/btn-continue.png"
+          alt=""
+        >
         <span class="btn-text">继续游戏</span>
       </button>
 
       <div class="user-bar">
         <span class="user-name">{{ auth.user?.username }}</span>
-        <button class="logout-btn" @click="onLogout">退出</button>
+        <button
+          class="logout-btn"
+          @click="onLogout"
+        >
+          退出
+        </button>
       </div>
     </div>
   </div>

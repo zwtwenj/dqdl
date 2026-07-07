@@ -31,7 +31,9 @@ async function onLogin() {
 <template>
   <div class="auth-panel">
     <div class="auth-card">
-      <h2 class="auth-title">· 登 录 ·</h2>
+      <h2 class="auth-title">
+        · 登 录 ·
+      </h2>
 
       <div class="field">
         <label class="field-label">账号</label>
@@ -42,7 +44,7 @@ async function onLogin() {
           placeholder="请输入账号"
           maxlength="32"
           @keyup.enter="onLogin"
-        />
+        >
       </div>
 
       <div class="field">
@@ -53,14 +55,27 @@ async function onLogin() {
           type="password"
           placeholder="请输入密码"
           @keyup.enter="onLogin"
-        />
+        >
       </div>
 
-      <p v-if="error" class="auth-error">{{ error }}</p>
+      <p
+        v-if="error"
+        class="auth-error"
+      >
+        {{ error }}
+      </p>
 
       <!-- 登录按钮：复用"继续游戏"按钮图片风格 -->
-      <button class="login-btn" :disabled="loading" @click="onLogin">
-        <img class="btn-bg" src="/ui/btn-continue.png" alt="" />
+      <button
+        class="login-btn"
+        :disabled="loading"
+        @click="onLogin"
+      >
+        <img
+          class="btn-bg"
+          src="/ui/btn-continue.png"
+          alt=""
+        >
         <span class="btn-text">{{ loading ? '登录中…' : '登录' }}</span>
       </button>
     </div>

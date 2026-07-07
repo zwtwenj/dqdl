@@ -1,39 +1,86 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { createCharacter, enterCharacter, deleteCharacter } from '../api'
 import LoginPanel from '../components/LoginPanel.vue'
-import SaveSelectDialog from '../components/SaveSelectDialog.vue'
+import CharacterSelectDialog from '../components/CharacterSelectDialog.vue'
+import CreatePlayerDialog from '../components/CreatePlayerDialog.vue'
 
 const auth = useAuthStore()
 const loading = ref(false)
 
-/** 存档选择弹窗状态 */
-const saveDialogVisible = ref(false)
-const saveDialogMode = ref('new')  // 'new' | 'continue'
+/** 角色选择弹窗（登录后自动弹出） */
+const charDialogVisible = ref(false)
 
-/** 新游戏：弹出存档选择（仅显示空槽位） */
-function onNewGame() {
-  if (loading.value) return
-  saveDialogMode.value = 'new'
-  saveDialogVisible.value = true
-}
+/** 姓名输入弹窗（选空位创建角色时弹出） */
+const nameDialogVisible = ref(false)
+const pendingSlot = ref(null)
 
-/** 继续游戏：弹出存档选择（仅显示已有存档） */
-function onContinue() {
-  if (loading.value) return
-  if (!auth.saves.length) {
-    alert('暂无存档，请新建游戏')
-    return
+/** 登录成功后自动弹出角色选择 */
+watch(() => auth.isLoggedIn, (v) => {
+  if (v) charDialogVisible.value = true
+})
+
+/** 选已有角色 → 进入游戏 */
+async function onCharacterSelect(slot) {
+  charDialogVisible.value = false
+  loading.value = true
+  try {
+    const res = await enterCharacter(auth.token, slot)
+    const { character, player, rootLocationId } = res.data
+    console.log('进入角色', { characterId: character.id, playerId: player?.id, rootLocationId })
+    enterGameView(character, player, rootLocationId)
+  } catch (err) {
+    alert(err.response?.data?.message || err.message || '进入失败')
+    charDialogVisible.value = true
+  } finally {
+    loading.value = false
   }
-  saveDialogMode.value = 'continue'
-  saveDialogVisible.value = true
 }
 
-/** 存档选择确认：进入游戏（待接入） */
-function onSaveSelect(slot) {
-  saveDialogVisible.value = false
-  // TODO: 进入游戏主界面（加载/创建指定 slot 的存档）
-  alert(`选中存档槽位 ${slot}（进入游戏待接入）`)
+/** 选空位 → 弹姓名输入 */
+function onCharacterCreate(slot) {
+  pendingSlot.value = slot
+  nameDialogVisible.value = true
+}
+
+/** 姓名确认 → 创建角色 + player → 进入游戏 */
+async function onNameConfirm(name) {
+  nameDialogVisible.value = false
+  loading.value = true
+  try {
+    const res = await createCharacter(auth.token, name)
+    const { character, player, rootLocationId } = res.data
+    console.log('角色创建完成', { characterId: character.id, playerId: player.id, rootLocationId })
+    charDialogVisible.value = false
+    await auth.fetchCharacters()
+    enterGameView(character, player, rootLocationId)
+  } catch (err) {
+    alert(err.response?.data?.message || err.message || '创建失败')
+    charDialogVisible.value = true
+  } finally {
+    loading.value = false
+    pendingSlot.value = null
+  }
+}
+
+/** 删除角色 */
+async function onCharacterDelete(character) {
+  loading.value = true
+  try {
+    await deleteCharacter(auth.token, character.slot)
+    await auth.fetchCharacters()
+  } catch (err) {
+    alert(err.response?.data?.message || err.message || '删除失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+/** 进入游戏主界面（暂用 alert 占位） */
+function enterGameView(character, player, rootLocationId) {
+  // TODO: router.push({ name: 'game', query: { characterId: character.id } })
+  alert(`进入游戏：${player?.name || character.name}\n位置ID：${rootLocationId}`)
 }
 
 /** 退出登录 */
@@ -44,14 +91,12 @@ function onLogout() {
 
 <template>
   <div class="start-page">
-    <!-- 背景大图 -->
     <img
       class="bg"
       src="/ui/bg-continent.webp"
       alt=""
     >
 
-    <!-- 标题 -->
     <h1 class="title">
       斗气大陆
     </h1>
@@ -59,7 +104,7 @@ function onLogout() {
       踏破苍穹，逆天改命
     </p>
 
-    <!-- 右上角：用户名 + 退出按钮（登录后显示） -->
+    <!-- 右上角：用户名 + 退出（登录后显示） -->
     <div
       v-if="auth.isLoggedIn"
       class="top-right"
@@ -78,46 +123,24 @@ function onLogout() {
       </button>
     </div>
 
-    <!-- 未登录：显示登录面板 -->
+    <!-- 未登录：登录面板 -->
     <LoginPanel v-if="!auth.isLoggedIn" />
 
-    <!-- 已登录：显示新游戏 / 继续游戏 -->
-    <div
-      v-else
-      class="actions"
-    >
-      <button
-        class="start-btn"
-        :disabled="loading"
-        @click="onNewGame"
-      >
-        <img
-          class="btn-bg"
-          src="/ui/btn-new.png"
-          alt=""
-        >
-        <span class="btn-text">新游戏</span>
-      </button>
-      <button
-        class="start-btn"
-        :disabled="loading"
-        @click="onContinue"
-      >
-        <img
-          class="btn-bg"
-          src="/ui/btn-continue.png"
-          alt=""
-        >
-        <span class="btn-text">继续游戏</span>
-      </button>
-    </div>
+    <!-- 已登录：不显示新游戏/继续游戏按钮，直接弹角色选择 -->
 
-    <!-- 存档选择弹窗 -->
-    <SaveSelectDialog
-      v-model="saveDialogVisible"
-      :saves="auth.saves"
-      :mode="saveDialogMode"
-      @select="onSaveSelect"
+    <!-- 角色选择弹窗 -->
+    <CharacterSelectDialog
+      v-model="charDialogVisible"
+      :characters="auth.characters"
+      @select="onCharacterSelect"
+      @create="onCharacterCreate"
+      @delete="onCharacterDelete"
+    />
+
+    <!-- 角色命名弹窗 -->
+    <CreatePlayerDialog
+      v-model="nameDialogVisible"
+      @confirm="onNameConfirm"
     />
   </div>
 </template>
@@ -155,7 +178,6 @@ function onLogout() {
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
 
-/* 副标题改色：偏冷的青金色，区别于主标题的暖金色 */
 .subtitle {
   position: relative;
   z-index: 1;
@@ -167,63 +189,6 @@ function onLogout() {
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
 
-.actions {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-}
-
-.start-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 220px;
-  height: 80px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: transform 0.2s, filter 0.2s;
-}
-
-.start-btn .btn-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.start-btn .btn-text {
-  position: relative;
-  z-index: 1;
-  font-size: 24px;
-  letter-spacing: 8px;
-  color: #f0e0b0;
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.9), 0 2px 4px rgba(0, 0, 0, 0.8);
-  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
-  pointer-events: none;
-}
-
-.start-btn:hover:not(:disabled) {
-  transform: scale(1.05);
-  filter: brightness(1.15) drop-shadow(0 0 12px rgba(232, 213, 160, 0.5));
-}
-
-.start-btn:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.start-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* 右上角用户信息区 */
 .top-right {
   position: absolute;
   top: 24px;
@@ -234,7 +199,6 @@ function onLogout() {
   gap: 12px;
 }
 
-/* 玩家名字：浅青金色，区别于按钮金色 */
 .user-name {
   font-size: 15px;
   letter-spacing: 2px;
@@ -243,7 +207,6 @@ function onLogout() {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
-/* 退出按钮：图片底 + 文字叠加 */
 .logout-btn {
   position: relative;
   display: flex;

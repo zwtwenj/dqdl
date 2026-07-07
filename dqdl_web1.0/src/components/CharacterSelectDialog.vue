@@ -2,53 +2,47 @@
 import { computed } from 'vue'
 
 /**
- * 存档选择弹窗：新游戏时选一个空槽位开始；继续游戏时选已有存档。
- * 三栏左中右排列，每个槽位一张卡片。空槽位显示"+ 新建"，已占用显示存档信息。
+ * 角色选择弹窗（网游模式）。
+ * 登录后弹出：空槽位显示"+ 创建角色"，已有角色显示角色信息+进入。
+ * 已有角色右上角有删除按钮（不影响 slot 位置）。
  *
  * Props:
  *   modelValue (boolean) - 是否显示
- *   saves (Array)        - 存档列表 [{ slot, name, content, updated_at }]
- *   mode (string)        - 'new' 新游戏（空槽可点，已有存档灰显）
- *                          'continue' 继续游戏（已有存档可点，空槽灰显）
+ *   characters (Array)   - 角色列表 [{ id, slot, name, updated_at }]
  * Emits:
- *   update:modelValue    - 关闭弹窗
- *   select (slot)        - 选中某个槽位
+ *   update:modelValue - 关闭
+ *   select (slot)     - 选已有角色进入游戏
+ *   create (slot)     - 选空位创建新角色
+ *   delete (character)- 删除角色
  */
 const props = defineProps({
   modelValue: Boolean,
-  saves: { type: Array, default: () => [] },
-  mode: { type: String, default: 'new' },
+  characters: { type: Array, default: () => [] },
 })
-const emit = defineEmits(['update:modelValue', 'select'])
+const emit = defineEmits(['update:modelValue', 'select', 'create', 'delete'])
 
-/** 三个固定槽位，合并存档数据 */
+/** 三个固定槽位，合并角色数据 */
 const slots = computed(() => {
   return [1, 2, 3].map((n) => {
-    const save = props.saves.find((s) => s.slot === n)
-    return {
-      slot: n,
-      empty: !save,
-      save,
-    }
+    const character = props.characters.find((c) => c.slot === n)
+    return { slot: n, empty: !character, character }
   })
 })
 
-/** 槽位是否可选（根据模式） */
-function isSelectable(item) {
-  if (props.mode === 'new') return item.empty      // 新游戏只能选空槽
-  return !item.empty                                // 继续游戏只能选已有
-}
-
 function onSelect(item) {
-  if (!isSelectable(item)) return
-  emit('select', item.slot)
+  if (item.empty) {
+    emit('create', item.slot)
+  } else {
+    emit('select', item.slot)
+  }
 }
 
-function close() {
-  emit('update:modelValue', false)
+function onDelete(e, character) {
+  e.stopPropagation()
+  if (!confirm(`确定删除角色「${character.name}」吗？此操作不可恢复。`)) return
+  emit('delete', character)
 }
 
-/** 格式化存档时间 */
 function fmtTime(ts) {
   if (!ts) return ''
   const d = new Date(ts)
@@ -60,12 +54,11 @@ function fmtTime(ts) {
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="save-overlay"
-      @click.self="close"
+      class="overlay"
     >
-      <div class="save-modal">
-        <h2 class="save-title">
-          {{ mode === 'new' ? '选择存档位置' : '选择存档' }}
+      <div class="modal">
+        <h2 class="title">
+          选择角色
         </h2>
 
         <div class="slots-row">
@@ -73,13 +66,19 @@ function fmtTime(ts) {
             v-for="item in slots"
             :key="item.slot"
             class="slot-card"
-            :class="{
-              'is-empty': item.empty,
-              'is-occupied': !item.empty,
-              'is-disabled': !isSelectable(item),
-            }"
+            :class="{ 'is-empty': item.empty, 'is-occupied': !item.empty }"
             @click="onSelect(item)"
           >
+            <!-- 删除按钮（仅已有角色，右上角） -->
+            <button
+              v-if="!item.empty"
+              class="slot-delete"
+              title="删除角色"
+              @click="onDelete($event, item.character)"
+            >
+              ×
+            </button>
+
             <!-- 空槽位 -->
             <template v-if="item.empty">
               <div class="slot-plus">
@@ -88,62 +87,36 @@ function fmtTime(ts) {
               <div class="slot-label">
                 空位 {{ item.slot }}
               </div>
-              <div
-                v-if="mode === 'new'"
-                class="slot-hint"
-              >
-                点击开始新游戏
-              </div>
-              <div
-                v-else
-                class="slot-hint dim"
-              >
-                无存档
+              <div class="slot-hint">
+                点击创建角色
               </div>
             </template>
 
-            <!-- 已占用槽位 -->
+            <!-- 已有角色 -->
             <template v-else>
               <div class="slot-header">
-                <span class="slot-num">存档 {{ item.slot }}</span>
+                <span>角色 {{ item.slot }}</span>
               </div>
               <div class="slot-name">
-                {{ item.save.name }}
+                {{ item.character.name }}
               </div>
               <div class="slot-meta">
                 <span>最后游玩</span>
-                <span class="slot-time">{{ fmtTime(item.save.updated_at) }}</span>
+                <span class="slot-time">{{ fmtTime(item.character.updated_at) }}</span>
               </div>
-              <div
-                v-if="mode === 'new'"
-                class="slot-hint dim"
-              >
-                已被占用
-              </div>
-              <div
-                v-else
-                class="slot-hint"
-              >
-                点击继续游戏
+              <div class="slot-hint">
+                点击进入游戏
               </div>
             </template>
           </div>
         </div>
-
-        <button
-          class="save-close"
-          @click="close"
-        >
-          取消
-        </button>
       </div>
     </div>
   </Teleport>
 </template>
 
 <style scoped>
-/* 0.8 * 0.8 屏幕比例的遮罩 */
-.save-overlay {
+.overlay {
   position: fixed;
   inset: 0;
   z-index: 100;
@@ -154,8 +127,7 @@ function fmtTime(ts) {
   backdrop-filter: blur(4px);
 }
 
-/* 弹窗主体：0.8 屏幕宽 × 0.8 屏幕高 */
-.save-modal {
+.modal {
   width: 80vw;
   height: 80vh;
   max-width: 1000px;
@@ -168,7 +140,7 @@ function fmtTime(ts) {
   padding: 28px 32px 24px;
 }
 
-.save-title {
+.title {
   text-align: center;
   font-size: 26px;
   letter-spacing: 6px;
@@ -179,7 +151,6 @@ function fmtTime(ts) {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
 }
 
-/* 三栏左中右排列，等分，有间隔 */
 .slots-row {
   flex: 1;
   display: flex;
@@ -189,6 +160,7 @@ function fmtTime(ts) {
 }
 
 .slot-card {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -214,19 +186,39 @@ function fmtTime(ts) {
   background: rgba(35, 28, 18, 0.7);
 }
 
-.slot-card.is-disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.slot-card:not(.is-disabled):hover {
+.slot-card:hover {
   border-color: rgba(212, 175, 106, 0.7);
   background: rgba(45, 36, 22, 0.8);
   box-shadow: 0 0 16px rgba(212, 175, 106, 0.2);
   transform: translateY(-2px);
 }
 
-/* 空槽位 */
+.slot-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  color: rgba(200, 170, 110, 0.4);
+  background: rgba(30, 20, 15, 0.6);
+  border: 1px solid rgba(150, 120, 70, 0.3);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.slot-delete:hover {
+  color: #ff7060;
+  border-color: rgba(255, 100, 80, 0.6);
+  background: rgba(60, 20, 15, 0.8);
+}
+
 .slot-plus {
   font-size: 48px;
   color: rgba(180, 150, 90, 0.5);
@@ -241,7 +233,6 @@ function fmtTime(ts) {
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
 
-/* 已占用槽位 */
 .slot-header {
   font-size: 13px;
   color: rgba(200, 170, 110, 0.6);
@@ -275,30 +266,5 @@ function fmtTime(ts) {
   font-size: 13px;
   color: #8ab870;
   letter-spacing: 1px;
-}
-
-.slot-hint.dim {
-  color: rgba(150, 130, 90, 0.4);
-}
-
-/* 取消按钮 */
-.save-close {
-  align-self: center;
-  margin-top: 24px;
-  padding: 6px 32px;
-  font-size: 14px;
-  color: rgba(200, 180, 140, 0.7);
-  background: transparent;
-  border: 1px solid rgba(180, 150, 90, 0.3);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
-  letter-spacing: 4px;
-}
-
-.save-close:hover {
-  color: #e8d5a0;
-  border-color: rgba(212, 175, 106, 0.6);
 }
 </style>

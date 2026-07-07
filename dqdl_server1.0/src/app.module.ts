@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
-import { SaveModule } from './save/save.module';
+import { CharacterModule } from './character/character.module';
+import { PlayerModule } from './player/player.module';
+import { LocationModule } from './location/location.module';
+import { GameModule } from './game/game.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -18,12 +21,15 @@ import { AppController } from './app.controller';
         password: config.get('DB_PASSWORD'),
         database: config.get('DB_DATABASE'),
         autoLoadEntities: true,
-        synchronize: true, // 开发态自动建表
+        synchronize: false,
         charset: 'utf8mb4',
       }),
     }),
     AuthModule,
-    SaveModule,
+    CharacterModule,
+    PlayerModule,
+    LocationModule,
+    GameModule,
   ],
   controllers: [AppController],
 })

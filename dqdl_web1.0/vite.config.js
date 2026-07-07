@@ -10,7 +10,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': { target: 'http://localhost:3000', changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') },
+      // 后端有全局 /api 前缀，这里原样转发（不做 rewrite）
+      '/api': { target: 'http://localhost:3000', changeOrigin: true },
       '/image': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },

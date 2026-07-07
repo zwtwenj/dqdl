@@ -1,11 +1,9 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useGameStore } from '../stores/game'
+import { useAuthStore } from '../stores/auth'
+import LoginPanel from '../components/LoginPanel.vue'
 
-const router = useRouter()
-const game = useGameStore()
-
+const auth = useAuthStore()
 const loading = ref(false)
 
 /** 新游戏 */
@@ -13,13 +11,8 @@ async function onNewGame() {
   if (loading.value) return
   loading.value = true
   try {
-    // TODO: 接入后端 createPlayer（重构后端就绪前先占位）
-    // const { createPlayer } = await import('../api')
-    // const res = await createPlayer({ name: '萧炎' })
-    // game.playerId = res.data.id
-    await new Promise((r) => setTimeout(r, 200))
-    // router.push({ name: 'game' })
-    alert('新游戏（后端未接入）')
+    // TODO: 接入后端 createSave（创建一个新存档）
+    alert('新游戏（存档创建待接入）')
   } finally {
     loading.value = false
   }
@@ -30,17 +23,21 @@ async function onContinue() {
   if (loading.value) return
   loading.value = true
   try {
-    const hasSave = game.hasSave
-    if (!hasSave) {
-      alert('暂无存档')
+    const saves = await auth.fetchSaves()
+    if (!saves.length) {
+      alert('暂无存档，请新建游戏')
       return
     }
-    // TODO: 接入后端 getPlayer + continueGame
-    // router.push({ name: 'game' })
-    alert('继续游戏（后端未接入）')
+    // TODO: 进入游戏主界面（选定存档后）
+    alert(`共 ${saves.length} 个存档，进入游戏（待接入）`)
   } finally {
     loading.value = false
   }
+}
+
+/** 退出登录 */
+function onLogout() {
+  auth.logout()
 }
 </script>
 
@@ -53,8 +50,11 @@ async function onContinue() {
     <h1 class="title">斗气大陆</h1>
     <p class="subtitle">踏破苍穹，逆天改命</p>
 
-    <!-- 按钮组 -->
-    <div class="actions">
+    <!-- 未登录：显示登录面板 -->
+    <LoginPanel v-if="!auth.isLoggedIn" />
+
+    <!-- 已登录：显示新游戏 / 继续游戏 -->
+    <div v-else class="actions">
       <button class="start-btn" :disabled="loading" @click="onNewGame">
         <img class="btn-bg" src="/ui/btn-new.png" alt="" />
         <span class="btn-text">新游戏</span>
@@ -63,6 +63,11 @@ async function onContinue() {
         <img class="btn-bg" src="/ui/btn-continue.png" alt="" />
         <span class="btn-text">继续游戏</span>
       </button>
+
+      <div class="user-bar">
+        <span class="user-name">{{ auth.user?.username }}</span>
+        <button class="logout-btn" @click="onLogout">退出</button>
+      </div>
     </div>
   </div>
 </template>
@@ -86,7 +91,6 @@ async function onContinue() {
   height: 100%;
   object-fit: cover;
   z-index: 0;
-  /* 背景图轻微暗化，让前景文字更清晰 */
   filter: brightness(0.7);
 }
 
@@ -117,6 +121,7 @@ async function onContinue() {
   z-index: 1;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 24px;
 }
 
@@ -165,5 +170,36 @@ async function onContinue() {
 .start-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 用户信息条（登录后显示在按钮下方） */
+.user-bar {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: rgba(200, 180, 140, 0.7);
+  letter-spacing: 1px;
+}
+
+.user-name {
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+}
+
+.logout-btn {
+  padding: 2px 10px;
+  font-size: 12px;
+  color: rgba(200, 180, 140, 0.7);
+  background: transparent;
+  border: 1px solid rgba(180, 150, 90, 0.3);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.logout-btn:hover {
+  color: #e8d5a0;
+  border-color: rgba(212, 175, 106, 0.6);
 }
 </style>

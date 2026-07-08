@@ -266,12 +266,12 @@ function onHerbError(e) {
     left: 7%;
     font-size: 13px;
     line-height: 1.6;
-    color: #e8d5a0;
+    color: #1d1604;
     width: 86%;
     height: 52%;
     overflow: hidden;
     letter-spacing: 1px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    text-shadow: 0 1px 0px rgba(0, 0, 0, 0.9);
   }
 }
 

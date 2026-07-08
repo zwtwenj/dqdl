@@ -75,6 +75,7 @@ function backToStart() {
       v-if="player"
       :name="player.name"
       :level="player.level"
+      :level-name="player.level_name"
       :hp="player.hp"
       :max-hp="player.final_attrs?.max_hp ?? player.max_hp"
       :energy="player.energy"
@@ -202,7 +203,7 @@ function backToStart() {
 .current-map{
   width: 100%;
   border-radius: 10px;
-  padding: 10px;
+  padding: 15px;
 }
 
 /* 左侧地图抽屉容器：邻近之地 + 可达之所 纵向排列 */

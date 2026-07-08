@@ -1,12 +1,13 @@
 import axios from 'axios'
 import { bus, BusEvents } from '../utils/eventBus'
+import { useAuthStore } from '../stores/auth'
 
 /**
  * axios 实例 + 拦截器（统一鉴权与响应解包）。
  *
  * - request 拦截器：自动从 localStorage 读 token，注入 Authorization 头。
  * - response 拦截器：解包 { code, message, data }，
- *   code=0 返回 data；code=1002(未登录) 弹提示后清 token 跳登录；其余抛 Error(message)。
+ *   code=0 返回 data；code=1002(未登录) 弹提示→登出→跳登录页；其余抛 Error(message)。
  *
  * 业务层调用不再需要手动传 token，也不再需要 res.data.data 取值。
  */
@@ -31,14 +32,21 @@ function toast(type, message) {
   bus.emit(BusEvents.TOAST, { type, message })
 }
 
-/** token 失效：弹提示 → 清 token → 跳登录页 */
+/** token 失效：弹提示 → 登出清状态 → 跳登录页 */
 function handleUnauthorized(message) {
   toast('error', message || '登录已失效，请重新登录')
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem('dqdl_user')
+  // 调 store 登出：清 token/user/characters，isLoggedIn→false，LoginPanel 显示
+  try {
+    const auth = useAuthStore()
+    auth.logout()
+  } catch {
+    // store 未初始化（pinia 未挂载）兜底
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem('dqdl_user')
+  }
   // 延迟跳转，让 toast 显示出来
   setTimeout(() => {
-    if (!location.hash.startsWith('#/')) {
+    if (location.hash !== '#/') {
       location.hash = '#/'
     }
   }, 800)
@@ -82,4 +90,3 @@ http.interceptors.response.use(
 )
 
 export default http
-

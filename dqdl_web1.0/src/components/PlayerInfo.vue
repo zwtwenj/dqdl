@@ -5,14 +5,16 @@
  * 填充条放在 groove 底框的镂空区域内，按百分比显示宽度。
  *
  * Props:
- *   name     角色名
- *   level    等级
+ *   name      角色名
+ *   level     等级（数字）
+ *   levelName 等级中文名（如"斗之气1段"，优先显示）
  *   hp/maxHp       生命值
  *   energy/maxEnergy 斗气值
  */
 defineProps({
   name: { type: String, default: '无名' },
   level: { type: Number, default: 1 },
+  levelName: { type: String, default: '' },
   hp: { type: Number, default: 100 },
   maxHp: { type: Number, default: 100 },
   energy: { type: Number, default: 50 },
@@ -24,7 +26,11 @@ defineProps({
   <div class="player-panel">
     <!-- 头像：avatar 在底层，frame（金边圆环）盖在上面，金边外的部分用圆形裁剪隐藏 -->
     <div class="avatar-box">
-      <img class="player-avatar" src="/player/avatar.png" alt="">
+      <img
+        class="player-avatar"
+        src="/player/avatar.png"
+        alt=""
+      >
       <img
         class="avatar-frame"
         src="/player/head.png"
@@ -36,7 +42,7 @@ defineProps({
     <div class="info-box">
       <div class="name-row">
         <span class="name">{{ name }}</span>
-        <span class="level">Lv.{{ level }}</span>
+        <span class="level">{{ levelName || ('Lv.' + level) }}</span>
       </div>
 
       <!-- 生命条 -->

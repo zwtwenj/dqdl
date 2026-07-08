@@ -10,6 +10,8 @@
 export const BusEvents = {
   /** 显示 toast 消息：{ type: 'success'|'error'|'info', message: string, duration?: number } */
   TOAST: 'toast',
+  /** 登录失效：token 过期/被清，监听者应执行登出清理 */
+  UNAUTHORIZED: 'unauthorized',
 }
 
 const listeners = new Map()

@@ -20,13 +20,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** 登录：成功后存 token，并拉取该账号的角色列表 */
   async function login(username, password) {
-    const res = await apiLogin(username, password)
-    token.value = res.data.token
-    user.value = res.data.user
-    localStorage.setItem(TOKEN_KEY, res.data.token)
-    localStorage.setItem(USER_KEY, JSON.stringify(res.data.user))
+    const data = await apiLogin(username, password)
+    token.value = data.token
+    user.value = data.user
+    localStorage.setItem(TOKEN_KEY, data.token)
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user))
     await fetchCharacters()
-    return res.data
+    return data
   }
 
   /** 登出 */
@@ -44,9 +44,9 @@ export const useAuthStore = defineStore('auth', () => {
       characters.value = []
       return []
     }
-    const res = await getCharacters(token.value)
-    characters.value = res.data
-    return res.data
+    const data = await getCharacters()
+    characters.value = data
+    return data
   }
 
   return { token, user, characters, isLoggedIn, login, logout, fetchCharacters }

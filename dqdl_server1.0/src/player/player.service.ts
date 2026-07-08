@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Player } from './player.entity';
 import { CharacterService } from '../character/character.service';
+import { Biz } from '../common/biz.exception';
 
 /** 等阶 K 常量：1-9=100, 11-19=200, 21-29=300, 31+=400 */
 export function getLevelK(level: number): number {
@@ -211,7 +212,7 @@ export class PlayerService {
   async breakthrough(id: number): Promise<any> {
     const player = await this.assertIdle(id);
     if (player.cultivation < player.level_cultivation) {
-      throw new BadRequestException('修为不足，无法突破');
+      throw Biz.conflict('修为不足，无法突破');
     }
 
     const baseRate = PlayerService.breakthroughRate(player.level);
@@ -253,10 +254,10 @@ export class PlayerService {
    */
   async verifyOwnership(playerId: number, userId: number): Promise<Player> {
     const player = await this.repo.findOneBy({ id: playerId });
-    if (!player) throw new NotFoundException(`玩家 ${playerId} 不存在`);
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
     const character = await this.characterService.findOneById(player.character_id);
     if (!character || character.user_id !== userId) {
-      throw new BadRequestException('无权操作该角色');
+      throw Biz.forbidden('无权操作该角色');
     }
     return player;
   }
@@ -264,9 +265,9 @@ export class PlayerService {
   /** 校验玩家空闲，否则抛状态冲突。返回 player 实体供后续操作。 */
   private async assertIdle(id: number): Promise<Player> {
     const player = await this.repo.findOneBy({ id });
-    if (!player) throw new NotFoundException(`玩家 ${id} 不存在`);
+    if (!player) throw Biz.notFound(`玩家 ${id} 不存在`);
     if (player.status !== PLAYER_STATUS.IDLE) {
-      throw new BadRequestException(
+      throw Biz.conflict(
         `当前状态为「${STATUS_LABEL[player.status] || '忙碌'}」，无法操作`,
       );
     }

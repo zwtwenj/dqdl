@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CharacterService } from '../character/character.service';
 import { PlayerService } from '../player/player.service';
 import { LocationService } from '../location/location.service';
+import { Biz } from '../common/biz.exception';
 
 /**
  * 游戏入口服务（网游模式）：创建角色 + 初始化 player。
@@ -42,7 +43,7 @@ export class GameService {
    */
   async enterCharacter(userId: number, slot: number) {
     const character = await this.characterService.getBySlot(userId, slot)
-    if (!character) throw new NotFoundException(`角色序号 ${slot} 不存在`)
+    if (!character) throw Biz.notFound(`角色序号 ${slot} 不存在`)
 
     const player = await this.playerService.findByCharacterId(character.id)
     const root = await this.locationService.getRoot()
@@ -55,7 +56,7 @@ export class GameService {
    */
   async deleteCharacter(userId: number, slot: number) {
     const character = await this.characterService.getBySlot(userId, slot)
-    if (!character) throw new NotFoundException(`角色序号 ${slot} 不存在`)
+    if (!character) throw Biz.notFound(`角色序号 ${slot} 不存在`)
     await this.playerService.removeByCharacterId(character.id)
     await this.characterService.remove(userId, slot)
   }

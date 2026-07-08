@@ -1,7 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Character } from './character.entity';
+import { BizException, Biz } from '../common/biz.exception';
+import { ResponseCode } from '../common/response-code';
 
 /** 每个账号最多角色数 */
 export const MAX_CHARACTERS = 3;
@@ -38,7 +40,7 @@ export class CharacterService {
   async create(userId: number, name: string): Promise<Character> {
     const existing = await this.repo.find({ where: { user_id: userId } })
     if (existing.length >= MAX_CHARACTERS) {
-      throw new BadRequestException(`角色已满（最多 ${MAX_CHARACTERS} 个），请先删除旧角色`)
+      throw new BizException(ResponseCode.CHARACTERS_FULL, `角色已满（最多 ${MAX_CHARACTERS} 个），请先删除旧角色`)
     }
     const usedSlots = new Set(existing.map((c) => c.slot))
     const slot = [1, 2, 3].find((s) => !usedSlots.has(s)) ?? 1
@@ -51,7 +53,7 @@ export class CharacterService {
   /** 删除角色（player 由 GameService 级联清理） */
   async remove(userId: number, slot: number): Promise<Character | null> {
     const character = await this.getBySlot(userId, slot)
-    if (!character) throw new NotFoundException(`角色序号 ${slot} 不存在`)
+    if (!character) throw Biz.notFound(`角色序号 ${slot} 不存在`)
     await this.repo.remove(character)
     return character
   }

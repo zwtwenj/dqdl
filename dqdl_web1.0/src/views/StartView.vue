@@ -1,8 +1,9 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { createCharacter, enterCharacter, deleteCharacter } from '../api'
+import { bus, BusEvents } from '../utils/eventBus'
 import LoginPanel from '../components/LoginPanel.vue'
 import CharacterSelectDialog from '../components/CharacterSelectDialog.vue'
 import CreatePlayerDialog from '../components/CreatePlayerDialog.vue'
@@ -11,16 +12,39 @@ const auth = useAuthStore()
 const router = useRouter()
 const loading = ref(false)
 
-/** 角色选择弹窗（登录后自动弹出） */
+/** 弹 toast 提示 */
+function toast(type, message) {
+  bus.emit(BusEvents.TOAST, { type, message })
+}
+
+/** 角色选择弹窗（登录后或刷新已登录时自动弹出） */
 const charDialogVisible = ref(false)
 
 /** 姓名输入弹窗（选空位创建角色时弹出） */
 const nameDialogVisible = ref(false)
 const pendingSlot = ref(null)
 
-/** 登录成功后自动弹出角色选择 */
+/** 拉取角色列表并弹出选择弹窗（登录后 / 刷新已登录 复用） */
+async function showCharacterDialog() {
+  try {
+    await auth.fetchCharacters()
+    charDialogVisible.value = true
+  } catch (err) {
+    // token 失效等：request.js 已处理跳登录，这里不重复弹窗
+    console.warn('拉取角色列表失败:', err.message)
+  }
+}
+
+/** 进入页面时：若已登录（刷新场景），直接拉角色并弹窗 */
+onMounted(() => {
+  if (auth.isLoggedIn) {
+    showCharacterDialog()
+  }
+})
+
+/** 登录成功后自动弹出角色选择（store.login 成功后 isLoggedIn 变 true） */
 watch(() => auth.isLoggedIn, (v) => {
-  if (v) charDialogVisible.value = true
+  if (v) showCharacterDialog()
 })
 
 /** 选已有角色 → 进入游戏 */
@@ -28,12 +52,12 @@ async function onCharacterSelect(slot) {
   charDialogVisible.value = false
   loading.value = true
   try {
-    const res = await enterCharacter(auth.token, slot)
-    const { character, player, rootLocationId } = res.data
+    const data = await enterCharacter(slot)
+    const { character, player, rootLocationId } = data
     console.log('进入角色', { characterId: character.id, playerId: player?.id, rootLocationId })
     enterGameView(character, player, rootLocationId)
   } catch (err) {
-    alert(err.response?.data?.message || err.message || '进入失败')
+    toast('error', err.message || '进入失败')
     charDialogVisible.value = true
   } finally {
     loading.value = false
@@ -51,14 +75,14 @@ async function onNameConfirm(name) {
   nameDialogVisible.value = false
   loading.value = true
   try {
-    const res = await createCharacter(auth.token, name)
-    const { character, player, rootLocationId } = res.data
+    const data = await createCharacter(name)
+    const { character, player, rootLocationId } = data
     console.log('角色创建完成', { characterId: character.id, playerId: player.id, rootLocationId })
     charDialogVisible.value = false
     await auth.fetchCharacters()
     enterGameView(character, player, rootLocationId)
   } catch (err) {
-    alert(err.response?.data?.message || err.message || '创建失败')
+    toast('error', err.message || '创建失败')
     charDialogVisible.value = true
   } finally {
     loading.value = false
@@ -70,20 +94,21 @@ async function onNameConfirm(name) {
 async function onCharacterDelete(character) {
   loading.value = true
   try {
-    await deleteCharacter(auth.token, character.slot)
+    await deleteCharacter(character.slot)
     await auth.fetchCharacters()
+    toast('success', '角色已删除')
   } catch (err) {
-    alert(err.response?.data?.message || err.message || '删除失败')
+    toast('error', err.message || '删除失败')
   } finally {
     loading.value = false
   }
 }
 
 /** 进入游戏主界面 */
-function enterGameView(character) {
+function enterGameView(character, player) {
   router.push({
     name: 'game',
-    query: { characterId: character.id },
+    query: { playerId: player?.id },
   })
 }
 

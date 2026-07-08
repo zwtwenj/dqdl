@@ -21,7 +21,7 @@ async function onLogin() {
   try {
     await auth.login(username.value.trim(), password.value)
   } catch (err) {
-    error.value = err.response?.data?.message || '账号或密码错误'
+    error.value = err.message || '账号或密码错误'
   } finally {
     loading.value = false
   }

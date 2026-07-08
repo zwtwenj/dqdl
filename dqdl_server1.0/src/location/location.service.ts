@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, OnApplicationBootstrap, Logger } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Location } from './location.entity';
 import { LocationGenRule } from './location-gen-rule.entity';
+import { Biz } from '../common/biz.exception';
 import { AgentService } from '../agent/agent.service';
 import type { AgentMapResult } from '../agent/agent.types';
 
@@ -49,7 +50,7 @@ export class LocationService implements OnApplicationBootstrap {
   /** 查询单个节点 */
   async findOne(locationId: number): Promise<Location> {
     const loc = await this.repo.findOneBy({ id: locationId })
-    if (!loc) throw new NotFoundException(`地点 ${locationId} 不存在`)
+    if (!loc) throw Biz.notFound(`地点 ${locationId} 不存在`)
     return loc
   }
 
@@ -108,7 +109,7 @@ export class LocationService implements OnApplicationBootstrap {
   async expandNode(locationId: number): Promise<Location[]> {
     const parent = await this.findOne(locationId);
     if (parent.is_expanded === 1) {
-      throw new BadRequestException(`地点 ${parent.name} 的子节点已生成`)
+      throw Biz.conflict(`地点 ${parent.name} 的子节点已生成`)
     }
 
     const childDepth = parent.depth + 1

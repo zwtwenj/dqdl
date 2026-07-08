@@ -1,25 +1,42 @@
 <script setup>
 /**
- * 游戏主界面：左上角玩家信息 + 右下角功能图标栏。
- * 背景使用 bg-continent.webp。当前为纯 UI，数据用 mock 占位，后续接入玩家实时数据。
+ * 游戏主界面：左上角玩家信息 + 右下角功能图标栏 + 中央当前地图。
+ * 进入页面时按 query.playerId 从后端拉取玩家信息（含 final_attrs）。
  */
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PlayerInfo from '../components/PlayerInfo.vue'
 import IconToolbar from '../components/IconToolbar.vue'
 import CurrentMap from '../components/CurrentMap.vue'
+import { getPlayer } from '../api'
 
+const route = useRoute()
 const router = useRouter()
 
-// TODO: 接入后端 player 数据（通过 query 中的 characterId 拉取或全局 store）
-const player = ref({
-  name: '无名',
-  level: 1,
-  hp: 100,
-  maxHp: 100,
-  energy: 50,
-  maxEnergy: 100,
-})
+// 玩家信息（由后端 findOne 聚合返回，含 final_attrs）
+const player = ref(null)
+const loading = ref(true)
+const errorMsg = ref('')
+
+/** 拉取玩家完整信息 */
+async function loadPlayer() {
+  const playerId = Number(route.query.playerId)
+  if (!playerId) {
+    errorMsg.value = '缺少 playerId，请重新进入游戏'
+    loading.value = false
+    return
+  }
+  try {
+    const data = await getPlayer(playerId)
+    player.value = data
+  } catch (err) {
+    errorMsg.value = err.message || '加载玩家信息失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadPlayer)
 
 /** 功能图标点击：暂时只记录，后续按 key 打开对应面板 */
 function onIconSelect(key) {
@@ -43,16 +60,41 @@ function backToStart() {
 
     <!-- 左上角玩家信息 -->
     <PlayerInfo
+      v-if="player"
       :name="player.name"
       :level="player.level"
       :hp="player.hp"
-      :max-hp="player.maxHp"
+      :max-hp="player.final_attrs?.max_hp ?? player.max_hp"
       :energy="player.energy"
-      :max-energy="player.maxEnergy"
+      :max-energy="player.final_attrs?.max_energy ?? player.max_energy"
     />
 
+    <!-- 加载/错误提示 -->
+    <div
+      v-if="loading"
+      class="overlay-tip"
+    >
+      加载中...
+    </div>
+    <div
+      v-else-if="errorMsg"
+      class="overlay-tip error"
+    >
+      {{ errorMsg }}
+      <button
+        class="retry-btn"
+        type="button"
+        @click="backToStart"
+      >
+        返回开始页
+      </button>
+    </div>
+
     <!-- 中央当前地图面板 -->
-    <CurrentMap class="current-map" />
+    <CurrentMap
+      v-if="player"
+      class="current-map"
+    />
 
     <!-- 右上角返回开始页按钮 -->
     <button
@@ -112,5 +154,43 @@ function backToStart() {
   margin: 100px 10px 0 10px;
   border-radius: 10px;
   padding: 10px;
+}
+
+.overlay-tip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  color: #e8d5a0;
+  letter-spacing: 2px;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+.overlay-tip.error {
+  color: #ff9080;
+}
+
+.retry-btn {
+  padding: 6px 18px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #e8d5a0;
+  background: rgba(10, 8, 6, 0.6);
+  border: 1px solid rgba(180, 150, 90, 0.5);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+}
+
+.retry-btn:hover {
+  background: rgba(180, 150, 90, 0.2);
+  border-color: rgba(220, 190, 120, 0.8);
 }
 </style>

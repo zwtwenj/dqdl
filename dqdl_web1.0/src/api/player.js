@@ -1,0 +1,13 @@
+import http from './request'
+
+/** 获取玩家完整信息（含 final_attrs） GET /api/player/:id */
+export const getPlayer = (id) => http.get(`/player/${id}`)
+
+/** 轻量状态查询 GET /api/player/:id/status */
+export const getPlayerStatus = (id) => http.get(`/player/${id}/status`)
+
+/** 修炼 POST /api/player/:id/cultivate */
+export const cultivate = (id) => http.post(`/player/${id}/cultivate`)
+
+/** 突破 POST /api/player/:id/breakthrough */
+export const breakthrough = (id) => http.post(`/player/${id}/breakthrough`)

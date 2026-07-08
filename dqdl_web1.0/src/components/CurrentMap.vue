@@ -150,7 +150,7 @@ const herbs = [
   }
   .current-map-back-text{
     position: absolute;
-    top: 5px;
+    top: 7px;
     left: 40px;
     font-size: 12px;
     color: #f0d890;

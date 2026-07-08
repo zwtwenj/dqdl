@@ -8,6 +8,8 @@ import { LocationModule } from './location/location.module';
 import { GameModule } from './game/game.module';
 import { MobModule } from './mob/mob.module';
 import { AlchemyModule } from './alchemy/alchemy.module';
+import { MaterialModule } from './material/material.module';
+import { MagicCoreModule } from './magic_core/magic_core.module';
 import { ItemModule } from './item/item.module';
 import { TrainingModule } from './training/training.module';
 import { AppController } from './app.controller';
@@ -36,6 +38,8 @@ import { AppController } from './app.controller';
     GameModule,
     MobModule,
     AlchemyModule,
+    MaterialModule,
+    MagicCoreModule,
     ItemModule,
     TrainingModule,
   ],

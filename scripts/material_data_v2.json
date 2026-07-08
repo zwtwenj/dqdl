@@ -1,0 +1,6458 @@
+[
+  {
+    "item_id": "cl-100",
+    "name": "焰鳞片",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-001",
+        "name": "焰尾蜥"
+      },
+      {
+        "mob_id": "WB-255",
+        "name": "焰棘蜥"
+      }
+    ],
+    "description": "淬炼火系内甲的鳞材"
+  },
+  {
+    "item_id": "cl-101",
+    "name": "冰蛙皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-002",
+        "name": "霜纹蛙"
+      }
+    ],
+    "description": "缝制低阶冰甲的上佳皮料"
+  },
+  {
+    "item_id": "cl-102",
+    "name": "风翎羽",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-003",
+        "name": "风翎雀"
+      },
+      {
+        "mob_id": "WB-073",
+        "name": "风翎隼"
+      },
+      {
+        "mob_id": "WB-257",
+        "name": "狂风枭"
+      }
+    ],
+    "description": "轻灵如风，可附于箭羽提升射速"
+  },
+  {
+    "item_id": "cl-103",
+    "name": "岩甲壳碎片",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-004",
+        "name": "岩甲龟"
+      },
+      {
+        "mob_id": "WB-235",
+        "name": "岩甲龟"
+      }
+    ],
+    "description": "熔铸土系护甲的坚硬碎片"
+  },
+  {
+    "item_id": "cl-104",
+    "name": "电纹鼠尾",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-005",
+        "name": "电纹鼠"
+      }
+    ],
+    "description": "雷符铭刻的导引媒介"
+  },
+  {
+    "item_id": "cl-105",
+    "name": "黑雾蝮毒牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-006",
+        "name": "黑雾蝮"
+      }
+    ],
+    "description": "淬炼暗影毒刃的剧毒牙材"
+  },
+  {
+    "item_id": "cl-106",
+    "name": "毒棘蜂刺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-007",
+        "name": "毒棘蜂"
+      }
+    ],
+    "description": "可制破甲毒针的锋锐毒刺"
+  },
+  {
+    "item_id": "cl-107",
+    "name": "青木獾爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-008",
+        "name": "青木獾"
+      }
+    ],
+    "description": "刻录生机符文的木属爪材"
+  },
+  {
+    "item_id": "cl-108",
+    "name": "水纹鳄皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-009",
+        "name": "水纹鳄"
+      }
+    ],
+    "description": "柔韧耐水，宜制水行软甲"
+  },
+  {
+    "item_id": "cl-109",
+    "name": "烈阳蝶鳞粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-010",
+        "name": "烈阳蝶"
+      }
+    ],
+    "description": "调和火系符墨的炽光粉末"
+  },
+  {
+    "item_id": "cl-110",
+    "name": "催眠花粉囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-127",
+        "name": "木纹蝶"
+      }
+    ],
+    "description": "调配迷魂香雾的天然药囊"
+  },
+  {
+    "item_id": "cl-111",
+    "name": "兔爪骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-038",
+        "name": "火绒兔"
+      }
+    ],
+    "description": "轻巧坚韧，可作暗器骨钉"
+  },
+  {
+    "item_id": "cl-112",
+    "name": "冰丝触角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-294",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "编织冰系法袍的寒丝触材"
+  },
+  {
+    "item_id": "cl-113",
+    "name": "冰丝触须",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-265",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "凝霜成丝，可缀于法器增幅冰寒"
+  },
+  {
+    "item_id": "cl-114",
+    "name": "冰刃鳍",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-299",
+        "name": "寒潭鲛"
+      }
+    ],
+    "description": "削铁如泥的冰刃，宜铸寒锋短匕"
+  },
+  {
+    "item_id": "cl-115",
+    "name": "冰刺",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-174",
+        "name": "冰刺豪猪"
+      },
+      {
+        "mob_id": "WB-180",
+        "name": "霜甲龟"
+      }
+    ],
+    "description": "淬寒铸刺，可作冰系投掷暗器"
+  },
+  {
+    "item_id": "cl-116",
+    "name": "冰刺足肢",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-080",
+        "name": "霜纹蛛"
+      }
+    ],
+    "description": "蛛足凝刺，可制冰系陷阱触发件"
+  },
+  {
+    "item_id": "cl-117",
+    "name": "冰晶毒刺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-219",
+        "name": "冰晶蛇蝎"
+      }
+    ],
+    "description": "蛇蝎毒刺，可炼冰毒淬刃"
+  },
+  {
+    "item_id": "cl-118",
+    "name": "冰晶毒牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-155",
+        "name": "霜纹蟒"
+      }
+    ],
+    "description": "蟒牙蕴寒毒，可制冰封毒药"
+  },
+  {
+    "item_id": "cl-119",
+    "name": "冰晶爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-189",
+        "name": "冰霜狼"
+      }
+    ],
+    "description": "狼爪覆冰晶，可锻冰系拳爪"
+  },
+  {
+    "item_id": "cl-120",
+    "name": "冰晶獠牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-104",
+        "name": "霜牙狼"
+      }
+    ],
+    "description": "锻造冰系短刃的稀有牙材"
+  },
+  {
+    "item_id": "cl-121",
+    "name": "冰晶粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-058",
+        "name": "冰晶雪蛤"
+      }
+    ],
+    "description": "调和冰系丹药的寒性粉末"
+  },
+  {
+    "item_id": "cl-122",
+    "name": "冰晶羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-227",
+        "name": "冰翼天鹅"
+      }
+    ],
+    "description": "制作冰系轻甲的上等羽料"
+  },
+  {
+    "item_id": "cl-123",
+    "name": "冰晶翅",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-198",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "镶嵌冰晶法器的蝶翅材料"
+  },
+  {
+    "item_id": "cl-124",
+    "name": "冰晶翅粉",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-088",
+        "name": "冰晶蝶"
+      },
+      {
+        "mob_id": "WB-165",
+        "name": "冰晶蝶"
+      },
+      {
+        "mob_id": "WB-231",
+        "name": "冰晶蝶"
+      },
+      {
+        "mob_id": "WB-294",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "研磨冰系符墨的极寒粉尘"
+  },
+  {
+    "item_id": "cl-125",
+    "name": "冰晶翼",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-265",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "炼制飞行法器的冰晶翼骨"
+  },
+  {
+    "item_id": "cl-126",
+    "name": "冰晶蛇鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-114",
+        "name": "冰晶蛇"
+      }
+    ],
+    "description": "编织冰系软甲的冷鳞片"
+  },
+  {
+    "item_id": "cl-127",
+    "name": "冰晶蛛丝",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-206",
+        "name": "冰晶毒蛛"
+      }
+    ],
+    "description": "织就冰系法袍的寒丝线"
+  },
+  {
+    "item_id": "cl-128",
+    "name": "冰晶蝶翼",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-149",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "铭刻冰霜阵法的蝶翼载体"
+  },
+  {
+    "item_id": "cl-129",
+    "name": "冰晶蟹的螯钳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-043",
+        "name": "冰晶蟹"
+      }
+    ],
+    "description": "打造冰系战锤的硬钳材"
+  },
+  {
+    "item_id": "cl-130",
+    "name": "冰晶鬃毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-272",
+        "name": "冰霜狼"
+      }
+    ],
+    "description": "制作冰系拂尘的寒鬃丝"
+  },
+  {
+    "item_id": "cl-131",
+    "name": "冰晶龟壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-180",
+        "name": "霜甲龟"
+      }
+    ],
+    "description": "锻造冰系盾牌的坚壳料"
+  },
+  {
+    "item_id": "cl-132",
+    "name": "冰棱触须",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-088",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "淬炼冰毒暗器的棱须"
+  },
+  {
+    "item_id": "cl-133",
+    "name": "冰毛皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-096",
+        "name": "冰牙猪"
+      }
+    ],
+    "description": "缝制御寒皮甲的上好毛料"
+  },
+  {
+    "item_id": "cl-134",
+    "name": "冰熊甲片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-123",
+        "name": "冰甲熊"
+      }
+    ],
+    "description": "镶嵌冰甲战甲的硬甲片"
+  },
+  {
+    "item_id": "cl-135",
+    "name": "冰牙狼的狼牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-051",
+        "name": "冰牙狼"
+      }
+    ],
+    "description": "雕琢冰系匕刃的犬牙"
+  },
+  {
+    "item_id": "cl-136",
+    "name": "冰牙獠牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-096",
+        "name": "冰牙猪"
+      }
+    ],
+    "description": "锻造冰系长矛的锋牙尖"
+  },
+  {
+    "item_id": "cl-137",
+    "name": "冰狼牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-272",
+        "name": "冰霜狼"
+      }
+    ],
+    "description": "打磨冰系箭镞的锐牙材"
+  },
+  {
+    "item_id": "cl-138",
+    "name": "冰狼皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-189",
+        "name": "冰霜狼"
+      }
+    ],
+    "description": "鞣制冰系皮甲的韧皮料"
+  },
+  {
+    "item_id": "cl-139",
+    "name": "冰腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-054",
+        "name": "霜纹水蟒"
+      }
+    ],
+    "description": "提取冰毒淬刃的腺液源"
+  },
+  {
+    "item_id": "cl-140",
+    "name": "冰舌黏液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-028",
+        "name": "霜纹蛙"
+      }
+    ],
+    "description": "炼制低阶冰系药剂的黏性材料"
+  },
+  {
+    "item_id": "cl-141",
+    "name": "冰蛇鳞片",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-067",
+        "name": "寒髓冰蛇"
+      },
+      {
+        "mob_id": "WB-130",
+        "name": "冰刺蛇"
+      }
+    ],
+    "description": "打造寒属性轻甲的基础鳞材"
+  },
+  {
+    "item_id": "cl-142",
+    "name": "冰蛛丝",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-247",
+        "name": "冰霜蛛"
+      }
+    ],
+    "description": "编织冰系法袍的坚韧丝线"
+  },
+  {
+    "item_id": "cl-143",
+    "name": "冰蛤舌",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-058",
+        "name": "冰晶雪蛤"
+      }
+    ],
+    "description": "入药可解热毒并凝寒气"
+  },
+  {
+    "item_id": "cl-144",
+    "name": "冰蝠翼片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-139",
+        "name": "冰霜蝠"
+      }
+    ],
+    "description": "附魔飞行符咒的薄翼媒介"
+  },
+  {
+    "item_id": "cl-145",
+    "name": "冰蝶触须",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-165",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "调和冰系丹方时引动霜气的触媒"
+  },
+  {
+    "item_id": "cl-146",
+    "name": "冰角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-256",
+        "name": "霜角蟒"
+      }
+    ],
+    "description": "研磨成粉可制作低阶冰系符墨"
+  },
+  {
+    "item_id": "cl-147",
+    "name": "冰霜熊皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-303",
+        "name": "冰霜巨熊"
+      }
+    ],
+    "description": "缝制抵御极寒的厚实皮裘"
+  },
+  {
+    "item_id": "cl-148",
+    "name": "冰霜狼牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-212",
+        "name": "冰霜雪狼"
+      }
+    ],
+    "description": "镶嵌于兵器可附加冰霜锋锐"
+  },
+  {
+    "item_id": "cl-149",
+    "name": "冰霜皮毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-285",
+        "name": "霜牙雪狼"
+      }
+    ],
+    "description": "制作冬行护具的保暖里衬"
+  },
+  {
+    "item_id": "cl-150",
+    "name": "冰鳞片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-256",
+        "name": "霜角蟒"
+      }
+    ],
+    "description": "淬炼冰刃时融入的鳞状结晶"
+  },
+  {
+    "item_id": "cl-151",
+    "name": "凝石碎块",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-098",
+        "name": "沙石怪"
+      }
+    ],
+    "description": "铸造土系防具的固化碎料"
+  },
+  {
+    "item_id": "cl-152",
+    "name": "凝血牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-269",
+        "name": "暗蝠群"
+      }
+    ],
+    "description": "炼制血煞类丹药的阴寒牙材"
+  },
+  {
+    "item_id": "cl-153",
+    "name": "剧毒蝎毒囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-025",
+        "name": "剧毒蝎"
+      }
+    ],
+    "description": "提取剧毒淬炼暗器之用的毒源"
+  },
+  {
+    "item_id": "cl-154",
+    "name": "卷风尾羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-064",
+        "name": "卷风雀"
+      }
+    ],
+    "description": "铭刻风行符文的轻灵羽材"
+  },
+  {
+    "item_id": "cl-155",
+    "name": "发光腹壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-201",
+        "name": "雷光蜓"
+      }
+    ],
+    "description": "镶嵌于法器可发出幽冷萤光"
+  },
+  {
+    "item_id": "cl-156",
+    "name": "叶片鳞甲",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-288",
+        "name": "青木羚羊"
+      }
+    ],
+    "description": "编织木系护甲的天然片甲"
+  },
+  {
+    "item_id": "cl-157",
+    "name": "后腿肌肉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-045",
+        "name": "电光蝗"
+      }
+    ],
+    "description": "炼体丹方中增强爆发力的筋肉"
+  },
+  {
+    "item_id": "cl-158",
+    "name": "吸血牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-276",
+        "name": "阴影蝠"
+      }
+    ],
+    "description": "锻造噬血匕首的锋锐牙刃"
+  },
+  {
+    "item_id": "cl-159",
+    "name": "吸血獠牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-166",
+        "name": "黑风蝠"
+      }
+    ],
+    "description": "制作邪道法器时汲取精血的媒介"
+  },
+  {
+    "item_id": "cl-160",
+    "name": "喙尖石",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-141",
+        "name": "火羽鹤"
+      }
+    ],
+    "description": "可用于锻造火系低阶武器的锋锐材料"
+  },
+  {
+    "item_id": "cl-161",
+    "name": "土岩铠甲碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-292",
+        "name": "地铠犀牛"
+      }
+    ],
+    "description": "熔铸土系防具的基础护甲碎片"
+  },
+  {
+    "item_id": "cl-162",
+    "name": "土毒腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-056",
+        "name": "岩甲地蝎"
+      }
+    ],
+    "description": "提炼麻痹毒素的土系材料"
+  },
+  {
+    "item_id": "cl-163",
+    "name": "土甲壳碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-117",
+        "name": "土铠兽"
+      }
+    ],
+    "description": "制作低阶土系护甲的硬质原料"
+  },
+  {
+    "item_id": "cl-164",
+    "name": "土甲龙的板甲碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-052",
+        "name": "土甲龙"
+      }
+    ],
+    "description": "锻造中阶土系重甲的核心板材"
+  },
+  {
+    "item_id": "cl-165",
+    "name": "地铠犀角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-292",
+        "name": "地铠犀牛"
+      }
+    ],
+    "description": "铭刻土系防御符文的优质角料"
+  },
+  {
+    "item_id": "cl-166",
+    "name": "声波腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-210",
+        "name": "暗影蝠"
+      }
+    ],
+    "description": "调制音波类术法药剂的材料"
+  },
+  {
+    "item_id": "cl-167",
+    "name": "声波腺体",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-029",
+        "name": "青翼蝠"
+      }
+    ],
+    "description": "制作声波感知法器的核心部件"
+  },
+  {
+    "item_id": "cl-168",
+    "name": "复眼晶",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-146",
+        "name": "风刃螳螂"
+      }
+    ],
+    "description": "镶嵌风系法器的多棱晶石"
+  },
+  {
+    "item_id": "cl-169",
+    "name": "夜影翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-068",
+        "name": "夜影猎蝠"
+      }
+    ],
+    "description": "缝制夜行隐匿斗篷的暗系材料"
+  },
+  {
+    "item_id": "cl-170",
+    "name": "夜间眼石",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-110",
+        "name": "暗影猫"
+      }
+    ],
+    "description": "炼制夜视丹药的暗系矿石"
+  },
+  {
+    "item_id": "cl-171",
+    "name": "天鹅泪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-227",
+        "name": "冰翼天鹅"
+      }
+    ],
+    "description": "炼制冰系疗伤灵药的泪晶"
+  },
+  {
+    "item_id": "cl-172",
+    "name": "嫩叶冠羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-204",
+        "name": "青木猴"
+      }
+    ],
+    "description": "编织木系轻甲的自然羽饰"
+  },
+  {
+    "item_id": "cl-173",
+    "name": "寒冰毒液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-114",
+        "name": "冰晶蛇"
+      }
+    ],
+    "description": "淬炼冰毒箭矢的致命液剂"
+  },
+  {
+    "item_id": "cl-174",
+    "name": "寒冰熊掌",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-123",
+        "name": "冰甲熊"
+      }
+    ],
+    "description": "锻造冰系拳套的坚韧掌材"
+  },
+  {
+    "item_id": "cl-175",
+    "name": "寒晶牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-139",
+        "name": "冰霜蝠"
+      }
+    ],
+    "description": "镶嵌冰系法杖的尖晶牙材"
+  },
+  {
+    "item_id": "cl-176",
+    "name": "寒毒液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-067",
+        "name": "寒髓冰蛇"
+      }
+    ],
+    "description": "提炼冰系剧毒药剂的液体"
+  },
+  {
+    "item_id": "cl-177",
+    "name": "寒液腺囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-130",
+        "name": "冰刺蛇"
+      }
+    ],
+    "description": "盛装冰系灵液的天然容器"
+  },
+  {
+    "item_id": "cl-178",
+    "name": "寒潭鲛鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-299",
+        "name": "寒潭鲛"
+      }
+    ],
+    "description": "缝制冰系软甲的鲛人鳞片"
+  },
+  {
+    "item_id": "cl-179",
+    "name": "寒花粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-149",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "炼制冰系迷幻香粉的花药"
+  },
+  {
+    "item_id": "cl-180",
+    "name": "寒霜腺液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-036",
+        "name": "霜甲虫"
+      }
+    ],
+    "description": "淬炼寒冰毒液的珍稀材料"
+  },
+  {
+    "item_id": "cl-181",
+    "name": "寒霜花粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-198",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "炼制冰系丹药的冷冽药引"
+  },
+  {
+    "item_id": "cl-182",
+    "name": "寒露珠",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-231",
+        "name": "冰晶蝶"
+      }
+    ],
+    "description": "凝聚冰晶蝶寒气的纯净灵珠"
+  },
+  {
+    "item_id": "cl-183",
+    "name": "尖牙刺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-085",
+        "name": "暗影蝠"
+      }
+    ],
+    "description": "可锻造暗影系短匕的锋利牙材"
+  },
+  {
+    "item_id": "cl-184",
+    "name": "尾焰火种",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-027",
+        "name": "炎尾蜥"
+      }
+    ],
+    "description": "点燃火系符文的炽热核心"
+  },
+  {
+    "item_id": "cl-185",
+    "name": "尾电球",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-142",
+        "name": "雷纹豹"
+      }
+    ],
+    "description": "储存雷电之力的天然能量珠"
+  },
+  {
+    "item_id": "cl-186",
+    "name": "尾部荧光液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-075",
+        "name": "雷击蜓"
+      }
+    ],
+    "description": "调制夜光灵药的特殊介质"
+  },
+  {
+    "item_id": "cl-187",
+    "name": "岩壳碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-082",
+        "name": "岩甲龟"
+      }
+    ],
+    "description": "熔铸土系护甲的粗胚原料"
+  },
+  {
+    "item_id": "cl-188",
+    "name": "岩壳龟的背甲碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-030",
+        "name": "岩壳龟"
+      }
+    ],
+    "description": "打造高阶岩盾的坚实基材"
+  },
+  {
+    "item_id": "cl-189",
+    "name": "岩浆精粹",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-221",
+        "name": "岩熔龟"
+      }
+    ],
+    "description": "淬炼火系神兵的地心精华"
+  },
+  {
+    "item_id": "cl-190",
+    "name": "岩浆结晶",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-274",
+        "name": "熔岩石像"
+      }
+    ],
+    "description": "镶嵌火系法器的灼热晶石"
+  },
+  {
+    "item_id": "cl-191",
+    "name": "岩爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-191",
+        "name": "地裂熊"
+      }
+    ],
+    "description": "锻造土系拳套的坚韧爪刃"
+  },
+  {
+    "item_id": "cl-192",
+    "name": "岩甲板",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-258",
+        "name": "岩甲龟"
+      }
+    ],
+    "description": "制作重型岩石铠甲的整块板料"
+  },
+  {
+    "item_id": "cl-193",
+    "name": "岩甲碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-208",
+        "name": "岩甲巨犀"
+      }
+    ],
+    "description": "拼接岩甲巨犀防具的碎鳞材料"
+  },
+  {
+    "item_id": "cl-194",
+    "name": "岩石甲片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-126",
+        "name": "石甲犀"
+      }
+    ],
+    "description": "编织石甲犀战甲的硬质鳞片"
+  },
+  {
+    "item_id": "cl-195",
+    "name": "岩蝎尾针",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-182",
+        "name": "岩甲蝎"
+      }
+    ],
+    "description": "淬毒暗器的致命针材"
+  },
+  {
+    "item_id": "cl-196",
+    "name": "岩蝎甲壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-056",
+        "name": "岩甲地蝎"
+      }
+    ],
+    "description": "炼制土系护心镜的厚实壳料"
+  },
+  {
+    "item_id": "cl-197",
+    "name": "岩龟壳板",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-133",
+        "name": "岩甲龟"
+      }
+    ],
+    "description": "雕琢玄武纹饰的上等龟板"
+  },
+  {
+    "item_id": "cl-198",
+    "name": "带电喙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-153",
+        "name": "雷羽鹰"
+      }
+    ],
+    "description": "附魔雷系箭矢的导电喙尖"
+  },
+  {
+    "item_id": "cl-199",
+    "name": "幼蜥爪骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-079",
+        "name": "熔岩幼蜥"
+      }
+    ],
+    "description": "炼制火系灵宠装备的幼骨素材"
+  },
+  {
+    "item_id": "cl-200",
+    "name": "影尾毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-144",
+        "name": "暗影猫"
+      }
+    ],
+    "description": "编织暗影潜行斗篷的灵性丝线"
+  },
+  {
+    "item_id": "cl-201",
+    "name": "影爪利刃",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-101",
+        "name": "影爪鼬"
+      }
+    ],
+    "description": "淬炼暗影系匕首的锋锐爪骨"
+  },
+  {
+    "item_id": "cl-202",
+    "name": "影猫爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-158",
+        "name": "暗影猫"
+      }
+    ],
+    "description": "铭刻夜袭符文的轻灵爪材"
+  },
+  {
+    "item_id": "cl-203",
+    "name": "影翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-286",
+        "name": "影刃蝙蝠"
+      }
+    ],
+    "description": "缝制无声滑翔披风的柔韧薄膜"
+  },
+  {
+    "item_id": "cl-204",
+    "name": "影蛇毒牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-093",
+        "name": "影蛇"
+      }
+    ],
+    "description": "萃取隐匿剧毒的上佳牙材"
+  },
+  {
+    "item_id": "cl-205",
+    "name": "影豹皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-260",
+        "name": "暗影豹"
+      }
+    ],
+    "description": "鞣制暗影疾行护甲的坚韧毛皮"
+  },
+  {
+    "item_id": "cl-206",
+    "name": "掌心种子",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-070",
+        "name": "青藤猿"
+      }
+    ],
+    "description": "培育青藤缠绕术的寄生灵种"
+  },
+  {
+    "item_id": "cl-207",
+    "name": "放电器官",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-302",
+        "name": "闪雷蜥"
+      }
+    ],
+    "description": "镶嵌雷系法器的活体雷核"
+  },
+  {
+    "item_id": "cl-208",
+    "name": "旋风鬣犬鬃毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-022",
+        "name": "旋风鬣犬"
+      }
+    ],
+    "description": "编织风刃披风的狂乱鬃丝"
+  },
+  {
+    "item_id": "cl-209",
+    "name": "暗丝腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-172",
+        "name": "暗岩蛛"
+      }
+    ],
+    "description": "抽制暗影束缚网的黑韧丝线"
+  },
+  {
+    "item_id": "cl-210",
+    "name": "暗凝血液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-039",
+        "name": "黑水蛭"
+      }
+    ],
+    "description": "炼制暗影凝血丹的阴寒精血"
+  },
+  {
+    "item_id": "cl-211",
+    "name": "暗影尖刺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-202",
+        "name": "暗刺兽"
+      }
+    ],
+    "description": "打造暗影系暗器的天然刺材"
+  },
+  {
+    "item_id": "cl-212",
+    "name": "暗影披毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-158",
+        "name": "暗影猫"
+      }
+    ],
+    "description": "绣制夜行斗篷的幽暗绒毛"
+  },
+  {
+    "item_id": "cl-213",
+    "name": "暗影牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-260",
+        "name": "暗影豹"
+      }
+    ],
+    "description": "磨制暗影系符刃的碎魂獠牙"
+  },
+  {
+    "item_id": "cl-214",
+    "name": "暗影狼毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-222",
+        "name": "暗影狼"
+      }
+    ],
+    "description": "织就月下潜行袍的阴寒狼毫"
+  },
+  {
+    "item_id": "cl-215",
+    "name": "暗影狼牙",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-222",
+        "name": "暗影狼"
+      },
+      {
+        "mob_id": "WB-246",
+        "name": "暗影狼"
+      }
+    ],
+    "description": "铸炼噬魂匕的噬咬利齿"
+  },
+  {
+    "item_id": "cl-216",
+    "name": "暗影猫爪",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-024",
+        "name": "暗影猫"
+      },
+      {
+        "mob_id": "WB-110",
+        "name": "暗影猫"
+      },
+      {
+        "mob_id": "WB-295",
+        "name": "暗影猫"
+      }
+    ],
+    "description": "刻印暗影突袭符的锐利爪尖"
+  },
+  {
+    "item_id": "cl-217",
+    "name": "暗影皮毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-101",
+        "name": "影爪鼬"
+      }
+    ],
+    "description": "缝制暗影遁形甲的柔韧皮料"
+  },
+  {
+    "item_id": "cl-218",
+    "name": "暗影翅膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-119",
+        "name": "暗影螳螂"
+      }
+    ],
+    "description": "炼制暗影飞刃的透明翅刃"
+  },
+  {
+    "item_id": "cl-219",
+    "name": "暗影翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-128",
+        "name": "暗影蝠"
+      }
+    ],
+    "description": "制作夜蝠披风的吸音翼膜"
+  },
+  {
+    "item_id": "cl-220",
+    "name": "暗影蛇皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-093",
+        "name": "影蛇"
+      }
+    ],
+    "description": "缝制暗影潜行护甲的优质皮料"
+  },
+  {
+    "item_id": "cl-221",
+    "name": "暗影蛛丝",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-151",
+        "name": "暗影蜘蛛"
+      }
+    ],
+    "description": "编织束缚类陷阱法器的丝线"
+  },
+  {
+    "item_id": "cl-222",
+    "name": "暗影蝠牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-128",
+        "name": "暗影蝠"
+      }
+    ],
+    "description": "磨制暗属性匕首的锐利牙材"
+  },
+  {
+    "item_id": "cl-223",
+    "name": "暗影蝠翼",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-210",
+        "name": "暗影蝠"
+      }
+    ],
+    "description": "炼制轻身术符箓的翼膜材料"
+  },
+  {
+    "item_id": "cl-224",
+    "name": "暗影蝠翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-015",
+        "name": "暗影蝠"
+      }
+    ],
+    "description": "制作暗影隐匿披风的薄韧膜片"
+  },
+  {
+    "item_id": "cl-225",
+    "name": "暗影血滴",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-237",
+        "name": "暗影蝠"
+      }
+    ],
+    "description": "绘制诅咒符文的暗属性灵血"
+  },
+  {
+    "item_id": "cl-226",
+    "name": "暗影镰刃",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-119",
+        "name": "暗影螳螂"
+      }
+    ],
+    "description": "锻造暗影系镰刀的锋锐刃片"
+  },
+  {
+    "item_id": "cl-227",
+    "name": "暗影鼠尾",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-032",
+        "name": "暗影鼠"
+      }
+    ],
+    "description": "调和暗影药剂的灵性尾须"
+  },
+  {
+    "item_id": "cl-228",
+    "name": "暗毒牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-059",
+        "name": "暗影潜鼠"
+      }
+    ],
+    "description": "淬炼暗毒暗器的剧毒牙尖"
+  },
+  {
+    "item_id": "cl-229",
+    "name": "暗水蛇鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-216",
+        "name": "暗水蛇"
+      }
+    ],
+    "description": "镶嵌暗水双属性防具的鳞片"
+  },
+  {
+    "item_id": "cl-230",
+    "name": "暗猫爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-144",
+        "name": "暗影猫"
+      }
+    ],
+    "description": "刻印暗影步法符文的利爪"
+  },
+  {
+    "item_id": "cl-231",
+    "name": "暗羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-252",
+        "name": "暗影鸦"
+      }
+    ],
+    "description": "制作暗影飞行法器的鸦羽"
+  },
+  {
+    "item_id": "cl-232",
+    "name": "暗蚀牙粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-032",
+        "name": "暗影鼠"
+      }
+    ],
+    "description": "消散灵气的暗蚀性粉末"
+  },
+  {
+    "item_id": "cl-233",
+    "name": "暗蛛丝",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-077",
+        "name": "暗影潜伏蛛"
+      }
+    ],
+    "description": "编织暗影束缚网的精韧蛛丝"
+  },
+  {
+    "item_id": "cl-234",
+    "name": "暗蝠翼",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-269",
+        "name": "暗蝠群"
+      }
+    ],
+    "description": "炼制暗影遁术符箓的翼材"
+  },
+  {
+    "item_id": "cl-235",
+    "name": "暗蝠翼膜",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-085",
+        "name": "暗影蝠"
+      },
+      {
+        "mob_id": "WB-136",
+        "name": "暗影蝙蝠"
+      }
+    ],
+    "description": "制作暗影潜行披风的膜料"
+  },
+  {
+    "item_id": "cl-236",
+    "name": "暗血珠",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-286",
+        "name": "影刃蝙蝠"
+      }
+    ],
+    "description": "凝聚暗影精血的灵珠"
+  },
+  {
+    "item_id": "cl-237",
+    "name": "暗语猿的毛发",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-046",
+        "name": "暗语猿"
+      }
+    ],
+    "description": "编织通灵法袍的暗语灵毛"
+  },
+  {
+    "item_id": "cl-238",
+    "name": "暗鳞片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-184",
+        "name": "暗影蛇"
+      }
+    ],
+    "description": "锻造暗影软甲的蛇鳞"
+  },
+  {
+    "item_id": "cl-239",
+    "name": "暗鳞粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-193",
+        "name": "暗雾蛾"
+      }
+    ],
+    "description": "调制暗影潜形丹的鳞粉"
+  },
+  {
+    "item_id": "cl-240",
+    "name": "暗鼠皮毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-059",
+        "name": "暗影潜鼠"
+      }
+    ],
+    "description": "可缝制隐匿气息的低阶夜行护具"
+  },
+  {
+    "item_id": "cl-241",
+    "name": "木化羽枝",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-094",
+        "name": "木质鸟"
+      }
+    ],
+    "description": "可打磨成轻灵的木系箭矢材料"
+  },
+  {
+    "item_id": "cl-242",
+    "name": "木化蹄壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-102",
+        "name": "荆棘鹿"
+      }
+    ],
+    "description": "可炼制低阶木系防具的硬质衬片"
+  },
+  {
+    "item_id": "cl-243",
+    "name": "木岩疣粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-251",
+        "name": "木岩猿"
+      }
+    ],
+    "description": "可调和木土双属性药膏的粉末"
+  },
+  {
+    "item_id": "cl-244",
+    "name": "木息毒液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-169",
+        "name": "翠木蛇"
+      }
+    ],
+    "description": "可淬炼麻痹敌人的木系毒刃"
+  },
+  {
+    "item_id": "cl-245",
+    "name": "木灵叶",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-262",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "可入药炼制滋养木系经脉的丹丸"
+  },
+  {
+    "item_id": "cl-246",
+    "name": "木灵角",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-143",
+        "name": "木灵鹿"
+      },
+      {
+        "mob_id": "WB-160",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "可雕刻木系法阵的核心灵材"
+  },
+  {
+    "item_id": "cl-247",
+    "name": "木灵角碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-236",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "可研磨成强化木系符文的粉末"
+  },
+  {
+    "item_id": "cl-248",
+    "name": "木灵鹿角",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-118",
+        "name": "木灵鹿"
+      },
+      {
+        "mob_id": "WB-214",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "可锻造增幅木灵之力的法器"
+  },
+  {
+    "item_id": "cl-249",
+    "name": "木熊掌",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-109",
+        "name": "木根熊"
+      }
+    ],
+    "description": "可烹制药膳增强体魄的灵材"
+  },
+  {
+    "item_id": "cl-250",
+    "name": "木猴尾花",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-278",
+        "name": "木精猴"
+      }
+    ],
+    "description": "可调和木系灵兽的驯化香料"
+  },
+  {
+    "item_id": "cl-251",
+    "name": "木猿毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-297",
+        "name": "木猿"
+      }
+    ],
+    "description": "可编织抵御木毒的低阶护腕"
+  },
+  {
+    "item_id": "cl-252",
+    "name": "木猿牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-176",
+        "name": "木藤猿"
+      }
+    ],
+    "description": "可嵌入木系短匕的锋刃材料"
+  },
+  {
+    "item_id": "cl-253",
+    "name": "木甲壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-271",
+        "name": "木甲蚁"
+      }
+    ],
+    "description": "可打造轻便的木系护心甲"
+  },
+  {
+    "item_id": "cl-254",
+    "name": "木甲片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-017",
+        "name": "木甲熊"
+      }
+    ],
+    "description": "可拼接成防御木系法术的鳞甲"
+  },
+  {
+    "item_id": "cl-255",
+    "name": "木甲犀角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-226",
+        "name": "木甲犀"
+      }
+    ],
+    "description": "可磨制破木系结界的锥刺"
+  },
+  {
+    "item_id": "cl-256",
+    "name": "木甲皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-226",
+        "name": "木甲犀"
+      }
+    ],
+    "description": "可鞣制抗木系冲击的坚韧皮甲"
+  },
+  {
+    "item_id": "cl-257",
+    "name": "木纹蝶翅",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-127",
+        "name": "木纹蝶"
+      }
+    ],
+    "description": "可绘制木系隐匿符文的轻纱"
+  },
+  {
+    "item_id": "cl-258",
+    "name": "木藤猴爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-135",
+        "name": "木藤猿"
+      }
+    ],
+    "description": "可装配攀爬木系峭壁的钩爪"
+  },
+  {
+    "item_id": "cl-259",
+    "name": "木质喙尖",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-094",
+        "name": "木质鸟"
+      }
+    ],
+    "description": "可制作木系灵禽的召唤法器"
+  },
+  {
+    "item_id": "cl-260",
+    "name": "木质翅鞘",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-061",
+        "name": "木甲螳螂"
+      }
+    ],
+    "description": "轻韧如木，可炼制低阶木系防具的甲片"
+  },
+  {
+    "item_id": "cl-261",
+    "name": "毒丝囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-203",
+        "name": "毒须蛛"
+      }
+    ],
+    "description": "提取毒丝，编织暗器或淬毒绳索的原料"
+  },
+  {
+    "item_id": "cl-262",
+    "name": "毒刺囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-244",
+        "name": "石甲蝎"
+      }
+    ],
+    "description": "研磨成粉，可淬炼刺击类武器的剧毒涂层"
+  },
+  {
+    "item_id": "cl-263",
+    "name": "毒刺针",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-092",
+        "name": "毒刺蝎"
+      }
+    ],
+    "description": "坚硬锐利，适合制成淬毒飞针或陷阱机关"
+  },
+  {
+    "item_id": "cl-264",
+    "name": "毒囊",
+    "rarity": "常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-132",
+        "name": "毒瘤蛙"
+      },
+      {
+        "mob_id": "WB-182",
+        "name": "岩甲蝎"
+      },
+      {
+        "mob_id": "WB-261",
+        "name": "毒涎蛛"
+      },
+      {
+        "mob_id": "WB-264",
+        "name": "赤焰蝎"
+      },
+      {
+        "mob_id": "WB-281",
+        "name": "碧鳞水蟒"
+      }
+    ],
+    "description": "炼毒入药，可调制麻痹或腐蚀类毒剂的基材"
+  },
+  {
+    "item_id": "cl-265",
+    "name": "毒囊液",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-042",
+        "name": "毒棘豪猪"
+      },
+      {
+        "mob_id": "WB-206",
+        "name": "冰晶毒蛛"
+      },
+      {
+        "mob_id": "WB-218",
+        "name": "绿毒蛙"
+      },
+      {
+        "mob_id": "WB-234",
+        "name": "毒沼蛙"
+      }
+    ],
+    "description": "浓缩毒汁，用于炼制毒系丹药或淬炼箭矢"
+  },
+  {
+    "item_id": "cl-266",
+    "name": "毒囊蜂的毒腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-033",
+        "name": "毒囊蜂"
+      }
+    ],
+    "description": "提炼蜂毒，可配制成速效麻痹毒剂"
+  },
+  {
+    "item_id": "cl-267",
+    "name": "毒孢粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-100",
+        "name": "毒雾菇精"
+      }
+    ],
+    "description": "遇风散毒，可制作毒雾陷阱或暗器毒粉"
+  },
+  {
+    "item_id": "cl-268",
+    "name": "毒尾针",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-106",
+        "name": "沙隐蝎"
+      }
+    ],
+    "description": "蝎尾之毒，可嵌入兵器制成阴毒暗器"
+  },
+  {
+    "item_id": "cl-269",
+    "name": "毒棘刺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-069",
+        "name": "毒棘豪猪"
+      }
+    ],
+    "description": "棘上剧毒，可打磨成毒镖或淬毒箭簇"
+  },
+  {
+    "item_id": "cl-270",
+    "name": "毒棘豪猪的毒棘",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-042",
+        "name": "毒棘豪猪"
+      }
+    ],
+    "description": "棘刺坚硬，可炼制毒系远程投掷武器"
+  },
+  {
+    "item_id": "cl-271",
+    "name": "毒液囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-185",
+        "name": "毒雾蟒"
+      }
+    ],
+    "description": "蟒毒精华，可炼制高阶毒系丹药或毒雾"
+  },
+  {
+    "item_id": "cl-272",
+    "name": "毒牙",
+    "rarity": "常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-077",
+        "name": "暗影潜伏蛛"
+      },
+      {
+        "mob_id": "WB-136",
+        "name": "暗影蝙蝠"
+      },
+      {
+        "mob_id": "WB-147",
+        "name": "毒藤蟒"
+      },
+      {
+        "mob_id": "WB-151",
+        "name": "暗影蜘蛛"
+      },
+      {
+        "mob_id": "WB-184",
+        "name": "暗影蛇"
+      },
+      {
+        "mob_id": "WB-229",
+        "name": "沙牙蛇"
+      },
+      {
+        "mob_id": "WB-270",
+        "name": "毒蔓蛇"
+      }
+    ],
+    "description": "锋利带毒，可镶嵌于匕首或制成毒刃"
+  },
+  {
+    "item_id": "cl-273",
+    "name": "毒纹蛙的皮肤",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-049",
+        "name": "毒纹蛙"
+      }
+    ],
+    "description": "斑斓毒皮，可缝制低阶毒抗皮甲"
+  },
+  {
+    "item_id": "cl-274",
+    "name": "毒脓腺囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-125",
+        "name": "毒腐蛙"
+      }
+    ],
+    "description": "脓毒凝集，可炼制腐蚀性剧毒药膏"
+  },
+  {
+    "item_id": "cl-275",
+    "name": "毒腺",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-159",
+        "name": "毒藤蟒"
+      },
+      {
+        "mob_id": "WB-177",
+        "name": "沙隐蛇"
+      },
+      {
+        "mob_id": "WB-194",
+        "name": "毒箭蛙"
+      }
+    ],
+    "description": "毒蛇之腺，可萃取毒液用于淬炼武器"
+  },
+  {
+    "item_id": "cl-276",
+    "name": "毒腺囊",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-078",
+        "name": "毒瘴蛙"
+      },
+      {
+        "mob_id": "WB-108",
+        "name": "毒藤蟒"
+      },
+      {
+        "mob_id": "WB-168",
+        "name": "毒雾蛤"
+      },
+      {
+        "mob_id": "WB-277",
+        "name": "毒雾蛤"
+      }
+    ],
+    "description": "蕴藏毒汁，可调制麻痹或致幻类毒剂"
+  },
+  {
+    "item_id": "cl-277",
+    "name": "毒腺液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-049",
+        "name": "毒纹蛙"
+      }
+    ],
+    "description": "晶莹毒液，可炼制毒系符箓或暗器淬毒"
+  },
+  {
+    "item_id": "cl-278",
+    "name": "毒腺液囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-092",
+        "name": "毒刺蝎"
+      }
+    ],
+    "description": "毒液浓缩，可制作延时毒发机关的关键材料"
+  },
+  {
+    "item_id": "cl-279",
+    "name": "毒花蕊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-140",
+        "name": "毒花蛇"
+      }
+    ],
+    "description": "花毒入药，可炼制迷魂或毒雾类丹药"
+  },
+  {
+    "item_id": "cl-280",
+    "name": "毒菇伞盖",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-100",
+        "name": "毒雾菇精"
+      }
+    ],
+    "description": "可研磨成毒粉用于淬炼暗器"
+  },
+  {
+    "item_id": "cl-281",
+    "name": "毒菇孢子粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-060",
+        "name": "毒蘑菇精"
+      }
+    ],
+    "description": "炼制迷幻毒雾的核心材料"
+  },
+  {
+    "item_id": "cl-282",
+    "name": "毒藤枝条",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-287",
+        "name": "毒藤妖树"
+      }
+    ],
+    "description": "编织低阶毒系法杖的藤材"
+  },
+  {
+    "item_id": "cl-283",
+    "name": "毒蛇牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-211",
+        "name": "毒藤花蛇"
+      }
+    ],
+    "description": "镶嵌毒系匕首的天然毒牙"
+  },
+  {
+    "item_id": "cl-284",
+    "name": "毒蛙皮",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-125",
+        "name": "毒腐蛙"
+      },
+      {
+        "mob_id": "WB-194",
+        "name": "毒箭蛙"
+      }
+    ],
+    "description": "制作低阶毒抗软甲的皮料"
+  },
+  {
+    "item_id": "cl-285",
+    "name": "毒蜂王尾针",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-225",
+        "name": "毒蜂王"
+      }
+    ],
+    "description": "炼制剧毒暗器的上等毒针"
+  },
+  {
+    "item_id": "cl-286",
+    "name": "毒蜂蜜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-225",
+        "name": "毒蜂王"
+      }
+    ],
+    "description": "调制成毒药或诱饵的甜毒"
+  },
+  {
+    "item_id": "cl-287",
+    "name": "毒蝎尾刺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-213",
+        "name": "沙暴蝎"
+      }
+    ],
+    "description": "淬炼沙暴毒刃的锋利毒刺"
+  },
+  {
+    "item_id": "cl-288",
+    "name": "毒蟒蛇胆",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-185",
+        "name": "毒雾蟒"
+      }
+    ],
+    "description": "入药可解百毒或炼剧毒"
+  },
+  {
+    "item_id": "cl-289",
+    "name": "毒蟾皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-250",
+        "name": "水毒蟾"
+      }
+    ],
+    "description": "缝制低阶毒系护具的蟾衣"
+  },
+  {
+    "item_id": "cl-290",
+    "name": "毒雾菇伞盖",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-016",
+        "name": "毒雾菇精"
+      }
+    ],
+    "description": "释放毒雾术法的天然媒介"
+  },
+  {
+    "item_id": "cl-291",
+    "name": "毒鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-159",
+        "name": "毒藤蟒"
+      }
+    ],
+    "description": "锻造毒系护甲的腐蚀鳞片"
+  },
+  {
+    "item_id": "cl-292",
+    "name": "毒鳞片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-108",
+        "name": "毒藤蟒"
+      }
+    ],
+    "description": "镶嵌毒系武器的剧毒鳞材"
+  },
+  {
+    "item_id": "cl-293",
+    "name": "毒鳞粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-243",
+        "name": "毒翼蛾"
+      }
+    ],
+    "description": "撒布毒雾陷阱的粉末毒料"
+  },
+  {
+    "item_id": "cl-294",
+    "name": "毒鳞粉囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-116",
+        "name": "毒雾蝶"
+      }
+    ],
+    "description": "提炼高纯度毒粉的囊袋"
+  },
+  {
+    "item_id": "cl-295",
+    "name": "水丝囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-163",
+        "name": "水柔蛛"
+      }
+    ],
+    "description": "抽取水柔蛛丝织成柔韧法袍"
+  },
+  {
+    "item_id": "cl-296",
+    "name": "水毒液囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-250",
+        "name": "水毒蟾"
+      }
+    ],
+    "description": "炼制水毒咒符的毒液材料"
+  },
+  {
+    "item_id": "cl-297",
+    "name": "水泡鱼凝胶",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-018",
+        "name": "水泡鱼"
+      }
+    ],
+    "description": "制作柔韧水盾的凝胶基质"
+  },
+  {
+    "item_id": "cl-298",
+    "name": "水泡鱼皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-072",
+        "name": "水泡鱼"
+      }
+    ],
+    "description": "缝制水下作战的轻便皮衣"
+  },
+  {
+    "item_id": "cl-299",
+    "name": "水波甲片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-111",
+        "name": "水纹龟"
+      }
+    ],
+    "description": "锻造水纹防具的波纹甲片"
+  },
+  {
+    "item_id": "cl-300",
+    "name": "水灵鳞",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-196",
+        "name": "水灵蛇"
+      },
+      {
+        "mob_id": "WB-223",
+        "name": "水灵蛟"
+      }
+    ],
+    "description": "锻造水系低阶防具的基础鳞材"
+  },
+  {
+    "item_id": "cl-301",
+    "name": "水犀角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-145",
+        "name": "水纹犀"
+      }
+    ],
+    "description": "可研磨成增幅水系内力的药引"
+  },
+  {
+    "item_id": "cl-302",
+    "name": "水箭鳍",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-173",
+        "name": "水箭鱼"
+      }
+    ],
+    "description": "镶嵌于箭矢可提升穿透力的轻鳍"
+  },
+  {
+    "item_id": "cl-303",
+    "name": "水纹牙",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-137",
+        "name": "水纹鲛"
+      },
+      {
+        "mob_id": "WB-238",
+        "name": "水纹鲨"
+      }
+    ],
+    "description": "雕琢水纹符咒的坚韧牙材"
+  },
+  {
+    "item_id": "cl-304",
+    "name": "水纹鳐皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-290",
+        "name": "水纹鳐"
+      }
+    ],
+    "description": "柔韧皮料适合缝制避水轻甲"
+  },
+  {
+    "item_id": "cl-305",
+    "name": "水纹鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-263",
+        "name": "水纹蛟"
+      }
+    ],
+    "description": "铭刻水元纹路的优质鳞片"
+  },
+  {
+    "item_id": "cl-306",
+    "name": "水纹龟甲",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-152",
+        "name": "水纹龟"
+      }
+    ],
+    "description": "炼制低阶水盾护甲的硬甲材料"
+  },
+  {
+    "item_id": "cl-307",
+    "name": "水翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-279",
+        "name": "水翼蛇"
+      }
+    ],
+    "description": "可制成滑翔翼或防水斗篷的薄膜"
+  },
+  {
+    "item_id": "cl-308",
+    "name": "水蓝毒腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-163",
+        "name": "水柔蛛"
+      }
+    ],
+    "description": "提取麻痹毒素的剧毒腺体"
+  },
+  {
+    "item_id": "cl-309",
+    "name": "水蛙皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-187",
+        "name": "水纹蛙"
+      }
+    ],
+    "description": "制作低阶避水软甲的皮料"
+  },
+  {
+    "item_id": "cl-310",
+    "name": "水蟒鳞片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-054",
+        "name": "霜纹水蟒"
+      }
+    ],
+    "description": "蕴含寒气的霜纹鳞片"
+  },
+  {
+    "item_id": "cl-311",
+    "name": "水速腺体",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-120",
+        "name": "水鳍蛇"
+      }
+    ],
+    "description": "炼制轻身丹药的增速材料"
+  },
+  {
+    "item_id": "cl-312",
+    "name": "水鳍鳞片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-120",
+        "name": "水鳍蛇"
+      }
+    ],
+    "description": "镶嵌于靴履可增水行速度"
+  },
+  {
+    "item_id": "cl-313",
+    "name": "沙暴甲壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-213",
+        "name": "沙暴蝎"
+      }
+    ],
+    "description": "铸造土系重甲的坚硬甲壳"
+  },
+  {
+    "item_id": "cl-314",
+    "name": "沙牙蛇皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-229",
+        "name": "沙牙蛇"
+      }
+    ],
+    "description": "编织耐磨损沙行护具的皮料"
+  },
+  {
+    "item_id": "cl-315",
+    "name": "沙狼爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-170",
+        "name": "风沙狼"
+      }
+    ],
+    "description": "磨制破甲利刃的凶兽爪材"
+  },
+  {
+    "item_id": "cl-316",
+    "name": "沙石核心残片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-098",
+        "name": "沙石怪"
+      }
+    ],
+    "description": "炼化土元内丹的残碎晶核"
+  },
+  {
+    "item_id": "cl-317",
+    "name": "沙蝎尾钩",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-012",
+        "name": "沙蝎"
+      }
+    ],
+    "description": "淬炼土毒暗器的弯钩材料"
+  },
+  {
+    "item_id": "cl-318",
+    "name": "沙蝎毒腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-138",
+        "name": "沙暴蝎"
+      }
+    ],
+    "description": "提取沙毒炼化毒丹的毒源"
+  },
+  {
+    "item_id": "cl-319",
+    "name": "沙蝎甲壳",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-106",
+        "name": "沙隐蝎"
+      },
+      {
+        "mob_id": "WB-156",
+        "name": "沙暴蝎"
+      }
+    ],
+    "description": "拼接低阶土盾的坚实甲片"
+  },
+  {
+    "item_id": "cl-320",
+    "name": "沙隐蚺的蛇皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-044",
+        "name": "沙隐蚺"
+      }
+    ],
+    "description": "编织沙隐斗篷的绝佳皮料"
+  },
+  {
+    "item_id": "cl-321",
+    "name": "沙隐鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-177",
+        "name": "沙隐蛇"
+      }
+    ],
+    "description": "熔炼沙隐护符的核心材料"
+  },
+  {
+    "item_id": "cl-322",
+    "name": "沙鼬毫毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-081",
+        "name": "沙尘鼬"
+      }
+    ],
+    "description": "制作除尘法器的灵性毫毛"
+  },
+  {
+    "item_id": "cl-323",
+    "name": "沼泽黏液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-084",
+        "name": "沼泥蟾"
+      }
+    ],
+    "description": "调和土系药膏的粘稠基质"
+  },
+  {
+    "item_id": "cl-324",
+    "name": "流沙蝎的双螯",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-035",
+        "name": "流沙蝎"
+      }
+    ],
+    "description": "锻造流沙钩刃的锋利素材"
+  },
+  {
+    "item_id": "cl-325",
+    "name": "润滑黏液",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-072",
+        "name": "水泡鱼"
+      },
+      {
+        "mob_id": "WB-187",
+        "name": "水纹蛙"
+      }
+    ],
+    "description": "炼制水系润滑灵液的关键"
+  },
+  {
+    "item_id": "cl-326",
+    "name": "火喙硬壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-087",
+        "name": "炽火雀"
+      }
+    ],
+    "description": "铸炼火喙护心镜的坚硬材料"
+  },
+  {
+    "item_id": "cl-327",
+    "name": "火尾骨",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-103",
+        "name": "焚岩蜥"
+      },
+      {
+        "mob_id": "WB-148",
+        "name": "熔岩蜥"
+      }
+    ],
+    "description": "研磨火尾符粉的灼热骨料"
+  },
+  {
+    "item_id": "cl-328",
+    "name": "火山甲片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-161",
+        "name": "火山龟"
+      }
+    ],
+    "description": "打造火山重甲的熔岩甲片"
+  },
+  {
+    "item_id": "cl-329",
+    "name": "火棘刺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-255",
+        "name": "焰棘蜥"
+      }
+    ],
+    "description": "铭刻火棘符文的锐利尖刺"
+  },
+  {
+    "item_id": "cl-330",
+    "name": "火毒腺囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-230",
+        "name": "熔岩蛛"
+      }
+    ],
+    "description": "提取火毒淬刃的剧毒腺囊"
+  },
+  {
+    "item_id": "cl-331",
+    "name": "火焰掌骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-228",
+        "name": "燃木猿"
+      }
+    ],
+    "description": "雕琢火焰拳套的焚骨素材"
+  },
+  {
+    "item_id": "cl-332",
+    "name": "火焰狐尾",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-197",
+        "name": "焰尾狐"
+      }
+    ],
+    "description": "编织火焰狐裘的灵尾材料"
+  },
+  {
+    "item_id": "cl-333",
+    "name": "火焰獠牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-188",
+        "name": "烈火野猪"
+      }
+    ],
+    "description": "镶嵌火焰战刃的炽热獠牙"
+  },
+  {
+    "item_id": "cl-334",
+    "name": "火焰蜥皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-079",
+        "name": "熔岩幼蜥"
+      }
+    ],
+    "description": "缝制火焰皮甲的耐火皮革"
+  },
+  {
+    "item_id": "cl-335",
+    "name": "火牛蹄",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-239",
+        "name": "赤焰牛"
+      }
+    ],
+    "description": "锻造火牛战靴的坚实蹄甲"
+  },
+  {
+    "item_id": "cl-336",
+    "name": "火狐毛皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-062",
+        "name": "烬火烈狐"
+      }
+    ],
+    "description": "裁制烬火法袍的烈阳毛皮"
+  },
+  {
+    "item_id": "cl-337",
+    "name": "火绒兔毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-038",
+        "name": "火绒兔"
+      }
+    ],
+    "description": "填充火绒护符的温软绒毛"
+  },
+  {
+    "item_id": "cl-338",
+    "name": "火羽雀的羽毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-048",
+        "name": "火羽雀"
+      }
+    ],
+    "description": "书写火羽灵符的炽羽笔材"
+  },
+  {
+    "item_id": "cl-339",
+    "name": "火蜥尾骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-280",
+        "name": "赤鳞火蜥"
+      }
+    ],
+    "description": "炼制火蜥丹尾的赤骨主料"
+  },
+  {
+    "item_id": "cl-340",
+    "name": "火门牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-095",
+        "name": "焰火鼠"
+      }
+    ],
+    "description": "可锻造低阶火系匕首的兽牙材料"
+  },
+  {
+    "item_id": "cl-341",
+    "name": "火鹤羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-141",
+        "name": "火羽鹤"
+      }
+    ],
+    "description": "编织火系法袍的稀有羽料"
+  },
+  {
+    "item_id": "cl-342",
+    "name": "灵木果核",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-135",
+        "name": "木藤猿"
+      }
+    ],
+    "description": "蕴含木灵之力的炼药核心"
+  },
+  {
+    "item_id": "cl-343",
+    "name": "炎尾蜥的鳞片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-027",
+        "name": "炎尾蜥"
+      }
+    ],
+    "description": "制作火抗皮甲的鳞质材料"
+  },
+  {
+    "item_id": "cl-344",
+    "name": "炎火尾羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-167",
+        "name": "炎火雀"
+      }
+    ],
+    "description": "铭刻火焰符文的尾羽素材"
+  },
+  {
+    "item_id": "cl-345",
+    "name": "炎火羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-215",
+        "name": "炎火狮鹫"
+      }
+    ],
+    "description": "锻造高阶火系武器的羽翎"
+  },
+  {
+    "item_id": "cl-346",
+    "name": "炙热龟肉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-053",
+        "name": "熔岩啮龟"
+      }
+    ],
+    "description": "食用可短暂提升火系抗性的兽肉"
+  },
+  {
+    "item_id": "cl-347",
+    "name": "炽火翎羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-087",
+        "name": "炽火雀"
+      }
+    ],
+    "description": "附魔炽热印记的飞行羽料"
+  },
+  {
+    "item_id": "cl-348",
+    "name": "焦热兽皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-179",
+        "name": "熔岩獾兽"
+      }
+    ],
+    "description": "缝制熔岩护具的耐热皮料"
+  },
+  {
+    "item_id": "cl-349",
+    "name": "焦鬃毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-188",
+        "name": "烈火野猪"
+      }
+    ],
+    "description": "编织火系绳索的坚韧鬃毛"
+  },
+  {
+    "item_id": "cl-350",
+    "name": "焰尾毛发",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-095",
+        "name": "焰火鼠"
+      }
+    ],
+    "description": "炼制火毒药剂的鼠尾毛"
+  },
+  {
+    "item_id": "cl-351",
+    "name": "焰鬃毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-298",
+        "name": "焰鬃狮"
+      }
+    ],
+    "description": "制作火系披风的狮鬃材料"
+  },
+  {
+    "item_id": "cl-352",
+    "name": "熊掌骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-303",
+        "name": "冰霜巨熊"
+      }
+    ],
+    "description": "研磨成粉可强筋壮骨的兽骨"
+  },
+  {
+    "item_id": "cl-353",
+    "name": "熊胆",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-191",
+        "name": "地裂熊"
+      }
+    ],
+    "description": "炼制解毒丹的核心药材"
+  },
+  {
+    "item_id": "cl-354",
+    "name": "熔岩喙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-167",
+        "name": "炎火雀"
+      }
+    ],
+    "description": "可熔铸成火系箭镞的鸟喙"
+  },
+  {
+    "item_id": "cl-355",
+    "name": "熔岩壳片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-253",
+        "name": "熔岩蝎"
+      }
+    ],
+    "description": "镶嵌火抗盾牌的甲壳碎片"
+  },
+  {
+    "item_id": "cl-356",
+    "name": "熔岩尾锤",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-071",
+        "name": "熔岩蜥蜴"
+      }
+    ],
+    "description": "锻造钝击武器的熔岩骨锤"
+  },
+  {
+    "item_id": "cl-357",
+    "name": "熔岩尾锤骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-154",
+        "name": "赤晶蜥"
+      }
+    ],
+    "description": "熔铸火系法杖的骨芯材料"
+  },
+  {
+    "item_id": "cl-358",
+    "name": "熔岩犬牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-121",
+        "name": "熔岩豺"
+      }
+    ],
+    "description": "淬炼火毒匕首的犬齿材料"
+  },
+  {
+    "item_id": "cl-359",
+    "name": "熔岩獠牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-179",
+        "name": "熔岩獾兽"
+      }
+    ],
+    "description": "打造熔岩战斧的獠牙刃材"
+  },
+  {
+    "item_id": "cl-360",
+    "name": "熔岩甲壳碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-129",
+        "name": "熔岩蝎"
+      }
+    ],
+    "description": "锻造低阶火系护甲的碎甲材料"
+  },
+  {
+    "item_id": "cl-361",
+    "name": "熔岩甲片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-289",
+        "name": "熔岩巨龟"
+      }
+    ],
+    "description": "熔铸耐热盾牌的核心板材"
+  },
+  {
+    "item_id": "cl-362",
+    "name": "熔岩石核",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-274",
+        "name": "熔岩石像"
+      }
+    ],
+    "description": "镶嵌法器可增幅火系术法"
+  },
+  {
+    "item_id": "cl-363",
+    "name": "熔岩胃石",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-161",
+        "name": "火山龟"
+      }
+    ],
+    "description": "磨粉后可炼制辟火丹药"
+  },
+  {
+    "item_id": "cl-364",
+    "name": "熔岩虫黏液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-019",
+        "name": "熔岩虫"
+      }
+    ],
+    "description": "调和火系附魔药剂的黏合剂"
+  },
+  {
+    "item_id": "cl-365",
+    "name": "熔岩蛛丝",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-230",
+        "name": "熔岩蛛"
+      }
+    ],
+    "description": "编织防火轻甲的柔韧丝线"
+  },
+  {
+    "item_id": "cl-366",
+    "name": "熔岩蜥鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-148",
+        "name": "熔岩蜥"
+      }
+    ],
+    "description": "镶嵌皮甲可抵御灼热气流"
+  },
+  {
+    "item_id": "cl-367",
+    "name": "熔岩鳞片",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-103",
+        "name": "焚岩蜥"
+      },
+      {
+        "mob_id": "WB-205",
+        "name": "熔岩蜥蜴"
+      }
+    ],
+    "description": "拼接成甲能吸收火焰伤害"
+  },
+  {
+    "item_id": "cl-368",
+    "name": "熔岩龟壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-221",
+        "name": "岩熔龟"
+      }
+    ],
+    "description": "打磨为盾可化解熔岩冲击"
+  },
+  {
+    "item_id": "cl-369",
+    "name": "熔岩龟壳碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-053",
+        "name": "熔岩啮龟"
+      }
+    ],
+    "description": "熔炼成低阶火抗饰品的碎料"
+  },
+  {
+    "item_id": "cl-370",
+    "name": "熔火蛛丝囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-112",
+        "name": "熔火蛛"
+      }
+    ],
+    "description": "提取丝线可缝制火系法袍"
+  },
+  {
+    "item_id": "cl-371",
+    "name": "燃尾骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-121",
+        "name": "熔岩豺"
+      }
+    ],
+    "description": "研磨成粉可制作爆裂符咒"
+  },
+  {
+    "item_id": "cl-372",
+    "name": "燃木猿毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-228",
+        "name": "燃木猿"
+      }
+    ],
+    "description": "编织成腕带可引燃火系术法"
+  },
+  {
+    "item_id": "cl-373",
+    "name": "牛角粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-065",
+        "name": "碎石蛮牛"
+      }
+    ],
+    "description": "调和丹药可强化筋骨韧性"
+  },
+  {
+    "item_id": "cl-374",
+    "name": "犀皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-134",
+        "name": "雷角犀"
+      }
+    ],
+    "description": "鞣制后制成雷系抗性护甲"
+  },
+  {
+    "item_id": "cl-375",
+    "name": "犀角粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-208",
+        "name": "岩甲巨犀"
+      }
+    ],
+    "description": "入药可驱散体内寒毒"
+  },
+  {
+    "item_id": "cl-376",
+    "name": "狂风羽翼",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-207",
+        "name": "狂风鹰隼"
+      }
+    ],
+    "description": "镶嵌靴履可提升轻功速度"
+  },
+  {
+    "item_id": "cl-377",
+    "name": "狐尾火绒",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-062",
+        "name": "烬火烈狐"
+      }
+    ],
+    "description": "点燃可释放短暂烈焰屏障"
+  },
+  {
+    "item_id": "cl-378",
+    "name": "狮火骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-298",
+        "name": "焰鬃狮"
+      }
+    ],
+    "description": "雕琢成骨符可召唤火球术"
+  },
+  {
+    "item_id": "cl-379",
+    "name": "狮王电核",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-242",
+        "name": "雷鬃狮"
+      }
+    ],
+    "description": "镶嵌法器可引动雷霆之力"
+  },
+  {
+    "item_id": "cl-380",
+    "name": "狮鹫爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-215",
+        "name": "炎火狮鹫"
+      }
+    ],
+    "description": "锻造火系拳套的利刃材料"
+  },
+  {
+    "item_id": "cl-381",
+    "name": "狼毛暗核",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-246",
+        "name": "暗影狼"
+      }
+    ],
+    "description": "蕴藏暗影能量的核心材料"
+  },
+  {
+    "item_id": "cl-382",
+    "name": "狼皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-051",
+        "name": "冰牙狼"
+      }
+    ],
+    "description": "缝制冰系护甲的坚韧毛皮"
+  },
+  {
+    "item_id": "cl-383",
+    "name": "猫爪尖刺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-050",
+        "name": "风影猫"
+      }
+    ],
+    "description": "附有风系锋锐的穿刺材料"
+  },
+  {
+    "item_id": "cl-384",
+    "name": "猴毛束",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-278",
+        "name": "木精猴"
+      }
+    ],
+    "description": "编织木系法器的柔韧束带"
+  },
+  {
+    "item_id": "cl-385",
+    "name": "猿爪冰晶",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-240",
+        "name": "雪纹猿"
+      }
+    ],
+    "description": "镶嵌冰系武器的天然晶核"
+  },
+  {
+    "item_id": "cl-386",
+    "name": "猿爪指甲",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-046",
+        "name": "暗语猿"
+      }
+    ],
+    "description": "铭刻暗语符文的灵巧指骨"
+  },
+  {
+    "item_id": "cl-387",
+    "name": "生命草种",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-214",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "炼制回春丹的生机种子"
+  },
+  {
+    "item_id": "cl-388",
+    "name": "甲壳碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-164",
+        "name": "石铠犀"
+      }
+    ],
+    "description": "熔铸石系铠甲的坚固碎料"
+  },
+  {
+    "item_id": "cl-389",
+    "name": "电光蝗的翅膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-045",
+        "name": "电光蝗"
+      }
+    ],
+    "description": "传导电系法力的薄翼材料"
+  },
+  {
+    "item_id": "cl-390",
+    "name": "电击尾骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-105",
+        "name": "雷纹豹"
+      }
+    ],
+    "description": "锻造雷系鞭索的蓄能椎骨"
+  },
+  {
+    "item_id": "cl-391",
+    "name": "电尾球",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-209",
+        "name": "雷纹豹"
+      }
+    ],
+    "description": "凝炼雷纹法球的球形核心"
+  },
+  {
+    "item_id": "cl-392",
+    "name": "电纹蛛丝",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-031",
+        "name": "电纹蛛"
+      }
+    ],
+    "description": "编织电系软甲的导电丝线"
+  },
+  {
+    "item_id": "cl-393",
+    "name": "皮鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-145",
+        "name": "水纹犀"
+      }
+    ],
+    "description": "叠加水系护甲的层叠鳞片"
+  },
+  {
+    "item_id": "cl-394",
+    "name": "石化毒腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-150",
+        "name": "沙岩巨蝎"
+      }
+    ],
+    "description": "萃取石化毒素的剧毒腺体"
+  },
+  {
+    "item_id": "cl-395",
+    "name": "石犀角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-126",
+        "name": "石甲犀"
+      }
+    ],
+    "description": "雕琢土系法印的坚角材料"
+  },
+  {
+    "item_id": "cl-396",
+    "name": "石猿拳骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-267",
+        "name": "碎石猿"
+      }
+    ],
+    "description": "强化拳套的重击骨骼"
+  },
+  {
+    "item_id": "cl-397",
+    "name": "石猿毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-251",
+        "name": "木岩猿"
+      }
+    ],
+    "description": "炼制土系护符的硬毛纤维"
+  },
+  {
+    "item_id": "cl-398",
+    "name": "石甲片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-074",
+        "name": "石甲鼹鼠"
+      }
+    ],
+    "description": "拼合石系铠甲的片状护甲"
+  },
+  {
+    "item_id": "cl-399",
+    "name": "石甲碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-283",
+        "name": "岩甲巨蝎"
+      }
+    ],
+    "description": "熔炼岩系法器的不纯甲料"
+  },
+  {
+    "item_id": "cl-400",
+    "name": "石甲鳞片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-200",
+        "name": "石铠兽"
+      }
+    ],
+    "description": "锻造土系护甲的坚固鳞材"
+  },
+  {
+    "item_id": "cl-401",
+    "name": "石铠角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-164",
+        "name": "石铠犀"
+      }
+    ],
+    "description": "可磨制低阶土系法器的硬角"
+  },
+  {
+    "item_id": "cl-402",
+    "name": "石锤尾骨",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-090",
+        "name": "碎石蜥"
+      },
+      {
+        "mob_id": "WB-117",
+        "name": "土铠兽"
+      }
+    ],
+    "description": "制作钝器或土系法杖的沉重骨料"
+  },
+  {
+    "item_id": "cl-403",
+    "name": "硬皮块",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-267",
+        "name": "碎石猿"
+      }
+    ],
+    "description": "缝制低阶土系皮甲的硬韧皮料"
+  },
+  {
+    "item_id": "cl-404",
+    "name": "碎石晶核",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-021",
+        "name": "巨石傀儡"
+      }
+    ],
+    "description": "镶嵌土系法器的核心晶石"
+  },
+  {
+    "item_id": "cl-405",
+    "name": "碎石鳞片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-090",
+        "name": "碎石蜥"
+      }
+    ],
+    "description": "熔炼低阶土系装备的杂鳞材料"
+  },
+  {
+    "item_id": "cl-406",
+    "name": "碧鳞蛇胆",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-281",
+        "name": "碧鳞水蟒"
+      }
+    ],
+    "description": "炼制解毒丹药的苦寒药引"
+  },
+  {
+    "item_id": "cl-407",
+    "name": "绿毒蛙皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-218",
+        "name": "绿毒蛙"
+      }
+    ],
+    "description": "鞣制抗毒皮甲的特殊皮料"
+  },
+  {
+    "item_id": "cl-408",
+    "name": "绿花芳香囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-118",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "调和草木灵丹的馥郁香材"
+  },
+  {
+    "item_id": "cl-409",
+    "name": "翠羽鸮的羽毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-040",
+        "name": "翠羽鸮"
+      }
+    ],
+    "description": "铭刻风系符文的轻盈羽材"
+  },
+  {
+    "item_id": "cl-410",
+    "name": "翠翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-245",
+        "name": "翠翼蛇"
+      }
+    ],
+    "description": "炼制低阶飞行法器的薄膜材料"
+  },
+  {
+    "item_id": "cl-411",
+    "name": "翠鳞皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-169",
+        "name": "翠木蛇"
+      }
+    ],
+    "description": "制作木系轻甲的柔韧鳞皮"
+  },
+  {
+    "item_id": "cl-412",
+    "name": "翼膜碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-131",
+        "name": "风翼狼"
+      }
+    ],
+    "description": "缝制风系披风的残破膜片"
+  },
+  {
+    "item_id": "cl-413",
+    "name": "腐木毒素",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-047",
+        "name": "腐根藤"
+      }
+    ],
+    "description": "淬炼毒系暗器的腐蚀毒液"
+  },
+  {
+    "item_id": "cl-414",
+    "name": "腐根藤的韧皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-047",
+        "name": "腐根藤"
+      }
+    ],
+    "description": "编织防毒护具的坚韧藤皮"
+  },
+  {
+    "item_id": "cl-415",
+    "name": "腐蚀液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-216",
+        "name": "暗水蛇"
+      }
+    ],
+    "description": "配制低阶溶甲药水的酸性液体"
+  },
+  {
+    "item_id": "cl-416",
+    "name": "腐骨汁液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-287",
+        "name": "毒藤妖树"
+      }
+    ],
+    "description": "催化毒系法术的腐朽汁液"
+  },
+  {
+    "item_id": "cl-417",
+    "name": "腿骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-133",
+        "name": "岩甲龟"
+      }
+    ],
+    "description": "铸造低阶岩甲的厚重腿骨"
+  },
+  {
+    "item_id": "cl-418",
+    "name": "花岗象牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-301",
+        "name": "花岗巨象"
+      }
+    ],
+    "description": "雕刻土系符文的坚硬象牙"
+  },
+  {
+    "item_id": "cl-419",
+    "name": "苔藓毛皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-160",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "制作木系隐遁斗篷的天然毛皮"
+  },
+  {
+    "item_id": "cl-420",
+    "name": "苔藓精露",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-236",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "淬炼木系灵丹的核心药引"
+  },
+  {
+    "item_id": "cl-421",
+    "name": "荆棘刺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-195",
+        "name": "棘藤兽"
+      }
+    ],
+    "description": "铭刻锋锐符文的天然针材"
+  },
+  {
+    "item_id": "cl-422",
+    "name": "荆棘鹿角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-102",
+        "name": "荆棘鹿"
+      }
+    ],
+    "description": "炼制荆棘护甲的稀有角料"
+  },
+  {
+    "item_id": "cl-423",
+    "name": "荧光触须",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-116",
+        "name": "毒雾蝶"
+      }
+    ],
+    "description": "调和迷幻毒雾的触媒材料"
+  },
+  {
+    "item_id": "cl-424",
+    "name": "菌柄汁液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-060",
+        "name": "毒蘑菇精"
+      }
+    ],
+    "description": "培植毒菇灵蛊的滋养液"
+  },
+  {
+    "item_id": "cl-425",
+    "name": "藤猿毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-070",
+        "name": "青藤猿"
+      }
+    ],
+    "description": "编织青藤软甲的韧丝原料"
+  },
+  {
+    "item_id": "cl-426",
+    "name": "藤芯木",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-186",
+        "name": "木卫藤"
+      }
+    ],
+    "description": "打造木系法杖的灵核木料"
+  },
+  {
+    "item_id": "cl-427",
+    "name": "藤蔓尾",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-297",
+        "name": "木猿"
+      }
+    ],
+    "description": "炼制柔韧藤鞭的天然鞭身"
+  },
+  {
+    "item_id": "cl-428",
+    "name": "藤蔓尾筋",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-086",
+        "name": "青木狼"
+      }
+    ],
+    "description": "强化弓弦或暗器的弹性筋材"
+  },
+  {
+    "item_id": "cl-429",
+    "name": "藤蔓种子",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-211",
+        "name": "毒藤花蛇"
+      }
+    ],
+    "description": "培育寄生藤蛊的活种"
+  },
+  {
+    "item_id": "cl-430",
+    "name": "藤蔓茎",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-195",
+        "name": "棘藤兽"
+      }
+    ],
+    "description": "编织囚笼或藤甲的坚韧茎条"
+  },
+  {
+    "item_id": "cl-431",
+    "name": "藤蔓蛇皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-026",
+        "name": "藤蔓蛇"
+      }
+    ],
+    "description": "制成避毒软甲的灵蛇皮料"
+  },
+  {
+    "item_id": "cl-432",
+    "name": "藤蔓触须",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-176",
+        "name": "木藤猿"
+      }
+    ],
+    "description": "吸取灵气的触媒炼器材料"
+  },
+  {
+    "item_id": "cl-433",
+    "name": "藤蟒皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-147",
+        "name": "毒藤蟒"
+      }
+    ],
+    "description": "炼制高阶木系鳞甲的皮材"
+  },
+  {
+    "item_id": "cl-434",
+    "name": "虎爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-266",
+        "name": "风翼虎"
+      }
+    ],
+    "description": "刻画风系符文的利爪材料"
+  },
+  {
+    "item_id": "cl-435",
+    "name": "虎牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-220",
+        "name": "风翼飞虎"
+      }
+    ],
+    "description": "锻造风刃匕首的锐齿骨料"
+  },
+  {
+    "item_id": "cl-436",
+    "name": "虎牙风刃",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-241",
+        "name": "风翼虎"
+      }
+    ],
+    "description": "镶嵌风系灵刃的天然刃片"
+  },
+  {
+    "item_id": "cl-437",
+    "name": "虎骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-178",
+        "name": "风翼虎"
+      }
+    ],
+    "description": "熬炼壮骨灵药的上等骨材"
+  },
+  {
+    "item_id": "cl-438",
+    "name": "蚀骨毒牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-296",
+        "name": "蚀骨蜘蛛"
+      }
+    ],
+    "description": "淬炼破甲毒液的剧毒牙刺"
+  },
+  {
+    "item_id": "cl-439",
+    "name": "蚁酸腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-271",
+        "name": "木甲蚁"
+      }
+    ],
+    "description": "提取腐蚀灵力的酸液腺囊"
+  },
+  {
+    "item_id": "cl-440",
+    "name": "蛇毒液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-245",
+        "name": "翠翼蛇"
+      }
+    ],
+    "description": "淬炼剧毒箭矢的致命毒液"
+  },
+  {
+    "item_id": "cl-441",
+    "name": "蛇涎",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-196",
+        "name": "水灵蛇"
+      }
+    ],
+    "description": "调和水系灵药的特殊唾液"
+  },
+  {
+    "item_id": "cl-442",
+    "name": "蛇牙",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-044",
+        "name": "沙隐蚺"
+      },
+      {
+        "mob_id": "WB-279",
+        "name": "水翼蛇"
+      }
+    ],
+    "description": "镶嵌在短刃上可附加穿刺伤害"
+  },
+  {
+    "item_id": "cl-443",
+    "name": "蛇胆",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-140",
+        "name": "毒花蛇"
+      }
+    ],
+    "description": "炼制破毒丹的核心药材"
+  },
+  {
+    "item_id": "cl-444",
+    "name": "蛇胆雷液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-233",
+        "name": "雷纹蟒"
+      }
+    ],
+    "description": "蕴含雷电之力的稀有胆汁"
+  },
+  {
+    "item_id": "cl-445",
+    "name": "蛇蜕皮",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-270",
+        "name": "毒蔓蛇"
+      },
+      {
+        "mob_id": "WB-300",
+        "name": "风翼蛇"
+      }
+    ],
+    "description": "编织轻灵软甲的蜕皮材料"
+  },
+  {
+    "item_id": "cl-446",
+    "name": "蛇蝎鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-219",
+        "name": "冰晶蛇蝎"
+      }
+    ],
+    "description": "打造冰毒双属性护甲的鳞片"
+  },
+  {
+    "item_id": "cl-447",
+    "name": "蛙皮",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-078",
+        "name": "毒瘴蛙"
+      },
+      {
+        "mob_id": "WB-132",
+        "name": "毒瘤蛙"
+      }
+    ],
+    "description": "缝制毒抗皮甲的坚韧皮料"
+  },
+  {
+    "item_id": "cl-448",
+    "name": "蛙皮膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-234",
+        "name": "毒沼蛙"
+      }
+    ],
+    "description": "炼制避毒面罩的透明薄膜"
+  },
+  {
+    "item_id": "cl-449",
+    "name": "蛛丝囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-296",
+        "name": "蚀骨蜘蛛"
+      }
+    ],
+    "description": "抽取强韧蛛丝的丝腺囊体"
+  },
+  {
+    "item_id": "cl-450",
+    "name": "蛛丝束",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-261",
+        "name": "毒涎蛛"
+      }
+    ],
+    "description": "编织束缚陷阱的坚韧丝线"
+  },
+  {
+    "item_id": "cl-451",
+    "name": "蛟角",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-223",
+        "name": "水灵蛟"
+      },
+      {
+        "mob_id": "WB-263",
+        "name": "水纹蛟"
+      }
+    ],
+    "description": "雕刻水系法器的灵兽之角"
+  },
+  {
+    "item_id": "cl-452",
+    "name": "蛤皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-277",
+        "name": "毒雾蛤"
+      }
+    ],
+    "description": "制作避毒披风的蛤类皮革"
+  },
+  {
+    "item_id": "cl-453",
+    "name": "蛤蟆油",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-168",
+        "name": "毒雾蛤"
+      }
+    ],
+    "description": "提炼疗伤药膏的油脂精华"
+  },
+  {
+    "item_id": "cl-454",
+    "name": "蛮牛皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-065",
+        "name": "碎石蛮牛"
+      }
+    ],
+    "description": "锻制重甲的精韧牛皮"
+  },
+  {
+    "item_id": "cl-455",
+    "name": "蛾翅薄膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-066",
+        "name": "静电飞蛾"
+      }
+    ],
+    "description": "传导雷电符文的薄膜材料"
+  },
+  {
+    "item_id": "cl-456",
+    "name": "蛾翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-243",
+        "name": "毒翼蛾"
+      }
+    ],
+    "description": "附着毒粉的飞行翼膜"
+  },
+  {
+    "item_id": "cl-457",
+    "name": "蜂巢碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-033",
+        "name": "毒囊蜂"
+      }
+    ],
+    "description": "研磨毒囊粉末的巢体残片"
+  },
+  {
+    "item_id": "cl-458",
+    "name": "蜃蛤珍珠",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-063",
+        "name": "水纹蜃蛤"
+      }
+    ],
+    "description": "凝聚幻象之力的水系宝珠"
+  },
+  {
+    "item_id": "cl-459",
+    "name": "蜥蜴尾液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-205",
+        "name": "熔岩蜥蜴"
+      }
+    ],
+    "description": "淬炼火系武器的高温毒液"
+  },
+  {
+    "item_id": "cl-460",
+    "name": "蜥蜴皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-071",
+        "name": "熔岩蜥蜴"
+      }
+    ],
+    "description": "熔火淬炼的皮料可缝制低阶火抗护甲"
+  },
+  {
+    "item_id": "cl-461",
+    "name": "蝎尾毒腺",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-129",
+        "name": "熔岩蝎"
+      }
+    ],
+    "description": "提炼毒液淬炼暗器或淬毒箭矢的上佳材料"
+  },
+  {
+    "item_id": "cl-462",
+    "name": "蝎尾毒针",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-035",
+        "name": "流沙蝎"
+      },
+      {
+        "mob_id": "WB-283",
+        "name": "岩甲巨蝎"
+      }
+    ],
+    "description": "锋利毒针可嵌入机关或炼制麻痹毒药"
+  },
+  {
+    "item_id": "cl-463",
+    "name": "蝎尾火囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-253",
+        "name": "熔岩蝎"
+      }
+    ],
+    "description": "内含火毒精华能激发低阶火系附魔"
+  },
+  {
+    "item_id": "cl-464",
+    "name": "蝎甲片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-244",
+        "name": "石甲蝎"
+      }
+    ],
+    "description": "坚硬甲壳可镶嵌于盾牌或防具增强防御"
+  },
+  {
+    "item_id": "cl-465",
+    "name": "蝎钩毒囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-156",
+        "name": "沙暴蝎"
+      }
+    ],
+    "description": "剧毒囊体可调配高阶麻痹毒剂"
+  },
+  {
+    "item_id": "cl-466",
+    "name": "蝎钳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-217",
+        "name": "雷霆巨蝎"
+      }
+    ],
+    "description": "雷霆淬炼的钳爪可锻造雷属性拳套或短刃"
+  },
+  {
+    "item_id": "cl-467",
+    "name": "蝙牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-068",
+        "name": "夜影猎蝠"
+      }
+    ],
+    "description": "夜影獠牙可研磨成粉用于制作隐身药膏"
+  },
+  {
+    "item_id": "cl-468",
+    "name": "蝠粪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-055",
+        "name": "风刃灵蝠"
+      }
+    ],
+    "description": "灵蝠排泄物经发酵可作炼药催化辅料"
+  },
+  {
+    "item_id": "cl-469",
+    "name": "蝠翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-237",
+        "name": "暗影蝠"
+      }
+    ],
+    "description": "暗影蝠翼膜可缝制轻便夜行披风或滑翔翼"
+  },
+  {
+    "item_id": "cl-470",
+    "name": "螯钳壳",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-138",
+        "name": "沙暴蝎"
+      },
+      {
+        "mob_id": "WB-150",
+        "name": "沙岩巨蝎"
+      }
+    ],
+    "description": "沙蝎巨钳外壳可打磨成坚韧护臂或盾牌"
+  },
+  {
+    "item_id": "cl-471",
+    "name": "螳螂镰刃",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-061",
+        "name": "木甲螳螂"
+      }
+    ],
+    "description": "木甲螳螂前肢可锻造木属性弯刀或镰刃"
+  },
+  {
+    "item_id": "cl-472",
+    "name": "蟹壳碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-043",
+        "name": "冰晶蟹"
+      }
+    ],
+    "description": "冰晶蟹壳碎末可掺入防具抵御寒气侵蚀"
+  },
+  {
+    "item_id": "cl-473",
+    "name": "蟾毒腺体",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-084",
+        "name": "沼泥蟾"
+      }
+    ],
+    "description": "沼泥蟾毒腺可提炼致幻毒雾或麻痹药膏"
+  },
+  {
+    "item_id": "cl-474",
+    "name": "血眼",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-202",
+        "name": "暗刺兽"
+      }
+    ],
+    "description": "暗刺兽血眼可附魔武器赋予嗜血破甲特性"
+  },
+  {
+    "item_id": "cl-475",
+    "name": "触角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-193",
+        "name": "暗雾蛾"
+      }
+    ],
+    "description": "暗雾蛾触角可炼制迷烟或干扰感知的粉末"
+  },
+  {
+    "item_id": "cl-476",
+    "name": "触须",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-203",
+        "name": "毒须蛛"
+      }
+    ],
+    "description": "毒须蛛触须可编织成缠绕陷阱或毒丝绳索"
+  },
+  {
+    "item_id": "cl-477",
+    "name": "象皮甲",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-301",
+        "name": "花岗巨象"
+      }
+    ],
+    "description": "花岗巨象厚皮可制成顶级土系防御重甲"
+  },
+  {
+    "item_id": "cl-478",
+    "name": "豪猪皮",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-069",
+        "name": "毒棘豪猪"
+      },
+      {
+        "mob_id": "WB-174",
+        "name": "冰刺豪猪"
+      }
+    ],
+    "description": "毒棘豪猪皮可缝制反伤刺甲或冰刺护腕"
+  },
+  {
+    "item_id": "cl-479",
+    "name": "贝壳碎片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-063",
+        "name": "水纹蜃蛤"
+      }
+    ],
+    "description": "水纹蜃蛤壳粉可调配幻术符墨或防御符文"
+  },
+  {
+    "item_id": "cl-480",
+    "name": "赤晶鳞片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-154",
+        "name": "赤晶蜥"
+      }
+    ],
+    "description": "锻造低阶火系护甲的坚硬鳞材"
+  },
+  {
+    "item_id": "cl-481",
+    "name": "赤炎角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-239",
+        "name": "赤焰牛"
+      }
+    ],
+    "description": "研磨后可制成火系增幅药剂的角料"
+  },
+  {
+    "item_id": "cl-482",
+    "name": "赤蝎钳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-264",
+        "name": "赤焰蝎"
+      }
+    ],
+    "description": "淬炼赤焰毒液的钳状素材"
+  },
+  {
+    "item_id": "cl-483",
+    "name": "赤金瞳孔",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-197",
+        "name": "焰尾狐"
+      }
+    ],
+    "description": "炼制幻视灵药的核心眼材"
+  },
+  {
+    "item_id": "cl-484",
+    "name": "赤鳞甲片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-280",
+        "name": "赤鳞火蜥"
+      }
+    ],
+    "description": "编织火鳞战甲的优质鳞片"
+  },
+  {
+    "item_id": "cl-485",
+    "name": "钝角粉末",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-052",
+        "name": "土甲龙"
+      }
+    ],
+    "description": "调和土系防御药剂的研磨粉末"
+  },
+  {
+    "item_id": "cl-486",
+    "name": "铁木种子",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-040",
+        "name": "翠羽鸮"
+      }
+    ],
+    "description": "可培育成坚硬灵木的植物种子"
+  },
+  {
+    "item_id": "cl-487",
+    "name": "锋利叶片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-186",
+        "name": "木卫藤"
+      }
+    ],
+    "description": "铭刻风系符文的天然刃材"
+  },
+  {
+    "item_id": "cl-488",
+    "name": "锋利爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-257",
+        "name": "狂风枭"
+      }
+    ],
+    "description": "制作低阶风系爪刃的锋利材料"
+  },
+  {
+    "item_id": "cl-489",
+    "name": "锋利爪骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-181",
+        "name": "风刃蝠"
+      }
+    ],
+    "description": "雕琢风刃武器的骨料"
+  },
+  {
+    "item_id": "cl-490",
+    "name": "锋锐门齿",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-199",
+        "name": "风影鼠"
+      }
+    ],
+    "description": "磨制风系暗器的齿材"
+  },
+  {
+    "item_id": "cl-491",
+    "name": "锐利喙骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-190",
+        "name": "沙暴鹰"
+      }
+    ],
+    "description": "铸造沙暴弓矢的喙骨"
+  },
+  {
+    "item_id": "cl-492",
+    "name": "锤状尾骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-200",
+        "name": "石铠兽"
+      }
+    ],
+    "description": "锻造土系重锤的尾骨"
+  },
+  {
+    "item_id": "cl-493",
+    "name": "闪电爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-124",
+        "name": "雷翼蝠"
+      }
+    ],
+    "description": "附带电击效果的爪类材料"
+  },
+  {
+    "item_id": "cl-494",
+    "name": "闪电皮毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-192",
+        "name": "闪电貂"
+      }
+    ],
+    "description": "缝制雷系护甲的带电毛皮"
+  },
+  {
+    "item_id": "cl-495",
+    "name": "阴影翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-276",
+        "name": "阴影蝠"
+      }
+    ],
+    "description": "缝合隐遁斗篷的暗影膜材"
+  },
+  {
+    "item_id": "cl-496",
+    "name": "隼喙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-037",
+        "name": "风刃隼"
+      }
+    ],
+    "description": "打磨风系破甲箭的喙料"
+  },
+  {
+    "item_id": "cl-497",
+    "name": "隼爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-073",
+        "name": "风翎隼"
+      }
+    ],
+    "description": "铸造风翎钩爪的锐爪"
+  },
+  {
+    "item_id": "cl-498",
+    "name": "雀粪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-048",
+        "name": "火羽雀"
+      }
+    ],
+    "description": "调配火系催熟灵肥的粪便"
+  },
+  {
+    "item_id": "cl-499",
+    "name": "雀鸣骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-064",
+        "name": "卷风雀"
+      }
+    ],
+    "description": "制作风系音波法器的鸣骨"
+  },
+  {
+    "item_id": "cl-500",
+    "name": "雕喙尖",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-232",
+        "name": "风吼雕"
+      }
+    ],
+    "description": "可打磨成风系箭矢的锐利箭头"
+  },
+  {
+    "item_id": "cl-501",
+    "name": "雕喙电核",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-254",
+        "name": "风雷雕"
+      }
+    ],
+    "description": "蕴含雷电之力的核心，用于铭刻风雷符咒"
+  },
+  {
+    "item_id": "cl-502",
+    "name": "雕爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-273",
+        "name": "烈风雕"
+      }
+    ],
+    "description": "制作轻灵爪类武器的上佳材料"
+  },
+  {
+    "item_id": "cl-503",
+    "name": "雪狐毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-020",
+        "name": "雪狐"
+      }
+    ],
+    "description": "编织低阶冰系法袍的柔软毛料"
+  },
+  {
+    "item_id": "cl-504",
+    "name": "雪狼毛皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-212",
+        "name": "冰霜雪狼"
+      }
+    ],
+    "description": "抵御冰霜侵袭的优质皮料"
+  },
+  {
+    "item_id": "cl-505",
+    "name": "雪纹毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-240",
+        "name": "雪纹猿"
+      }
+    ],
+    "description": "可缝制隐匿雪地环境的外袍"
+  },
+  {
+    "item_id": "cl-506",
+    "name": "雷光囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-091",
+        "name": "雷光萤"
+      }
+    ],
+    "description": "研磨后可制雷系爆裂药剂"
+  },
+  {
+    "item_id": "cl-507",
+    "name": "雷光羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-249",
+        "name": "雷光雀"
+      }
+    ],
+    "description": "用于炼制雷光飞羽符的轻灵材料"
+  },
+  {
+    "item_id": "cl-508",
+    "name": "雷光蝗腿",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-023",
+        "name": "雷光蝗"
+      }
+    ],
+    "description": "淬炼雷系暗器的最佳腿骨"
+  },
+  {
+    "item_id": "cl-509",
+    "name": "雷光蝶粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-224",
+        "name": "雷光蝶"
+      }
+    ],
+    "description": "撒布可引动微弱雷电的粉末"
+  },
+  {
+    "item_id": "cl-510",
+    "name": "雷击爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-259",
+        "name": "雷隼鹫"
+      }
+    ],
+    "description": "锻造雷系拳套的锋锐爪材"
+  },
+  {
+    "item_id": "cl-511",
+    "name": "雷击皮毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-162",
+        "name": "雷纹豹"
+      }
+    ],
+    "description": "铭刻雷电纹路的坚韧皮料"
+  },
+  {
+    "item_id": "cl-512",
+    "name": "雷击蜓翅膀",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-075",
+        "name": "雷击蜓"
+      }
+    ],
+    "description": "可炼为短程雷遁符的透明翅翼"
+  },
+  {
+    "item_id": "cl-513",
+    "name": "雷尾毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-192",
+        "name": "闪电貂"
+      }
+    ],
+    "description": "制作雷系拂尘的导电软毛"
+  },
+  {
+    "item_id": "cl-514",
+    "name": "雷熊掌",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-268",
+        "name": "雷纹熊"
+      }
+    ],
+    "description": "炮制后能增强雷系掌劲的珍材"
+  },
+  {
+    "item_id": "cl-515",
+    "name": "雷牙",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-183",
+        "name": "雷纹豹"
+      },
+      {
+        "mob_id": "WB-284",
+        "name": "雷纹豹"
+      }
+    ],
+    "description": "镶嵌雷系武器的导电利齿"
+  },
+  {
+    "item_id": "cl-516",
+    "name": "雷牛皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-171",
+        "name": "雷角牛"
+      }
+    ],
+    "description": "鞣制雷抗护甲的厚实皮革"
+  },
+  {
+    "item_id": "cl-517",
+    "name": "雷电翅膀",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-224",
+        "name": "雷光蝶"
+      }
+    ],
+    "description": "可融入雷系法宝的晶化翅膜"
+  },
+  {
+    "item_id": "cl-518",
+    "name": "雷纹毛皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-268",
+        "name": "雷纹熊"
+      }
+    ],
+    "description": "制作雷纹法袍的天然符皮"
+  },
+  {
+    "item_id": "cl-519",
+    "name": "雷纹牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-162",
+        "name": "雷纹豹"
+      }
+    ],
+    "description": "雕琢雷系护符的灵性牙料"
+  },
+  {
+    "item_id": "cl-520",
+    "name": "雷纹牛皮",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-041",
+        "name": "雷纹角牛"
+      },
+      {
+        "mob_id": "WB-115",
+        "name": "雷角牛"
+      }
+    ],
+    "description": "锻造雷系战甲的上乘皮料"
+  },
+  {
+    "item_id": "cl-521",
+    "name": "雷纹皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-183",
+        "name": "雷纹豹"
+      }
+    ],
+    "description": "铭刻雷电符文的坚韧皮材"
+  },
+  {
+    "item_id": "cl-522",
+    "name": "雷纹翅",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-201",
+        "name": "雷光蜓"
+      }
+    ],
+    "description": "可炼制雷遁符的轻灵翅膜"
+  },
+  {
+    "item_id": "cl-523",
+    "name": "雷纹翅膀",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-083",
+        "name": "雷纹蜂"
+      }
+    ],
+    "description": "淬炼雷纹阵法的飞行材料"
+  },
+  {
+    "item_id": "cl-524",
+    "name": "雷纹角牛的角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-041",
+        "name": "雷纹角牛"
+      }
+    ],
+    "description": "雕琢雷纹法器的硬角素材"
+  },
+  {
+    "item_id": "cl-525",
+    "name": "雷纹豹爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-014",
+        "name": "雷纹豹"
+      }
+    ],
+    "description": "镶嵌雷击武器的锐利爪刃"
+  },
+  {
+    "item_id": "cl-526",
+    "name": "雷纹豹皮",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-105",
+        "name": "雷纹豹"
+      },
+      {
+        "mob_id": "WB-142",
+        "name": "雷纹豹"
+      },
+      {
+        "mob_id": "WB-209",
+        "name": "雷纹豹"
+      },
+      {
+        "mob_id": "WB-284",
+        "name": "雷纹豹"
+      }
+    ],
+    "description": "承载雷纹咒印的完整皮料"
+  },
+  {
+    "item_id": "cl-527",
+    "name": "雷纹鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-233",
+        "name": "雷纹蟒"
+      }
+    ],
+    "description": "编织雷鳞甲片的核心材料"
+  },
+  {
+    "item_id": "cl-528",
+    "name": "雷羽",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-259",
+        "name": "雷隼鹫"
+      },
+      {
+        "mob_id": "WB-275",
+        "name": "雷羽鹤"
+      },
+      {
+        "mob_id": "WB-293",
+        "name": "雷羽雀"
+      }
+    ],
+    "description": "注入雷灵之气的轻羽，可制羽扇"
+  },
+  {
+    "item_id": "cl-529",
+    "name": "雷羽鹰羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-153",
+        "name": "雷羽鹰"
+      }
+    ],
+    "description": "铭刻雷翎箭矢的优质箭羽"
+  },
+  {
+    "item_id": "cl-530",
+    "name": "雷翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-124",
+        "name": "雷翼蝠"
+      }
+    ],
+    "description": "炼制雷翼披风的柔韧薄膜"
+  },
+  {
+    "item_id": "cl-531",
+    "name": "雷蛛丝",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-057",
+        "name": "雷纹跳蛛"
+      }
+    ],
+    "description": "编织雷网绳索的导电丝线"
+  },
+  {
+    "item_id": "cl-532",
+    "name": "雷蜂毒囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-083",
+        "name": "雷纹蜂"
+      }
+    ],
+    "description": "提取雷毒淬炼暗器的毒囊"
+  },
+  {
+    "item_id": "cl-533",
+    "name": "雷蜥皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-302",
+        "name": "闪雷蜥"
+      }
+    ],
+    "description": "缝制雷纹皮甲的坚韧鳞皮"
+  },
+  {
+    "item_id": "cl-534",
+    "name": "雷角",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-134",
+        "name": "雷角犀"
+      },
+      {
+        "mob_id": "WB-171",
+        "name": "雷角牛"
+      }
+    ],
+    "description": "锻造雷系兵器的天然角材"
+  },
+  {
+    "item_id": "cl-535",
+    "name": "雷角一对",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-115",
+        "name": "雷角牛"
+      }
+    ],
+    "description": "炼制雷角法器的成对角料"
+  },
+  {
+    "item_id": "cl-536",
+    "name": "雷角片",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-099",
+        "name": "雷角羊"
+      }
+    ],
+    "description": "拼接雷纹护甲的片状角材"
+  },
+  {
+    "item_id": "cl-537",
+    "name": "雷霆甲壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-217",
+        "name": "雷霆巨蝎"
+      }
+    ],
+    "description": "铸造雷霆盾牌的坚固甲壳"
+  },
+  {
+    "item_id": "cl-538",
+    "name": "雷鬃毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-242",
+        "name": "雷鬃狮"
+      }
+    ],
+    "description": "编织雷鬃护腕的刚硬鬃毛"
+  },
+  {
+    "item_id": "cl-539",
+    "name": "霜囊液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-247",
+        "name": "冰霜蛛"
+      }
+    ],
+    "description": "凝结寒冰符咒的冰霜精华"
+  },
+  {
+    "item_id": "cl-540",
+    "name": "霜狼牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-285",
+        "name": "霜牙雪狼"
+      }
+    ],
+    "description": "可打磨成低阶冰系匕首的锋锐材料"
+  },
+  {
+    "item_id": "cl-541",
+    "name": "霜甲虫的外壳",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-036",
+        "name": "霜甲虫"
+      }
+    ],
+    "description": "锻造冰铠的硬质外壳材料"
+  },
+  {
+    "item_id": "cl-542",
+    "name": "霜白狼皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-104",
+        "name": "霜牙狼"
+      }
+    ],
+    "description": "缝制御寒内甲的柔软皮料"
+  },
+  {
+    "item_id": "cl-543",
+    "name": "霜纹蛇皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-155",
+        "name": "霜纹蟒"
+      }
+    ],
+    "description": "铭刻冰霜符文的韧皮材料"
+  },
+  {
+    "item_id": "cl-544",
+    "name": "霜纹蛙皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-028",
+        "name": "霜纹蛙"
+      }
+    ],
+    "description": "制成低阶冰系法袍的皮料"
+  },
+  {
+    "item_id": "cl-545",
+    "name": "霜蛛丝线",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-080",
+        "name": "霜纹蛛"
+      }
+    ],
+    "description": "编织冰系法器的坚韧丝线"
+  },
+  {
+    "item_id": "cl-546",
+    "name": "霜角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-076",
+        "name": "霜角鹿"
+      }
+    ],
+    "description": "研磨后可作冰系丹药的药引"
+  },
+  {
+    "item_id": "cl-547",
+    "name": "霜角粉末",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-011",
+        "name": "霜角鹿"
+      }
+    ],
+    "description": "调和冰系符墨的冷冽粉末"
+  },
+  {
+    "item_id": "cl-548",
+    "name": "青木狼牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-086",
+        "name": "青木狼"
+      }
+    ],
+    "description": "淬炼木系毒素的牙材"
+  },
+  {
+    "item_id": "cl-549",
+    "name": "青木猴毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-204",
+        "name": "青木猴"
+      }
+    ],
+    "description": "制作低阶木系符笔的毫毛"
+  },
+  {
+    "item_id": "cl-550",
+    "name": "青木蛇毒",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-034",
+        "name": "青木蛇"
+      }
+    ],
+    "description": "炼制麻痹毒药的碧绿毒液"
+  },
+  {
+    "item_id": "cl-551",
+    "name": "青木蛇鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-034",
+        "name": "青木蛇"
+      }
+    ],
+    "description": "镶嵌木系护甲的鳞片材料"
+  },
+  {
+    "item_id": "cl-552",
+    "name": "青木角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-288",
+        "name": "青木羚羊"
+      }
+    ],
+    "description": "雕琢木系法器的灵角"
+  },
+  {
+    "item_id": "cl-553",
+    "name": "青翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-107",
+        "name": "青翼蝠"
+      }
+    ],
+    "description": "制成低阶飞行法器的薄膜"
+  },
+  {
+    "item_id": "cl-554",
+    "name": "青翼蝠翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-029",
+        "name": "青翼蝠"
+      }
+    ],
+    "description": "铭刻风系符文的翼膜"
+  },
+  {
+    "item_id": "cl-555",
+    "name": "青苔心皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-109",
+        "name": "木根熊"
+      }
+    ],
+    "description": "包裹木系丹药的苔皮"
+  },
+  {
+    "item_id": "cl-556",
+    "name": "静电磷粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-066",
+        "name": "静电飞蛾"
+      }
+    ],
+    "description": "引动雷系阵法的闪烁粉末"
+  },
+  {
+    "item_id": "cl-557",
+    "name": "静电绒毛",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-057",
+        "name": "雷纹跳蛛"
+      },
+      {
+        "mob_id": "WB-293",
+        "name": "雷羽雀"
+      }
+    ],
+    "description": "编织低阶雷系法袍的绒毛"
+  },
+  {
+    "item_id": "cl-558",
+    "name": "静电羊毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-099",
+        "name": "雷角羊"
+      }
+    ],
+    "description": "制作雷系护甲的绝缘羊毛"
+  },
+  {
+    "item_id": "cl-559",
+    "name": "鞘翅碎纹",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-091",
+        "name": "雷光萤"
+      }
+    ],
+    "description": "铭刻雷纹符文的甲壳碎片"
+  },
+  {
+    "item_id": "cl-560",
+    "name": "风刃翎羽",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-157",
+        "name": "风刃鹰"
+      },
+      {
+        "mob_id": "WB-282",
+        "name": "风刃鹫"
+      }
+    ],
+    "description": "可淬炼为风系箭矢的锐利翎羽"
+  },
+  {
+    "item_id": "cl-561",
+    "name": "风刃螳前肢",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-013",
+        "name": "风刃螳"
+      }
+    ],
+    "description": "锻造风系短刃的天然锋刃材料"
+  },
+  {
+    "item_id": "cl-562",
+    "name": "风刃镰肢",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-146",
+        "name": "风刃螳螂"
+      }
+    ],
+    "description": "制作风系镰刀武器的坚韧前肢"
+  },
+  {
+    "item_id": "cl-563",
+    "name": "风刃隼的翼羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-037",
+        "name": "风刃隼"
+      }
+    ],
+    "description": "铭刻风刃符文的轻灵翼羽"
+  },
+  {
+    "item_id": "cl-564",
+    "name": "风吼羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-232",
+        "name": "风吼雕"
+      }
+    ],
+    "description": "编织风吼法袍的声震羽毛"
+  },
+  {
+    "item_id": "cl-565",
+    "name": "风吼鬃毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-113",
+        "name": "风吼狮"
+      }
+    ],
+    "description": "缝制风吼战甲的震鸣鬃毛"
+  },
+  {
+    "item_id": "cl-566",
+    "name": "风囊气囊",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-081",
+        "name": "沙尘鼬"
+      }
+    ],
+    "description": "提炼风系灵气的储风囊袋"
+  },
+  {
+    "item_id": "cl-567",
+    "name": "风影毛皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-199",
+        "name": "风影鼠"
+      }
+    ],
+    "description": "制作潜行风衣的暗影皮料"
+  },
+  {
+    "item_id": "cl-568",
+    "name": "风影猫的毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-050",
+        "name": "风影猫"
+      }
+    ],
+    "description": "附魔隐匿术的柔软猫毛"
+  },
+  {
+    "item_id": "cl-569",
+    "name": "风旋牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-113",
+        "name": "风吼狮"
+      }
+    ],
+    "description": "镶嵌风旋法杖的旋刃利齿"
+  },
+  {
+    "item_id": "cl-570",
+    "name": "风旋骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-291",
+        "name": "飓风隼"
+      }
+    ],
+    "description": "锻造飓风弓的螺旋弓骨"
+  },
+  {
+    "item_id": "cl-571",
+    "name": "风沙狼牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-170",
+        "name": "风沙狼"
+      }
+    ],
+    "description": "磨制风沙匕的噬风尖牙"
+  },
+  {
+    "item_id": "cl-572",
+    "name": "风爪指甲",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-089",
+        "name": "飓风猫"
+      }
+    ],
+    "description": "炼制风爪符的锐利指甲"
+  },
+  {
+    "item_id": "cl-573",
+    "name": "风爪钩",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-097",
+        "name": "风羽隼"
+      }
+    ],
+    "description": "打造风系飞爪的钩状材料"
+  },
+  {
+    "item_id": "cl-574",
+    "name": "风狼牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-131",
+        "name": "风翼狼"
+      }
+    ],
+    "description": "淬炼风狼刃的疾风獠牙"
+  },
+  {
+    "item_id": "cl-575",
+    "name": "风纹角",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-248",
+        "name": "风纹鹿"
+      }
+    ],
+    "description": "篆刻风行阵的天然纹角"
+  },
+  {
+    "item_id": "cl-576",
+    "name": "风羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-190",
+        "name": "沙暴鹰"
+      }
+    ],
+    "description": "编织沙暴披风的轻韧风羽"
+  },
+  {
+    "item_id": "cl-577",
+    "name": "风羽翎",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-097",
+        "name": "风羽隼"
+      }
+    ],
+    "description": "制作风羽扇的飞行翎羽"
+  },
+  {
+    "item_id": "cl-578",
+    "name": "风翼羽",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-178",
+        "name": "风翼虎"
+      },
+      {
+        "mob_id": "WB-220",
+        "name": "风翼飞虎"
+      },
+      {
+        "mob_id": "WB-241",
+        "name": "风翼虎"
+      }
+    ],
+    "description": "融合风翼甲的翼虎翎毛"
+  },
+  {
+    "item_id": "cl-579",
+    "name": "风翼羽毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-122",
+        "name": "风翼鹰"
+      }
+    ],
+    "description": "淬炼风翼靴的翱翔羽毛"
+  },
+  {
+    "item_id": "cl-580",
+    "name": "风翼膜",
+    "rarity": "不常见",
+    "source_mobs": [
+      {
+        "mob_id": "WB-055",
+        "name": "风刃灵蝠"
+      },
+      {
+        "mob_id": "WB-181",
+        "name": "风刃蝠"
+      },
+      {
+        "mob_id": "WB-266",
+        "name": "风翼虎"
+      },
+      {
+        "mob_id": "WB-300",
+        "name": "风翼蛇"
+      }
+    ],
+    "description": "制作高阶风系护甲的核心膜材"
+  },
+  {
+    "item_id": "cl-581",
+    "name": "风蝠爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-107",
+        "name": "青翼蝠"
+      }
+    ],
+    "description": "淬炼风系短刃的锋利爪料"
+  },
+  {
+    "item_id": "cl-582",
+    "name": "风隼翎羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-291",
+        "name": "飓风隼"
+      }
+    ],
+    "description": "铭刻风纹符羽的轻灵材料"
+  },
+  {
+    "item_id": "cl-583",
+    "name": "风雕羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-273",
+        "name": "烈风雕"
+      }
+    ],
+    "description": "编织风系披风的坚韧羽片"
+  },
+  {
+    "item_id": "cl-584",
+    "name": "风雷羽",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-254",
+        "name": "风雷雕"
+      }
+    ],
+    "description": "融合风雷之力的稀有羽材"
+  },
+  {
+    "item_id": "cl-585",
+    "name": "飓风尾毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-089",
+        "name": "飓风猫"
+      }
+    ],
+    "description": "炼制风系法杖的柔韧尾毫"
+  },
+  {
+    "item_id": "cl-586",
+    "name": "高温毒牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-112",
+        "name": "熔火蛛"
+      }
+    ],
+    "description": "熔炼火毒双属性暗器的齿材"
+  },
+  {
+    "item_id": "cl-587",
+    "name": "鱼鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-173",
+        "name": "水箭鱼"
+      }
+    ],
+    "description": "缝制低阶水鳞甲的普通鳞片"
+  },
+  {
+    "item_id": "cl-588",
+    "name": "鲛鳞",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-137",
+        "name": "水纹鲛"
+      }
+    ],
+    "description": "打造高阶水系护甲的柔韧鳞料"
+  },
+  {
+    "item_id": "cl-589",
+    "name": "鲨鳍刃",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-238",
+        "name": "水纹鲨"
+      }
+    ],
+    "description": "锻造水刃武器的锋利鳍骨"
+  },
+  {
+    "item_id": "cl-590",
+    "name": "鳐骨扇",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-290",
+        "name": "水纹鳐"
+      }
+    ],
+    "description": "祭炼水系法扇的轻灵骨材"
+  },
+  {
+    "item_id": "cl-591",
+    "name": "鸟喙电核",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-249",
+        "name": "雷光雀"
+      }
+    ],
+    "description": "凝炼雷系丹丸的晶核材料"
+  },
+  {
+    "item_id": "cl-592",
+    "name": "鸦眼血晶",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-252",
+        "name": "暗影鸦"
+      }
+    ],
+    "description": "铭刻暗影符文的血瞳晶石"
+  },
+  {
+    "item_id": "cl-593",
+    "name": "鹤喙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-275",
+        "name": "雷羽鹤"
+      }
+    ],
+    "description": "雕琢雷系符笔的尖喙材料"
+  },
+  {
+    "item_id": "cl-594",
+    "name": "鹰爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-122",
+        "name": "风翼鹰"
+      }
+    ],
+    "description": "锻造风系爪刃的凌厉爪骨"
+  },
+  {
+    "item_id": "cl-595",
+    "name": "鹰爪骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-282",
+        "name": "风刃鹫"
+      }
+    ],
+    "description": "炼制风系骨甲的硬质骨材"
+  },
+  {
+    "item_id": "cl-596",
+    "name": "鹰眼晶",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-157",
+        "name": "风刃鹰"
+      }
+    ],
+    "description": "镶嵌风系法器的锐目晶石"
+  },
+  {
+    "item_id": "cl-597",
+    "name": "鹰隼利爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-207",
+        "name": "狂风鹰隼"
+      }
+    ],
+    "description": "淬炼狂风利爪的凶悍爪料"
+  },
+  {
+    "item_id": "cl-598",
+    "name": "鹿皮",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-076",
+        "name": "霜角鹿"
+      }
+    ],
+    "description": "缝制霜系皮甲的寒韧皮革"
+  },
+  {
+    "item_id": "cl-599",
+    "name": "鹿角藤",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-262",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "缠绕木系法杖的生机藤材"
+  },
+  {
+    "item_id": "cl-600",
+    "name": "鹿蹄草",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-143",
+        "name": "木灵鹿"
+      }
+    ],
+    "description": "可炼制木系疗伤丹药的灵草"
+  },
+  {
+    "item_id": "cl-601",
+    "name": "鹿蹄风痕",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-248",
+        "name": "风纹鹿"
+      }
+    ],
+    "description": "铭刻风系轻身符文的稀有材料"
+  },
+  {
+    "item_id": "cl-602",
+    "name": "麻痹毒液",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-031",
+        "name": "电纹蛛"
+      }
+    ],
+    "description": "淬炼麻痹类暗器或箭矢的毒剂"
+  },
+  {
+    "item_id": "cl-603",
+    "name": "黑尾毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-295",
+        "name": "暗影猫"
+      }
+    ],
+    "description": "编织暗影系隐匿斗篷的优质毛料"
+  },
+  {
+    "item_id": "cl-604",
+    "name": "黑曜石獠牙",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-172",
+        "name": "暗岩蛛"
+      }
+    ],
+    "description": "锻造破甲利刃的坚硬牙材"
+  },
+  {
+    "item_id": "cl-605",
+    "name": "黑水蛭的吸盘",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-039",
+        "name": "黑水蛭"
+      }
+    ],
+    "description": "吸附灵气的炼药辅材"
+  },
+  {
+    "item_id": "cl-606",
+    "name": "黑炎爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-175",
+        "name": "黑炎狮"
+      }
+    ],
+    "description": "熔铸火系高阶拳套的凶厉利爪"
+  },
+  {
+    "item_id": "cl-607",
+    "name": "黑炎鬃毛",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-175",
+        "name": "黑炎狮"
+      }
+    ],
+    "description": "编织抗火法袍的炽热毛料"
+  },
+  {
+    "item_id": "cl-608",
+    "name": "黑风翼膜",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-166",
+        "name": "黑风蝠"
+      }
+    ],
+    "description": "制作风系滑翔翼的坚韧薄膜"
+  },
+  {
+    "item_id": "cl-609",
+    "name": "鼹鼠爪",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-074",
+        "name": "石甲鼹鼠"
+      }
+    ],
+    "description": "挖掘地脉阵法的破土爪器"
+  },
+  {
+    "item_id": "cl-610",
+    "name": "龟火胆",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-289",
+        "name": "熔岩巨龟"
+      }
+    ],
+    "description": "炼制火系内丹的至阳胆材"
+  },
+  {
+    "item_id": "cl-611",
+    "name": "龟珠",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-152",
+        "name": "水纹龟"
+      }
+    ],
+    "description": "温养水系灵根的天然珠玉"
+  },
+  {
+    "item_id": "cl-612",
+    "name": "龟甲筋腱",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-082",
+        "name": "岩甲龟"
+      }
+    ],
+    "description": "编织土系护甲的坚韧筋线"
+  },
+  {
+    "item_id": "cl-613",
+    "name": "龟甲苔",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-030",
+        "name": "岩壳龟"
+      }
+    ],
+    "description": "附着岩甲修复伤口的灵苔"
+  },
+  {
+    "item_id": "cl-614",
+    "name": "龟甲软骨",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-111",
+        "name": "水纹龟"
+      }
+    ],
+    "description": "淬炼水系柔韧法器的骨料"
+  },
+  {
+    "item_id": "cl-615",
+    "name": "龟足筋",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-258",
+        "name": "岩甲龟"
+      }
+    ],
+    "description": "牵引土系傀儡机关的强韧筋索"
+  },
+  {
+    "item_id": "cl-616",
+    "name": "龟骨粉",
+    "rarity": "稀有",
+    "source_mobs": [
+      {
+        "mob_id": "WB-235",
+        "name": "岩甲龟"
+      }
+    ],
+    "description": "调和土系符墨的骨粉"
+  }
+]

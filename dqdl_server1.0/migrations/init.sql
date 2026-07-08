@@ -12,6 +12,8 @@ DROP TABLE IF EXISTS `training`;
 DROP TABLE IF EXISTS `location_gen_rule`;
 DROP TABLE IF EXISTS `item`;
 DROP TABLE IF EXISTS `alchemy`;
+DROP TABLE IF EXISTS `magic_core`;
+DROP TABLE IF EXISTS `material`;
 DROP TABLE IF EXISTS `mob`;
 DROP TABLE IF EXISTS `location`;
 DROP TABLE IF EXISTS `player`;
@@ -141,12 +143,43 @@ CREATE TABLE `alchemy` (
   UNIQUE KEY `idx_alchemy_item_id` (`item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='草药表';
 
+-- ========== 材料表（图鉴专用，与 item 表按 item_id 关联） ==========
+CREATE TABLE `material` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `item_id` VARCHAR(32) NOT NULL COMMENT '材料ID（cl-100），与 item 表 item_id 对齐',
+  `name` VARCHAR(64) NOT NULL COMMENT '材料名',
+  `rarity` VARCHAR(16) DEFAULT NULL COMMENT '稀有度：常见/不常见/稀有',
+  `source_mobs` TEXT DEFAULT NULL COMMENT '来源魔兽 JSON：[{mob_id,name}]',
+  `description` TEXT DEFAULT NULL COMMENT '描述',
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_material_item_id` (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='材料表';
+
+-- ========== 魔核表（图鉴专用，与 item 表按 item_id 关联） ==========
+CREATE TABLE `magic_core` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `item_id` VARCHAR(32) NOT NULL COMMENT '魔核ID（mh-h1-1），与 item 表 item_id 对齐',
+  `name` VARCHAR(64) NOT NULL COMMENT '魔核名',
+  `attribute` VARCHAR(8) NOT NULL COMMENT '属性：火/冰/风/土/雷/暗/毒/水',
+  `tier` TINYINT NOT NULL COMMENT '品阶：1/2/3（一阶/二阶/三阶）',
+  `quality` VARCHAR(8) NOT NULL COMMENT '品质：劣质/普通/优质',
+  `appearance` TEXT DEFAULT NULL COMMENT '外观描述',
+  `drop_source` VARCHAR(64) DEFAULT NULL COMMENT '掉落来源描述',
+  `price_min` INT NOT NULL DEFAULT 0 COMMENT '最低参考价（金币）',
+  `price_max` INT NOT NULL DEFAULT 0 COMMENT '最高参考价（金币）',
+  `usage_desc` TEXT DEFAULT NULL COMMENT '用途描述',
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_magic_core_item_id` (`item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='魔核表';
+
 -- ========== 物品模板表（能进入背包的物品统一定义） ==========
 CREATE TABLE `item` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `item_id` VARCHAR(32) NOT NULL COMMENT '全局唯一ID（dp-/mh-/yb-/pf-/dl- 等）',
   `name` VARCHAR(128) NOT NULL COMMENT '物品名',
-  `type` VARCHAR(32) NOT NULL COMMENT '类别：丹药/武器/功法/武技/防具/材料/消耗品/特殊/丹方/丹炉/草药',
+  `type` VARCHAR(32) NOT NULL COMMENT '类别：丹药/武器/功法/武技/防具/材料/魔核/消耗品/特殊/丹方/丹炉/草药',
   `icon` VARCHAR(128) DEFAULT NULL COMMENT '图标地址',
   `price` INT NOT NULL DEFAULT 0 COMMENT '参考价格（金币）',
   `description` TEXT DEFAULT NULL COMMENT '描述',

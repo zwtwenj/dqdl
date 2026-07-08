@@ -6,13 +6,15 @@
  * 邻近之地/可达之所抽屉各自按 locationId 拉同级/子级。
  * 点击卡片 → movePlayerLocation → 更新 currentLocationId → 三处同步刷新。
  */
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PlayerInfo from '../components/PlayerInfo.vue'
 import IconToolbar from '../components/IconToolbar.vue'
 import CurrentMap from '../components/CurrentMap.vue'
 import NeighborMapDrawer from '../components/NeighborMapDrawer.vue'
 import ChildrenMapDrawer from '../components/ChildrenMapDrawer.vue'
+import AdventureLog from '../components/AdventureLog.vue'
+import CollectLog from '../components/CollectLog.vue'
 import { getPlayer, getLocation, movePlayerLocation } from '../api'
 import { bus, BusEvents } from '../utils/eventBus'
 
@@ -23,6 +25,18 @@ const router = useRouter()
 const player = ref(null)
 const loading = ref(true)
 const errorMsg = ref('')
+
+// 历练日志 / 采集日志 收起状态（互斥：一个展开另一个收起）
+const logCollapsed = ref(false)
+const collectCollapsed = ref(true)
+
+// 互斥：历练展开时收起采集，采集展开时收起历练
+watch(logCollapsed, (v) => {
+  if (!v) collectCollapsed.value = true
+})
+watch(collectCollapsed, (v) => {
+  if (!v) logCollapsed.value = true
+})
 
 // 当前地点（单一数据源：locationId 变化驱动三个组件刷新）
 const currentLocationId = ref(null)
@@ -100,6 +114,16 @@ function onIconSelect(key) {
   console.log('选中功能：', key)
 }
 
+/** 历练按钮（后续接后端历练接口） */
+function onTempering() {
+  console.log('历练')
+}
+
+/** 采集按钮（后续接后端采集接口） */
+function onCollect() {
+  console.log('采集')
+}
+
 /** 返回开始页（退出当前角色，不做登出） */
 function backToStart() {
   router.push({ name: 'start' })
@@ -172,7 +196,18 @@ function backToStart() {
         </div>
       </div>
       <div class="game-logs">
-        <!-- 采集/历练面板：后续接 socket -->
+        <!-- 历练日志 -->
+        <AdventureLog
+          v-model:collapsed="logCollapsed"
+          class="adventure-log"
+          @tempering="onTempering"
+        />
+        <!-- 采集日志 -->
+        <CollectLog
+          v-model:collapsed="collectCollapsed"
+          class="collect-log"
+          @collect="onCollect"
+        />
       </div>
     </div>
 
@@ -246,6 +281,10 @@ function backToStart() {
   .game-logs{
     flex: 1;
     height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 }
 

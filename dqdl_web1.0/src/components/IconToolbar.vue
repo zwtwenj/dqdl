@@ -43,8 +43,8 @@ const active = ref(null)
 <style scoped>
 .icon-toolbar {
   position: absolute;
-  right: 20px;
-  bottom: 20px;
+  right: 10px;
+  bottom: 10px;
   z-index: 10;
   display: flex;
   align-items: flex-end;

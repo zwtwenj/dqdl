@@ -129,12 +129,11 @@ const herbs = [
   gap: 14px;
   max-width: 860px;
   padding: 20px 24px 18px;
-  // 暗金面板：深褐半透 + 金边 + 模糊
+  // 暗金面板：深褐半透 + 金边
   background: linear-gradient(160deg, rgba(28, 22, 16, 0.82), rgba(14, 11, 8, 0.86));
   border: 1px solid rgba(180, 150, 90, 0.4);
   border-radius: 10px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(220, 190, 120, 0.12);
-  backdrop-filter: blur(6px);
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
 .current-map-back{

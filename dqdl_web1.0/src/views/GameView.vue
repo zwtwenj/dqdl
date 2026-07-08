@@ -8,6 +8,8 @@ import { useRoute, useRouter } from 'vue-router'
 import PlayerInfo from '../components/PlayerInfo.vue'
 import IconToolbar from '../components/IconToolbar.vue'
 import CurrentMap from '../components/CurrentMap.vue'
+import NeighborMapDrawer from '../components/NeighborMapDrawer.vue'
+import ChildrenMapDrawer from '../components/ChildrenMapDrawer.vue'
 import { getPlayer } from '../api'
 
 const route = useRoute()
@@ -43,6 +45,16 @@ function onIconSelect(key) {
   console.log('选中功能：', key)
 }
 
+/** 同级地图卡片点击：切换当前地点（后续接 location 切换逻辑） */
+function onNeighborSelect(item) {
+  console.log('切换到邻近地点：', item.name, item.id)
+}
+
+/** 子级地图卡片点击：进入子地点（后续接 location 切换逻辑） */
+function onChildrenSelect(item) {
+  console.log('进入子级地点：', item.name, item.id)
+}
+
 /** 返回开始页（退出当前角色，不做登出） */
 function backToStart() {
   router.push({ name: 'start' })
@@ -51,7 +63,7 @@ function backToStart() {
 
 <template>
   <div class="game-view">
-    <!-- 背景 -->
+    <!-- 背景：fixed 定位，不受子容器 overflow/层叠上下文影响 -->
     <img
       class="bg"
       src="/ui/bg-continent.webp"
@@ -90,11 +102,29 @@ function backToStart() {
       </button>
     </div>
 
-    <!-- 中央当前地图面板 -->
-    <CurrentMap
-      v-if="player"
-      class="current-map"
-    />
+    <div class="game-container">
+      <div class="game-map">
+        <!-- 中央当前地图面板 -->
+        <CurrentMap
+          v-if="player"
+          class="current-map"
+        />
+        <!-- 左侧地图抽屉：邻近之地 + 可达之所 -->
+        <div class="map-drawers">
+          <NeighborMapDrawer
+            class="drawer-item"
+            @select="onNeighborSelect"
+          />
+          <ChildrenMapDrawer
+            class="drawer-item"
+            @select="onChildrenSelect"
+          />
+        </div>
+      </div>
+      <div class="game-logs">
+        <!-- 采集/历练面板：后续接 socket -->
+      </div>
+    </div>
 
     <!-- 右上角返回开始页按钮 -->
     <button
@@ -119,13 +149,15 @@ function backToStart() {
   background: #0a0806;
 }
 
+/* 背景：fixed 定位，脱离文档流且不参与子容器层叠合成，全屏统一渲染 */
 .bg {
-  position: absolute;
+  position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   z-index: 0;
+  pointer-events: none;
 }
 
 .back-btn {
@@ -150,10 +182,41 @@ function backToStart() {
   border-color: rgba(220, 190, 120, 0.7);
 }
 
+.game-container{
+  margin-top: 90px;
+  height: calc(100vh - 180px);
+  display: flex;
+  width: 100%;
+  padding: 0 10px;
+  .game-map{
+    width: 860px;
+    overflow-y: auto;
+    height: 100%;
+  }
+  .game-logs{
+    flex: 1;
+    height: 100%;
+  }
+}
+
 .current-map{
-  margin: 100px 10px 0 10px;
+  width: 100%;
   border-radius: 10px;
   padding: 10px;
+}
+
+/* 左侧地图抽屉容器：邻近之地 + 可达之所 纵向排列 */
+.map-drawers {
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.drawer-item {
+  /* 由 MapDrawer 内部决定宽度，这里不限制 */
 }
 
 .overlay-tip {

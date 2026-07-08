@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException, OnApplicationBootstrap, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Location } from './location.entity';
+import { LocationGenRule } from './location-gen-rule.entity';
+import { AgentService } from '../agent/agent.service';
+import type { AgentMapResult } from '../agent/agent.types';
 
 /**
  * 地点服务（网游模式）：管理全局唯一地图树，所有角色共享。
@@ -17,6 +20,9 @@ export class LocationService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(Location)
     private readonly repo: Repository<Location>,
+    @InjectRepository(LocationGenRule)
+    private readonly ruleRepo: Repository<LocationGenRule>,
+    private readonly agent: AgentService,
   ) {}
 
   /** 启动时确保全局地图已初始化（init.sql 已种的兜底） */
@@ -84,5 +90,131 @@ export class LocationService implements OnApplicationBootstrap {
         }),
       )
     }
+  }
+
+  /** 按子节点深度查生成规则（父节点 depth+1 = rule.depth） */
+  async getRuleByDepth(childDepth: number): Promise<LocationGenRule | null> {
+    return this.ruleRepo.findOneBy({ depth: childDepth });
+  }
+
+  /**
+   * 展开某节点的子节点（懒生成）。
+   * 1. 校验父节点存在且未展开
+   * 2. 按 depth 查生成规则
+   * 3. 调 agent 生成；agent 失败走 fallback
+   * 4. 批量入库，置父节点 is_expanded=1
+   * 返回生成的子节点列表。
+   */
+  async expandNode(locationId: number): Promise<Location[]> {
+    const parent = await this.findOne(locationId);
+    if (parent.is_expanded === 1) {
+      throw new BadRequestException(`地点 ${parent.name} 的子节点已生成`)
+    }
+
+    const childDepth = parent.depth + 1
+    const rule = await this.getRuleByDepth(childDepth)
+    const count = rule
+      ? this.randInt(rule.min_children, rule.max_children)
+      : 3
+    const existing = await this.repo.find({
+      where: { parent_id: locationId },
+      select: ['name'],
+    })
+    const existingNames = existing.map((e) => e.name)
+
+    let results: AgentMapResult[] | null = null
+    if (rule) {
+      results = await this.agent.generateMap(
+        {
+          id: parent.id,
+          name: parent.name,
+          loc_type: parent.loc_type,
+          description: parent.description,
+          depth: parent.depth,
+        },
+        {
+          depth: rule.depth,
+          loc_type: rule.loc_type,
+          min_children: rule.min_children,
+          max_children: rule.max_children,
+          naming_style: rule.naming_style,
+          danger_range: rule.danger_range,
+          world_constraints: rule.world_constraints,
+          gen_prompt: rule.gen_prompt,
+        },
+        count,
+        existingNames,
+      )
+    }
+
+    const finalResults = results ?? this.fallbackGenerate(parent, count)
+
+    const children = finalResults.map((r) =>
+      this.repo.create({
+        name: r.name || '未知地点',
+        loc_type: this.normalizeType(r.loc_type || (rule?.loc_type ?? 'district')),
+        description: r.description || null,
+        depth: childDepth,
+        danger_level: r.danger_level ?? 0,
+        qi_density: r.qi_density ?? 0,
+        is_fixed: 0,
+        is_expanded: 0,
+        available_actions: r.available_actions ?? null,
+        tags: r.tags ?? null,
+        common_mobs: r.common_mobs ? JSON.stringify(r.common_mobs) : null,
+        common_herbs: r.common_herbs ? JSON.stringify(r.common_herbs) : null,
+        parent_id: parent.id,
+      }),
+    )
+    const saved = await this.repo.save(children)
+
+    parent.is_expanded = 1
+    await this.repo.save(parent)
+
+    this.logger.log(
+      `✅ 展开地点 ${parent.name}：${saved.length} 个子节点（${results ? 'agent' : 'fallback'}）`,
+    )
+    return saved
+  }
+
+  /** agent 不可用时的降级方案：用内置名称池生成 */
+  private fallbackGenerate(
+    parent: Location,
+    count: number,
+  ): AgentMapResult[] {
+    const pool =
+      parent.depth < 3
+        ? ['云岚城', '黑岩城', '赤焰城', '碧水城', '风雷城', '天星城', '落雁城', '紫月城']
+        : ['坊市', '佣兵公会', '修炼室', '药材商行', '城主府', '修炼场', '密林区', '溪谷']
+    const results: AgentMapResult[] = []
+    for (let i = 0; i < Math.min(count, pool.length); i++) {
+      results.push({
+        name: pool[i],
+        loc_type: parent.depth < 3 ? 'city' : 'district',
+        description: `${pool[i]}是${parent.name}附近的一处地点`,
+        danger_level: 0,
+        qi_density: 0,
+        available_actions: ['explore'],
+        tags: null,
+        common_mobs: null,
+        common_herbs: null,
+      })
+    }
+    return results
+  }
+
+  /** 按 name 归一化 loc_type（参照旧项目 MapGeneratorService） */
+  private normalizeType(rawType: string): string {
+    const t = rawType.toLowerCase()
+    if (['market', '坊市'].includes(t)) return 'market'
+    if (['cultivation', '修炼室', '修炼场'].includes(t)) return 'cultivation'
+    if (['forging', '冶炼坊', '锻造坊'].includes(t)) return 'forging'
+    if (['alchemy', '丹房'].includes(t)) return 'alchemy'
+    return rawType
+  }
+
+  /** [min, max] 闭区间随机整数 */
+  private randInt(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min
   }
 }

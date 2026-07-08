@@ -47,6 +47,12 @@ export class Location {
   @Column({ type: 'json', nullable: true, comment: '特色标签' })
   tags: string[] | null;
 
+  @Column({ type: 'text', nullable: true, comment: '常见魔兽 JSON：[{mob_id,name}]' })
+  common_mobs: string | null;
+
+  @Column({ type: 'text', nullable: true, comment: '常见药草 JSON：[{item_id,name}]' })
+  common_herbs: string | null;
+
   @Column({ type: 'int', nullable: true })
   parent_id: number | null;
 

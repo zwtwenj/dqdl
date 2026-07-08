@@ -6,6 +6,9 @@ import { CharacterModule } from './character/character.module';
 import { PlayerModule } from './player/player.module';
 import { LocationModule } from './location/location.module';
 import { GameModule } from './game/game.module';
+import { MobModule } from './mob/mob.module';
+import { AlchemyModule } from './alchemy/alchemy.module';
+import { ItemModule } from './item/item.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -30,6 +33,9 @@ import { AppController } from './app.controller';
     PlayerModule,
     LocationModule,
     GameModule,
+    MobModule,
+    AlchemyModule,
+    ItemModule,
   ],
   controllers: [AppController],
 })

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { LocationService } from './location.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -21,6 +21,12 @@ export class LocationController {
   @Get(':locationId/children')
   children(@Param('locationId', ParseIntPipe) locationId: number) {
     return this.locationService.getChildren(locationId)
+  }
+
+  /** 展开某地点的子节点（AI 懒生成） POST /api/location/:locationId/expand */
+  @Post(':locationId/expand')
+  expand(@Param('locationId', ParseIntPipe) locationId: number) {
+    return this.locationService.expandNode(locationId)
   }
 
   /** 获取单个地点详情 GET /api/location/:locationId */

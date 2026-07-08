@@ -27,6 +27,11 @@ export class CharacterService {
     return this.repo.findOneBy({ user_id: userId, slot })
   }
 
+  /** 按 id 查单个角色（ownership 校验用） */
+  async findOneById(id: number): Promise<Character | null> {
+    return this.repo.findOneBy({ id })
+  }
+
   /**
    * 创建角色：自动选第一个空闲序号（1/2/3），超过 3 个拒绝。
    */

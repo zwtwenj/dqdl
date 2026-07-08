@@ -30,13 +30,15 @@ export class GameService {
     const rootId = root?.id ?? 0
 
     // 3. 创建 player
-    const player = await this.playerService.createForCharacter(character.id, name, rootId)
+    const playerRaw = await this.playerService.createForCharacter(character.id, name, rootId)
+    // 返回聚合结果（含 final_attrs）
+    const player = await this.playerService.findOne(playerRaw.id)
 
     return { character, player, rootLocationId: rootId || null }
   }
 
   /**
-   * 进入已有角色：加载 player。
+   * 进入已有角色：加载 player（聚合结果，含 final_attrs）。
    */
   async enterCharacter(userId: number, slot: number) {
     const character = await this.characterService.getBySlot(userId, slot)

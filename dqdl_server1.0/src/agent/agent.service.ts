@@ -1,0 +1,78 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import { AxiosError } from 'axios';
+import type {
+  AgentMapParent,
+  AgentMapRule,
+  AgentMapResult,
+} from './agent.types';
+
+/**
+ * Agent 客户端服务：封装对旧 dqdl-agent (Python Flask :5000) 的 HTTP 调用。
+ * 目前仅实现 generateMap（生成地图子节点），后续可扩展对话/奇遇等。
+ *
+ * 失败时返回 null，由调用方（LocationService）走 fallback 降级方案。
+ * AGENT_URL 从 .env 读取，默认 http://localhost:5000。
+ */
+@Injectable()
+export class AgentService {
+  private readonly logger = new Logger(AgentService.name);
+  private readonly baseUrl: string;
+
+  constructor(
+    private readonly config: ConfigService,
+    private readonly http: HttpService,
+  ) {
+    this.baseUrl = this.config.get<string>('AGENT_URL') || 'http://localhost:5000';
+  }
+
+  /** 健康检查 */
+  async health(): Promise<boolean> {
+    try {
+      const { status } = await firstValueFrom(this.http.get(`${this.baseUrl}/health`));
+      return status === 200;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 生成地图子节点：调 POST /generate/map。
+   * @param parent  父地点信息
+   * @param rule    生成规则（来自 location_gen_rule 表）
+   * @param count   期望生成数量
+   * @param existingNames 已有子节点名（避免重名）
+   * @returns 生成结果数组；agent 不可用或出错时返回 null
+   */
+  async generateMap(
+    parent: AgentMapParent,
+    rule: AgentMapRule,
+    count: number,
+    existingNames: string[],
+  ): Promise<AgentMapResult[] | null> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<AgentMapResult[]>(`${this.baseUrl}/generate/map`, {
+          parent,
+          rule,
+          count,
+          existingNames,
+          seed: null,
+        }),
+      );
+      if (!Array.isArray(data)) {
+        this.logger.warn('agent /generate/map 返回非数组，已忽略');
+        return null;
+      }
+      return data;
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/map 调用失败：${err.message}（code=${err.code}, status=${err.response?.status}）`,
+      );
+      return null;
+    }
+  }
+}

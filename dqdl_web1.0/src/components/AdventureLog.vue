@@ -2,25 +2,70 @@
 /**
  * 历练日志组件：右侧面板，展示玩家历练日志。
  * 顶部 log-head.png 标题栏（点击打开本日志），中部纵向日志列表，底部历练按钮。
- * 日志条目：左侧图标（tempering）+ 右侧文字内容。
- * 收起后只显示标题栏。用 v-model:collapsed 双向绑定收起状态。
- * 点击头部只表示打开（不切换关闭），关闭由互斥逻辑（另一个日志打开）驱动。
- * 当前用假数据，后续接后端日志/事件推送。
+ * 按钮逻辑：
+ *   - status=2(历练中) → 显示"停止历练"，点击 emit stop
+ *   - status=1(空闲) + 非野外 → 显示"历练"但禁用，提示"请前往野外地图进行历练"
+ *   - status=1(空闲) + 野外 → 显示"历练"，点击 emit start
+ * 日志数据由父组件通过 logs prop 传入（来自 getActiveTraining 轮询）。
+ * 收起后只显示标题栏。点击头部只表示打开（不切换关闭）。
  */
-import { ref } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   collapsed: { type: Boolean, default: false },
+  status: { type: Number, default: 1 },
+  locationType: { type: String, default: '' },
+  logs: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['tempering', 'update:collapsed'])
+const emit = defineEmits(['tempering', 'stop', 'update:collapsed'])
 
-/* 假数据：日志列表（最新在上） */
-const logs = ref([
-  { id: 2, type: 'tempering', text: '在魔兽山脉历练，击败一阶魔兽「焰尾蜥」', time: '2分钟前' },
-  { id: 4, type: 'tempering', text: '修炼「弄焰诀」，功法修为提升', time: '10分钟前' },
-  { id: 6, type: 'tempering', text: '突破成功！等级提升至 斗之气2段', time: '30分钟前' },
-])
+/** 是否野外地图（响应式，随 locationType 变化） */
+const isWild = computed(() =>
+  ['wild', 'wild2', 'wild3'].includes(props.locationType),
+)
+/** 历练按钮是否禁用（非野外） */
+const btnDisabled = computed(() => props.status === 1 && !isWild.value)
+
+/**
+ * 将日志文本按关键词高亮，返回 HTML 字符串。
+ * keywords 来自每条日志自带（agent 输出）：[{ text, type }]
+ * type: mob/location/skill/item/player
+ */
+function highlight(text, keywords) {
+  if (!text) return ''
+  // 转义 HTML
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // 收集关键词（去重 + 按长度降序，避免短词先匹配）
+  const kws = []
+  try {
+    const arr = typeof keywords === 'string' ? JSON.parse(keywords) : keywords
+    if (Array.isArray(arr)) {
+      const seen = new Set()
+      for (const k of arr) {
+        if (k.text && !seen.has(k.text)) {
+          seen.add(k.text)
+          kws.push(k)
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  kws.sort((a, b) => b.text.length - a.text.length)
+
+  // 逐个关键词替换为带 class 的 span
+  for (const kw of kws) {
+    const cls = `hl-${kw.type || 'mob'}`
+    const escaped = kw.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    html = html.replace(new RegExp(escaped, 'g'), `<span class="${cls}">$&</span>`)
+  }
+  return html
+}
 
 /** 标题栏点击：打开本日志（不切换关闭） */
 function openLog() {
@@ -31,13 +76,13 @@ function openLog() {
 
 /** 点击历练按钮 */
 function onTempering() {
+  if (btnDisabled.value) return
   emit('tempering')
-  logs.value.unshift({
-    id: Date.now(),
-    type: 'tempering',
-    text: '开始历练...',
-    time: '刚刚',
-  })
+}
+
+/** 点击停止历练 */
+function onStop() {
+  emit('stop')
 }
 </script>
 
@@ -76,10 +121,11 @@ function onTempering() {
           alt=""
         >
         <div class="log-content">
-          <p class="log-text">
-            {{ log.text }}
-          </p>
-          <span class="log-time">{{ log.time }}</span>
+          <p
+            class="log-text"
+            v-html="highlight(log.content, log.keywords)"
+          />
+          <span class="log-time">{{ log.won ? '胜利' : '逃跑' }}</span>
         </div>
       </div>
 
@@ -97,9 +143,28 @@ function onTempering() {
       v-show="!collapsed"
       class="log-actions"
     >
+      <!-- 历练中：显示停止按钮 -->
       <button
-        class="action-btn"
+        v-if="status === 2"
+        class="action-btn stop"
         type="button"
+        @click="onStop"
+      >
+        <img
+          class="btn-bg"
+          src="/log/btn.png"
+          alt=""
+        >
+        <span class="btn-text">停止历练</span>
+      </button>
+      <!-- 空闲：显示历练按钮（非野外禁用） -->
+      <button
+        v-else
+        class="action-btn"
+        :class="{ disabled: btnDisabled }"
+        type="button"
+        :disabled="btnDisabled"
+        :title="btnDisabled ? '请前往野外地图进行历练' : ''"
         @click="onTempering"
       >
         <img
@@ -112,7 +177,7 @@ function onTempering() {
           src="/log/tempering.png"
           alt=""
         >
-        <span class="btn-text">历练</span>
+        <span class="btn-text">{{ btnDisabled ? '需野外地图' : '历练' }}</span>
       </button>
     </div>
   </div>
@@ -131,13 +196,11 @@ function onTempering() {
   overflow: hidden;
   transition: flex 0.3s ease;
 
-  /* 收起时只占标题栏高度 */
   &.collapsed {
     flex: none;
   }
 }
 
-/* 标题栏 */
 .log-header {
   position: relative;
   flex-shrink: 0;
@@ -178,7 +241,6 @@ function onTempering() {
   }
 }
 
-/* 日志列表 */
 .log-list {
   flex: 1;
   overflow-y: auto;
@@ -200,7 +262,6 @@ function onTempering() {
   }
 }
 
-/* 日志条目 */
 .log-item {
   display: flex;
   align-items: flex-start;
@@ -236,6 +297,28 @@ function onTempering() {
       letter-spacing: 0.5px;
       font-family: 'STKaiti', 'KaiTi', '楷体', serif;
       text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+
+      /* 关键词高亮配色 */
+      :deep(.hl-mob) {
+        color: #ff9080;
+        font-weight: 600;
+      }
+      :deep(.hl-location) {
+        color: #80c8ff;
+        font-weight: 600;
+      }
+      :deep(.hl-skill) {
+        color: #c8a0ff;
+        font-weight: 600;
+      }
+      :deep(.hl-item) {
+        color: #ffd870;
+        font-weight: 600;
+      }
+      :deep(.hl-player) {
+        color: #a0e8a0;
+        font-weight: 600;
+      }
     }
 
     .log-time {
@@ -246,7 +329,6 @@ function onTempering() {
   }
 }
 
-/* 空状态 */
 .log-empty {
   padding: 40px 0;
   text-align: center;
@@ -255,7 +337,6 @@ function onTempering() {
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
 
-/* 底部按钮 */
 .log-actions {
   flex-shrink: 0;
   display: flex;
@@ -280,13 +361,22 @@ function onTempering() {
   cursor: pointer;
   transition: filter 0.2s, transform 0.2s;
 
-  &:hover {
+  &:hover:not(.disabled) {
     filter: brightness(1.2);
     transform: translateY(-1px);
   }
 
-  &:active {
+  &:active:not(.disabled) {
     transform: translateY(0);
+  }
+
+  &.disabled {
+    cursor: not-allowed;
+    filter: grayscale(0.6) brightness(0.7);
+  }
+
+  &.stop .btn-text {
+    color: #ff9080;
   }
 
   .btn-bg {

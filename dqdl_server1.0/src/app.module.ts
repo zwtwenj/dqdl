@@ -9,6 +9,7 @@ import { GameModule } from './game/game.module';
 import { MobModule } from './mob/mob.module';
 import { AlchemyModule } from './alchemy/alchemy.module';
 import { ItemModule } from './item/item.module';
+import { TrainingModule } from './training/training.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -36,6 +37,7 @@ import { AppController } from './app.controller';
     MobModule,
     AlchemyModule,
     ItemModule,
+    TrainingModule,
   ],
   controllers: [AppController],
 })

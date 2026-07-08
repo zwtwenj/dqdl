@@ -508,7 +508,9 @@ def generate_training():
         f'全程严格使用第三人称，主语必须是"{player_name}"，禁止出现"你"、"我"、"玩家"等第一/第二人称。'
         '可将功法与斗技统称为招式/手段，自然融入叙事即可，不必刻意区分。'
         '字数控制在150字以内。'
-        '只输出叙事文本，不要输出JSON或其他格式。'
+        '必须输出JSON格式：{"text":"叙事文本","keywords":[{"text":"关键词","type":"类型"}]}'
+        '其中 type 只能是：mob(魔兽名)、location(地点名)、skill(功法/斗技名)、item(物品名)、player(玩家名)。'
+        'keywords 里的 text 必须是叙事文本中实际出现的完整词。只输出JSON，不要输出其他内容。'
     )
 
     outcome = '胜利' if won else '逃跑'
@@ -521,6 +523,8 @@ def generate_training():
         f'  描述：{mob.get("description", "")}\n'
         f'【战斗信息】结局：{outcome}，战斗风格：{battle.get("style", "普通")}\n'
         f'\n请用第三人称写一段遭遇→交锋→{outcome}的叙事，主语用"{player_name}"，不要出现"你"、"我"、"玩家"，自然提及使用的招式，不超过150字。'
+        f'\n输出JSON：{{"text":"叙事文本","keywords":[{{"text":"{mob.get("name", "")}","type":"mob"}},{{"text":"{location.get("name", "")}","type":"location"}},{{"text":"{player_name}","type":"player"}}]}}'
+        f'\nkeywords 里除了示例的 mob/location/player，如果叙事中提到了功法或斗技名则加 skill 类型，提到物品名则加 item 类型。'
     )
 
     try:
@@ -531,15 +535,37 @@ def generate_training():
                 {'role': 'user', 'content': user_prompt},
             ],
             temperature=0.9,
-            max_tokens=200,
+            max_tokens=300,
         )
-        text = r.choices[0].message.content.strip()
-        return jsonify({'text': text})
+        raw = r.choices[0].message.content.strip()
+        # 尝试解析 JSON
+        try:
+            result = json.loads(raw)
+            # 兼容：确保有 text 和 keywords
+            if 'text' not in result:
+                result = {'text': raw, 'keywords': []}
+            if 'keywords' not in result:
+                result['keywords'] = []
+        except (json.JSONDecodeError, ValueError):
+            # JSON 解析失败，把整段当 text
+            result = {'text': raw, 'keywords': [
+                {'text': mob.get('name', ''), 'type': 'mob'},
+                {'text': location.get('name', ''), 'type': 'location'},
+                {'text': player_name, 'type': 'player'},
+            ]}
+        return jsonify(result)
     except Exception as e:
         import traceback
         print(f'[Training ERROR] {e}')
         traceback.print_exc()
-        return jsonify({'text': f'你在{location.get("name", "")}遭遇了一只{mob.get("name", "")}。'})
+        return jsonify({
+            'text': f'{player_name}在{location.get("name", "")}遭遇了{mob.get("name", "")}。',
+            'keywords': [
+                {'text': mob.get('name', ''), 'type': 'mob'},
+                {'text': location.get('name', ''), 'type': 'location'},
+                {'text': player_name, 'type': 'player'},
+            ],
+        })
 
 
 # ============================================================

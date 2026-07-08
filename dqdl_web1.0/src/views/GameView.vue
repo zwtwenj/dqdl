@@ -6,7 +6,7 @@
  * 邻近之地/可达之所抽屉各自按 locationId 拉同级/子级。
  * 点击卡片 → movePlayerLocation → 更新 currentLocationId → 三处同步刷新。
  */
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PlayerInfo from '../components/PlayerInfo.vue'
 import IconToolbar from '../components/IconToolbar.vue'
@@ -15,7 +15,14 @@ import NeighborMapDrawer from '../components/NeighborMapDrawer.vue'
 import ChildrenMapDrawer from '../components/ChildrenMapDrawer.vue'
 import AdventureLog from '../components/AdventureLog.vue'
 import CollectLog from '../components/CollectLog.vue'
-import { getPlayer, getLocation, movePlayerLocation } from '../api'
+import {
+  getPlayer,
+  getLocation,
+  movePlayerLocation,
+  startTraining,
+  stopTraining,
+  getActiveTraining,
+} from '../api'
 import { bus, BusEvents } from '../utils/eventBus'
 
 const route = useRoute()
@@ -29,6 +36,82 @@ const errorMsg = ref('')
 // 历练日志 / 采集日志 收起状态（互斥：一个展开另一个收起）
 const logCollapsed = ref(false)
 const collectCollapsed = ref(true)
+
+// 历练日志数据 + 轮询定时器
+const trainingLogs = ref([])
+let trainingPollTimer = null
+
+/** 开始历练 */
+async function onStartTraining() {
+  try {
+    await startTraining()
+    if (player.value) player.value.status = 2
+    // 立即拉一次 + 启动轮询
+    await pollTrainingLogs()
+    startTrainingPoll()
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '开始历练失败' })
+  }
+}
+
+/** 停止历练 */
+async function onStopTraining() {
+  try {
+    await stopTraining()
+    stopTrainingPoll()
+    trainingLogs.value = []
+    if (player.value) player.value.status = 1
+    bus.emit(BusEvents.TOAST, { type: 'info', message: '历练已停止' })
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '停止历练失败' })
+  }
+}
+
+/** 拉取当前历练日志 */
+async function pollTrainingLogs() {
+  try {
+    const data = await getActiveTraining()
+    if (data) {
+      trainingLogs.value = data.logs || []
+      // 后端可能已自动结束（到时间），同步状态
+      if (data.status === 1 && player.value?.status === 2) {
+        player.value.status = 1
+        stopTrainingPoll()
+        bus.emit(BusEvents.TOAST, { type: 'info', message: '历练已结束' })
+      }
+    } else if (player.value?.status === 2) {
+      // 后端已结束，前端同步
+      player.value.status = 1
+      stopTrainingPoll()
+    }
+  } catch (err) {
+    console.warn('拉取历练日志失败:', err.message)
+  }
+}
+
+/** 启动轮询（每 5 秒） */
+function startTrainingPoll() {
+  stopTrainingPoll()
+  trainingPollTimer = setInterval(pollTrainingLogs, 5000)
+}
+
+/** 停止轮询 */
+function stopTrainingPoll() {
+  if (trainingPollTimer) {
+    clearInterval(trainingPollTimer)
+    trainingPollTimer = null
+  }
+}
+
+// 进入页面时检查是否在历练中（刷新恢复）
+async function checkActiveTraining() {
+  if (player.value?.status === 2) {
+    await pollTrainingLogs()
+    startTrainingPoll()
+  }
+}
+
+onUnmounted(stopTrainingPoll)
 
 // 互斥：历练展开时收起采集，采集展开时收起历练
 watch(logCollapsed, (v) => {
@@ -56,6 +139,8 @@ async function loadPlayer() {
     // 初始化当前地点
     currentLocationId.value = data.location_id
     await loadLocation(data.location_id)
+    // 检查是否在历练中（刷新恢复轮询）
+    await checkActiveTraining()
   } catch (err) {
     errorMsg.value = err.message || '加载玩家信息失败'
   } finally {
@@ -114,9 +199,14 @@ function onIconSelect(key) {
   console.log('选中功能：', key)
 }
 
-/** 历练按钮（后续接后端历练接口） */
+/** 历练按钮 → 开始历练 */
 function onTempering() {
-  console.log('历练')
+  onStartTraining()
+}
+
+/** 停止历练按钮 */
+function onStopTrainingClick() {
+  onStopTraining()
 }
 
 /** 采集按钮（后续接后端采集接口） */
@@ -200,7 +290,11 @@ function backToStart() {
         <AdventureLog
           v-model:collapsed="logCollapsed"
           class="adventure-log"
+          :status="player?.status ?? 1"
+          :location-type="currentLocation?.loc_type ?? ''"
+          :logs="trainingLogs"
           @tempering="onTempering"
+          @stop="onStopTrainingClick"
         />
         <!-- 采集日志 -->
         <CollectLog

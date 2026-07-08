@@ -259,6 +259,16 @@ export class PlayerService {
     return this.findOne(playerId);
   }
 
+  /** 获取 player 实体（原始，非聚合），供其他 service 使用 */
+  async getEntity(playerId: number): Promise<Player | null> {
+    return this.repo.findOneBy({ id: playerId });
+  }
+
+  /** 直接设置玩家状态（供历练等活动 service 使用） */
+  async setStatus(playerId: number, status: number): Promise<void> {
+    await this.repo.update({ id: playerId }, { status });
+  }
+
   /** 删除角色的 player（删角色时级联） */
   async removeByCharacterId(characterId: number): Promise<void> {
     await this.repo.delete({ character_id: characterId });
@@ -275,6 +285,22 @@ export class PlayerService {
     if (!character || character.user_id !== userId) {
       throw Biz.forbidden('无权操作该角色');
     }
+    return player;
+  }
+
+  /**
+   * 按 user 查 player（当前活动角色）。
+   * 取该 user 下 slot 最小的角色对应的 player。
+   * 供 training 等接口直接从 JWT user 拿 player。
+   */
+  async verifyOwnershipByUser(userId: number): Promise<Player> {
+    const characters = await this.characterService.listByUser(userId);
+    if (characters.length === 0) {
+      throw Biz.notFound('该账号下无角色');
+    }
+    // 取第一个角色（slot 最小）的 player
+    const player = await this.repo.findOneBy({ character_id: characters[0].id });
+    if (!player) throw Biz.notFound('玩家数据不存在');
     return player;
   }
 

@@ -7,6 +7,8 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `training_log`;
+DROP TABLE IF EXISTS `training`;
 DROP TABLE IF EXISTS `location_gen_rule`;
 DROP TABLE IF EXISTS `item`;
 DROP TABLE IF EXISTS `alchemy`;
@@ -173,6 +175,32 @@ CREATE TABLE `location_gen_rule` (
   PRIMARY KEY (`id`),
   KEY `idx_gen_rule_depth` (`depth`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='地点生成规则表';
+
+-- ========== 历练实例表 ==========
+CREATE TABLE `training` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `player_id` INT NOT NULL COMMENT '玩家ID',
+  `location_id` INT NOT NULL COMMENT '历练地点ID',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0=进行中 1=已结束',
+  `start_time` DATETIME(6) NOT NULL COMMENT '开始时间',
+  `end_time` DATETIME(6) NOT NULL COMMENT '结束时间（start + 历练时长）',
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `idx_training_player` (`player_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='历练实例表';
+
+-- ========== 历练日志表 ==========
+CREATE TABLE `training_log` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `training_id` INT NOT NULL COMMENT '所属历练实例ID',
+  `content` TEXT NOT NULL COMMENT '叙事文本（agent 生成）',
+  `keywords` TEXT DEFAULT NULL COMMENT '关键词 JSON：[{text,type}]',
+  `mob_id` VARCHAR(64) NOT NULL COMMENT '遭遇的魔兽ID（如 WB-035）',
+  `won` TINYINT NOT NULL COMMENT '1=胜利 0=逃跑',
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `idx_training_log_training` (`training_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='历练日志表';
 
 -- ========== 默认账号 admin/123456 ==========
 INSERT INTO `user` (`username`, `password`, `nickname`)

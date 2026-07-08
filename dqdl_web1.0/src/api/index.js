@@ -17,3 +17,4 @@ export {
   getLocation,
 } from './location'
 export { getPlayer, getPlayerStatus, cultivate, breakthrough, movePlayerLocation } from './player'
+export { startTraining, stopTraining, getActiveTraining } from './training'

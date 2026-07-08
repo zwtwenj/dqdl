@@ -75,4 +75,45 @@ export class AgentService {
       return null;
     }
   }
+
+  /**
+   * 生成历练叙事：调 POST /generate/training。
+   * @param player  玩家信息 { name, technique_name }
+   * @param mob     魔兽信息 { mob_id, name, description, ... }
+   * @param location 地点信息 { name, description }
+   * @param won     是否胜利
+   * @returns { text, keywords:[{text,type}] }；agent 不可用或出错时返回 null
+   */
+  async generateTraining(
+    player: { name: string; technique_name?: string },
+    mob: { mob_id: string; name: string; description?: string },
+    location: { name: string; description?: string },
+    won: boolean,
+  ): Promise<{ text: string; keywords: { text: string; type: string }[] } | null> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<{ text: string; keywords?: { text: string; type: string }[] }>(
+          `${this.baseUrl}/generate/training`,
+          {
+            player,
+            mob,
+            battle: { style: '普通', won },
+            location,
+            won,
+          },
+        ),
+      );
+      if (!data?.text) return null;
+      return {
+        text: data.text,
+        keywords: Array.isArray(data.keywords) ? data.keywords : [],
+      };
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/training 调用失败：${err.message}（code=${err.code}）`,
+      );
+      return null;
+    }
+  }
 }

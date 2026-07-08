@@ -23,6 +23,12 @@ export class LocationController {
     return this.locationService.getChildren(locationId)
   }
 
+  /** 获取同级兄弟节点 GET /api/location/:locationId/siblings */
+  @Get(':locationId/siblings')
+  siblings(@Param('locationId', ParseIntPipe) locationId: number) {
+    return this.locationService.getSiblings(locationId)
+  }
+
   /** 展开某地点的子节点（AI 懒生成） POST /api/location/:locationId/expand */
   @Post(':locationId/expand')
   expand(@Param('locationId', ParseIntPipe) locationId: number) {

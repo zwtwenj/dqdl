@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Player } from './player.entity';
 import { CharacterService } from '../character/character.service';
+import { LocationService } from '../location/location.service';
 import { Biz } from '../common/biz.exception';
 
 /** 等阶 K 常量：1-9=100, 11-19=200, 21-29=300, 31+=400 */
@@ -62,6 +63,7 @@ export class PlayerService {
     @InjectRepository(Player)
     private readonly repo: Repository<Player>,
     private readonly characterService: CharacterService,
+    private readonly locationService: LocationService,
   ) {}
 
   /** 等级名称：1-9 斗之气段 / 11-19 斗者星 / ... */
@@ -241,6 +243,20 @@ export class PlayerService {
 
     await this.repo.save(player);
     return { ...await this.findOne(id), breakthrough_success: success };
+  }
+
+  /**
+   * 切换玩家当前地点（不校验层级，只校验目标地点存在）。
+   * 更新 location_id，返回聚合后的 player。
+   */
+  async moveToLocation(playerId: number, locationId: number): Promise<any> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    // 校验目标地点存在
+    await this.locationService.findOne(locationId);
+    player.location_id = locationId;
+    await this.repo.save(player);
+    return this.findOne(playerId);
   }
 
   /** 删除角色的 player（删角色时级联） */

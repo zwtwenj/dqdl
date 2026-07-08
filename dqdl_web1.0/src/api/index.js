@@ -12,7 +12,8 @@ export {
 export {
   getRootLocation,
   getLocationChildren,
+  getLocationSiblings,
   expandLocation,
   getLocation,
 } from './location'
-export { getPlayer, getPlayerStatus, cultivate, breakthrough } from './player'
+export { getPlayer, getPlayerStatus, cultivate, breakthrough, movePlayerLocation } from './player'

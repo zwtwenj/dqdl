@@ -11,3 +11,7 @@ export const cultivate = (id) => http.post(`/player/${id}/cultivate`)
 
 /** 突破 POST /api/player/:id/breakthrough */
 export const breakthrough = (id) => http.post(`/player/${id}/breakthrough`)
+
+/** 切换当前地点 POST /api/player/:id/move { locationId } */
+export const movePlayerLocation = (id, locationId) =>
+  http.post(`/player/${id}/move`, { locationId })

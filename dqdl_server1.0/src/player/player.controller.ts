@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Body,
   Param,
   ParseIntPipe,
   UseGuards,
@@ -49,5 +50,16 @@ export class PlayerController {
   async breakthrough(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     await this.playerService.verifyOwnership(id, req.user.id);
     return this.playerService.breakthrough(id);
+  }
+
+  /** 切换当前地点 POST /api/player/:id/move { locationId } */
+  @Post(':id/move')
+  async move(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { locationId: number },
+    @Req() req: any,
+  ) {
+    await this.playerService.verifyOwnership(id, req.user.id);
+    return this.playerService.moveToLocation(id, Number(body.locationId));
   }
 }

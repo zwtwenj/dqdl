@@ -1,6 +1,6 @@
 import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 import { Location } from './location.entity';
 import { LocationGenRule } from './location-gen-rule.entity';
 import { Biz } from '../common/biz.exception';
@@ -43,6 +43,16 @@ export class LocationService implements OnApplicationBootstrap {
     await this.findOne(locationId)
     return this.repo.find({
       where: { parent_id: locationId },
+      order: { id: 'ASC' },
+    })
+  }
+
+  /** 查询同级兄弟节点（同 parent_id，排除自身）。根节点返回空数组。 */
+  async getSiblings(locationId: number): Promise<Location[]> {
+    const loc = await this.findOne(locationId)
+    if (loc.parent_id === null) return []
+    return this.repo.find({
+      where: { parent_id: loc.parent_id, id: Not(locationId) },
       order: { id: 'ASC' },
     })
   }

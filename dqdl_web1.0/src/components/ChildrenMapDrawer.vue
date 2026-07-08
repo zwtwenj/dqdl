@@ -1,26 +1,58 @@
 <script setup>
 /**
  * 可达之所抽屉（子级地图）：展示当前地点的子节点。
- * 复用通用 MapDrawer 组件，仅提供标题与数据。
- * 当前用假数据，后续接入 location 接口（子级 = GET /api/location/:id/children）。
+ * 接收 locationId prop，watch 后调 getLocationChildren 拉数据。
+ * 若返回空数组（父节点未展开），自动调 expandLocation 触发 AI 生成，再重拉。
+ * 复用通用 MapDrawer 组件。
  */
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import MapDrawer from './MapDrawer.vue'
+import { getLocationChildren, expandLocation } from '../api'
+import { bus, BusEvents } from '../utils/eventBus'
 
-/* 假数据：子级地点列表 */
-const children = ref([
-  { id: 11, name: '坊市', loc_type: 'market', danger_level: 0, qi_density: 0 },
-  { id: 12, name: '佣兵公会', loc_type: 'district', danger_level: 0, qi_density: 0 },
-  { id: 13, name: '丹房', loc_type: 'alchemy', danger_level: 0, qi_density: 0 },
-  { id: 14, name: '修炼室', loc_type: 'cultivation', danger_level: 0, qi_density: 15 },
-  { id: 15, name: '城主府', loc_type: 'district', danger_level: 0, qi_density: 0 },
-  { id: 16, name: '拍卖行', loc_type: 'district', danger_level: 0, qi_density: 0 },
-])
-
-/* 当前选中的地点 id（高亮），子级默认不高亮 */
-const currentId = ref(null)
+const props = defineProps({
+  locationId: { type: Number, default: null },
+})
 
 const emit = defineEmits(['select'])
+
+const children = ref([])
+const currentId = ref(null)
+const loading = ref(false)
+
+/** 拉取子级地点；空时自动触发生成再重拉 */
+async function loadChildren(locationId) {
+  if (!locationId) {
+    children.value = []
+    return
+  }
+  loading.value = true
+  try {
+    let list = await getLocationChildren(locationId)
+    // 空数组 → 父节点未展开，触发生成后重拉
+    if (list.length === 0) {
+      bus.emit(BusEvents.TOAST, { type: 'info', message: '正在探索未知之地...' })
+      await expandLocation(locationId)
+      list = await getLocationChildren(locationId)
+    }
+    children.value = list
+  } catch (err) {
+    console.warn('拉取子级地点失败:', err.message)
+    children.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(() => props.locationId, (id) => {
+  currentId.value = null
+  loadChildren(id)
+}, { immediate: true })
+
+function onSelect(item) {
+  currentId.value = item.id
+  emit('select', item)
+}
 </script>
 
 <template>
@@ -28,6 +60,6 @@ const emit = defineEmits(['select'])
     title="可达之所"
     :items="children"
     :current-id="currentId"
-    @select="(item) => { currentId = item.id; emit('select', item) }"
+    @select="onSelect"
   />
 </template>

@@ -1,36 +1,89 @@
 <script setup>
 /**
  * 当前地图组件：返回上级 + 类型图标/地名/危险度/斗气 + 描述 + 常见魔兽/药草。
- * 返回按钮暂只做 UI，未接回退逻辑。
+ * 改为 props 驱动：接收 location 对象（后端 findOne 返回）。
+ * common_mobs/common_herbs 是 JSON 字符串，这里 parse 后渲染。
+ * 图标路径按 mob_id/item_id 直接拼，onerror 回退到 WB-001/yb-001。
  */
-import { ref } from 'vue'
+import { computed } from 'vue'
 
-/* 假数据：沿用后端 location 结构（name/loc_type/description/danger_level/qi_density/tags） */
-const location = ref({
-  name: '加玛圣城',
-  loc_type: 'city',
-  description: '加玛帝国都城，繁华富庶，强者云集之地。',
-  danger_level: 0,
-  qi_density: 12,
-  tags: ['繁华', '帝国都城'],
+const props = defineProps({
+  location: { type: Object, default: null },
 })
 
-/* 常见魔兽 / 药草（仅野外类有，此处给假图标占位） */
-const mobs = [
-  { icon: '/icon/mob/mob-7.png', name: '紫晶翼狮' },
-  { icon: '/icon/mob/mob-23.png', name: '六阶魔兽' },
-  { icon: '/icon/mob/mob-41.png', name: '云芝仙草' },
-]
-const herbs = [
-  { icon: '/icon/alchemy/alchemy-3.png', name: '紫叶兰' },
-  { icon: '/icon/alchemy/alchemy-15.png', name: '洗髓花' },
-  { icon: '/icon/alchemy/alchemy-30.png', name: '冰灵丹草' },
-]
+const emit = defineEmits(['back'])
+
+/* loc_type → 图标映射 */
+const typeIconMap = {
+  continent: '/icon/location/city.png',
+  region: '/icon/location/city.png',
+  empire: '/icon/location/city.png',
+  city: '/icon/location/city.png',
+  district: '/icon/location/city.png',
+  market: '/icon/location/city.png',
+  cultivation: '/icon/location/cultivation.png',
+  forging: '/icon/location/forging.png',
+  wild: '/icon/location/wild.png',
+  wild2: '/icon/location/wild.png',
+  wild3: '/icon/location/wild.png',
+  sect: '/icon/location/sect.png',
+  secret: '/icon/location/secret.png',
+  alchemy: '/icon/location/city.png',
+}
+
+/** 危险等级 → 中文 */
+function dangerText(level) {
+  return ['', '低危', '中危', '高危', '极危', '禁地'][level] || ''
+}
+
+/** 解析 common_mobs JSON 字符串 → 数组 */
+const mobs = computed(() => {
+  if (!props.location?.common_mobs) return []
+  try {
+    const arr = JSON.parse(props.location.common_mobs)
+    return (Array.isArray(arr) ? arr : []).map((m) => ({
+      ...m,
+      icon: `/icon/mob/${m.mob_id}.png`,
+    }))
+  } catch {
+    return []
+  }
+})
+
+/** 解析 common_herbs JSON 字符串 → 数组 */
+const herbs = computed(() => {
+  if (!props.location?.common_herbs) return []
+  try {
+    const arr = JSON.parse(props.location.common_herbs)
+    return (Array.isArray(arr) ? arr : []).map((h) => ({
+      ...h,
+      icon: `/icon/alchemy/${h.item_id}.png`,
+    }))
+  } catch {
+    return []
+  }
+})
+
+/** 类型图标 */
+const typeIcon = computed(
+  () => typeIconMap[props.location?.loc_type] || '/icon/location/city.png',
+)
+
+/** 图片加载失败时回退图标 */
+function onMobError(e) {
+  e.target.src = '/icon/mob/WB-001.png'
+}
+function onHerbError(e) {
+  e.target.src = '/icon/alchemy/yb-001.png'
+}
 </script>
 
 <template>
   <div class="current-map">
-    <div class="current-map-back">
+    <div
+      class="current-map-back"
+      @click="emit('back')"
+    >
       <img
         class="current-map-back-bg"
         src="/ui/back.png"
@@ -42,25 +95,26 @@ const herbs = [
         <div class="location-type-name">
           <img
             class="location-type"
-            src="/icon/location/city.png"
+            :src="typeIcon"
           >
-          <span class="location-name">加玛圣城</span>
+          <span class="location-name">{{ location?.name }}</span>
         </div>
-        
+
         <div class="location-danger-power">
           <!--危险度：仅 danger_level > 0 时显示-->
           <div
+            v-if="location?.danger_level > 0"
             class="danger-box"
           >
             <img
               class="danger-icon"
               src="/icon/location/danger.png"
             >
-            <span class="danger-val">高危</span>
+            <span class="danger-val">{{ dangerText(location.danger_level) }}</span>
           </div>
           <!--斗气浓郁度：仅 qi_density > 0 时显示-->
           <div
-            v-if="location.qi_density > 0"
+            v-if="location?.qi_density > 0"
             class="power-box"
           >
             <img
@@ -77,41 +131,49 @@ const herbs = [
           src="/icon/location/map_description.png"
         >
         <div class="location-description-text">
-          {{ location.description }}
+          {{ location?.description }}
         </div>
       </div>
     </div>
     <div class="current-map-bottom">
       <!--常见魔兽-->
-      <div class="drops-row">
+      <div
+        v-if="mobs.length"
+        class="drops-row"
+      >
         <span class="drops-label">常见魔兽</span>
         <div class="drops-icons">
           <div
             v-for="m in mobs"
-            :key="m.name"
+            :key="m.mob_id"
             class="drop-item"
             :title="m.name"
           >
             <img
               :src="m.icon"
               :alt="m.name"
+              @error="onMobError"
             >
           </div>
         </div>
       </div>
       <!--常见药草-->
-      <div class="drops-row">
+      <div
+        v-if="herbs.length"
+        class="drops-row"
+      >
         <span class="drops-label">常见药草</span>
         <div class="drops-icons">
           <div
             v-for="h in herbs"
-            :key="h.name"
+            :key="h.item_id"
             class="drop-item"
             :title="h.name"
           >
             <img
               :src="h.icon"
               :alt="h.name"
+              @error="onHerbError"
             >
           </div>
         </div>
@@ -126,7 +188,6 @@ const herbs = [
   z-index: 5;
   display: flex;
   flex-direction: column;
-  gap: 14px;
   max-width: 860px;
   padding: 20px 24px 18px;
   // 暗金面板：深褐半透 + 金边
@@ -165,8 +226,8 @@ const herbs = [
 .current-map-top{
   display: flex;
   gap: 16px;
-  align-items: center;
   .current-map-top-left{
+    padding-top: 20px;
     width: 220px;
     flex-shrink: 0;
   }

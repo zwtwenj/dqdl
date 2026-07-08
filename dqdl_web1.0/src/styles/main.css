@@ -24,6 +24,7 @@ body,
 
 body{
   overflow: auto;
+  width: 1200px;
 }
 
 #app {

@@ -5,9 +5,15 @@ import { PlayerService } from './player.service';
 import { PlayerController } from './player.controller';
 import { AuthModule } from '../auth/auth.module';
 import { CharacterModule } from '../character/character.module';
+import { LocationModule } from '../location/location.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Player]), AuthModule, CharacterModule],
+  imports: [
+    TypeOrmModule.forFeature([Player]),
+    AuthModule,
+    CharacterModule,
+    LocationModule,
+  ],
   providers: [PlayerService],
   controllers: [PlayerController],
   exports: [PlayerService],

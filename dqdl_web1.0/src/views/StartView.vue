@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { createCharacter, enterCharacter, deleteCharacter } from '../api'
 import LoginPanel from '../components/LoginPanel.vue'
@@ -7,6 +8,7 @@ import CharacterSelectDialog from '../components/CharacterSelectDialog.vue'
 import CreatePlayerDialog from '../components/CreatePlayerDialog.vue'
 
 const auth = useAuthStore()
+const router = useRouter()
 const loading = ref(false)
 
 /** 角色选择弹窗（登录后自动弹出） */
@@ -77,10 +79,12 @@ async function onCharacterDelete(character) {
   }
 }
 
-/** 进入游戏主界面（暂用 alert 占位） */
-function enterGameView(character, player, rootLocationId) {
-  // TODO: router.push({ name: 'game', query: { characterId: character.id } })
-  alert(`进入游戏：${player?.name || character.name}\n位置ID：${rootLocationId}`)
+/** 进入游戏主界面 */
+function enterGameView(character) {
+  router.push({
+    name: 'game',
+    query: { characterId: character.id },
+  })
 }
 
 /** 退出登录 */

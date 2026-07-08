@@ -6,7 +6,12 @@ const routes = [
     name: 'start',
     component: () => import('../views/StartView.vue'),
   },
-  // 后续游戏主界面、角色面板等路由在此追加
+  {
+    path: '/game',
+    name: 'game',
+    component: () => import('../views/GameView.vue'),
+  },
+  // 后续角色面板等路由在此追加
 ]
 
 const router = createRouter({

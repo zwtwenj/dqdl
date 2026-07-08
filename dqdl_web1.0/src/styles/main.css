@@ -22,6 +22,14 @@ body,
   overflow: hidden;
 }
 
+body{
+  overflow: auto;
+}
+
+#app {
+  width: 1200px;
+}
+
 body {
   background: var(--bg-base);
   color: var(--text);

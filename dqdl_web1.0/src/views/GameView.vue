@@ -7,6 +7,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PlayerInfo from '../components/PlayerInfo.vue'
 import IconToolbar from '../components/IconToolbar.vue'
+import CurrentMap from '../components/CurrentMap.vue'
 
 const router = useRouter()
 
@@ -50,7 +51,10 @@ function backToStart() {
       :max-energy="player.maxEnergy"
     />
 
-    <!-- 右上角返回按钮 -->
+    <!-- 中央当前地图面板 -->
+    <CurrentMap class="current-map" />
+
+    <!-- 右上角返回开始页按钮 -->
     <button
       class="back-btn"
       type="button"
@@ -64,7 +68,7 @@ function backToStart() {
   </div>
 </template>
 
-<style scoped>
+<style lang="less" scoped>
 .game-view {
   position: relative;
   width: 100%;
@@ -102,5 +106,11 @@ function backToStart() {
 .back-btn:hover {
   background: rgba(180, 150, 90, 0.2);
   border-color: rgba(220, 190, 120, 0.7);
+}
+
+.current-map{
+  margin: 100px 10px 0 10px;
+  border-radius: 10px;
+  padding: 10px;
 }
 </style>

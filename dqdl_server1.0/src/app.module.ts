@@ -11,6 +11,7 @@ import { AlchemyModule } from './alchemy/alchemy.module';
 import { MaterialModule } from './material/material.module';
 import { MagicCoreModule } from './magic_core/magic_core.module';
 import { ItemModule } from './item/item.module';
+import { BackpackModule } from './backpack/backpack.module';
 import { TrainingModule } from './training/training.module';
 import { AppController } from './app.controller';
 
@@ -41,6 +42,7 @@ import { AppController } from './app.controller';
     MaterialModule,
     MagicCoreModule,
     ItemModule,
+    BackpackModule,
     TrainingModule,
   ],
   controllers: [AppController],

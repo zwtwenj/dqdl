@@ -9,6 +9,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `training_log`;
 DROP TABLE IF EXISTS `training`;
+DROP TABLE IF EXISTS `backpack`;
 DROP TABLE IF EXISTS `location_gen_rule`;
 DROP TABLE IF EXISTS `item`;
 DROP TABLE IF EXISTS `alchemy`;
@@ -192,6 +193,19 @@ CREATE TABLE `item` (
   UNIQUE KEY `idx_item_item_id` (`item_id`),
   KEY `idx_item_ref` (`ref_type`, `ref_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='物品模板表';
+
+-- ========== 背包表（玩家持有态：一个玩家一个物品一行，记录数量） ==========
+CREATE TABLE `backpack` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `player_id` INT NOT NULL COMMENT '所属玩家ID',
+  `item_id` VARCHAR(32) NOT NULL COMMENT '物品ID（与 item 表 item_id 对齐）',
+  `count` INT NOT NULL DEFAULT 1 COMMENT '持有数量（0 时删除该行）',
+  `acquired_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '首次获得时间',
+  `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_backpack_player_item` (`player_id`, `item_id`),
+  KEY `idx_backpack_player` (`player_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='背包表';
 
 -- ========== 地点生成规则表（按 depth 存 AI 生成 prompt 模板） ==========
 CREATE TABLE `location_gen_rule` (

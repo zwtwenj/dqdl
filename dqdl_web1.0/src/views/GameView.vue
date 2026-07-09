@@ -10,6 +10,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PlayerInfo from '../components/PlayerInfo.vue'
 import IconToolbar from '../components/IconToolbar.vue'
+import BagPanel from '../components/BagPanel.vue'
 import CurrentMap from '../components/CurrentMap.vue'
 import NeighborMapDrawer from '../components/NeighborMapDrawer.vue'
 import ChildrenMapDrawer from '../components/ChildrenMapDrawer.vue'
@@ -36,6 +37,9 @@ const errorMsg = ref('')
 // 历练日志 / 采集日志 收起状态（互斥：一个展开另一个收起）
 const logCollapsed = ref(false)
 const collectCollapsed = ref(true)
+
+// 背包弹窗显隐
+const bagOpen = ref(false)
 
 // 历练日志数据 + 轮询定时器
 const trainingLogs = ref([])
@@ -194,8 +198,12 @@ function onMapBack() {
 
 onMounted(loadPlayer)
 
-/** 功能图标点击：暂时只记录，后续按 key 打开对应面板 */
+/** 功能图标点击：背包切换弹窗，其余暂记录 */
 function onIconSelect(key) {
+  if (key === 'bag') {
+    bagOpen.value = !bagOpen.value
+    return
+  }
   console.log('选中功能：', key)
 }
 
@@ -316,6 +324,12 @@ function backToStart() {
 
     <!-- 右下角功能图标栏 -->
     <IconToolbar @select="onIconSelect" />
+
+    <!-- 背包弹窗（功能栏上方） -->
+    <BagPanel
+      v-model="bagOpen"
+      :player-id="player?.id"
+    />
   </div>
 </template>
 

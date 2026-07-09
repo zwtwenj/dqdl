@@ -18,3 +18,4 @@ export {
 } from './location'
 export { getPlayer, getPlayerStatus, cultivate, breakthrough, movePlayerLocation } from './player'
 export { startTraining, stopTraining, getActiveTraining } from './training'
+export { getBackpack } from './backpack'

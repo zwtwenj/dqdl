@@ -14,7 +14,7 @@ const props = defineProps({
   locationId: { type: Number, default: null },
 })
 
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'exploring'])
 
 const children = ref([])
 const currentId = ref(null)
@@ -32,8 +32,14 @@ async function loadChildren(locationId) {
     // 空数组 → 父节点未展开，触发生成后重拉
     if (list.length === 0) {
       bus.emit(BusEvents.TOAST, { type: 'info', message: '正在探索未知之地...' })
-      await expandLocation(locationId)
-      list = await getLocationChildren(locationId)
+      // 通知父组件显示全屏 loading 遮罩，阻断玩家点击其他节点
+      emit('exploring', true)
+      try {
+        await expandLocation(locationId)
+        list = await getLocationChildren(locationId)
+      } finally {
+        emit('exploring', false)
+      }
     }
     children.value = list
   } catch (err) {

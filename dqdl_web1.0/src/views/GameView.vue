@@ -41,6 +41,9 @@ const collectCollapsed = ref(true)
 // 背包弹窗显隐
 const bagOpen = ref(false)
 
+// 地图探索中（AI 生成子节点时显示全屏遮罩，阻断玩家点击其他节点移动）
+const mapExploring = ref(false)
+
 // 历练日志数据 + 轮询定时器
 const trainingLogs = ref([])
 let trainingPollTimer = null
@@ -168,6 +171,8 @@ async function loadLocation(locationId) {
 /** 切换地点：调后端 move → 更新 currentLocationId → 重新拉详情 */
 async function moveTo(locationId) {
   if (!player.value || locationId === currentLocationId.value) return
+  // 地图探索中（AI 正在生成子节点）禁止移动，避免请求错乱
+  if (mapExploring.value) return
   try {
     await movePlayerLocation(player.value.id, locationId)
     currentLocationId.value = locationId
@@ -177,6 +182,11 @@ async function moveTo(locationId) {
   } catch (err) {
     bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '切换地点失败' })
   }
+}
+
+/** 地图探索状态变化（AI 生成子节点时显示全屏遮罩） */
+function onMapExploring(exploring) {
+  mapExploring.value = exploring
 }
 
 /** 邻近之地卡片点击 → 切换到同级地点 */
@@ -290,6 +300,7 @@ function backToStart() {
             class="drawer-item"
             :location-id="currentLocationId"
             @select="onChildrenSelect"
+            @exploring="onMapExploring"
           />
         </div>
       </div>
@@ -330,6 +341,19 @@ function backToStart() {
       v-model="bagOpen"
       :player-id="player?.id"
     />
+
+    <!-- 地图探索 loading 遮罩（AI 生成子节点时阻断所有点击） -->
+    <div
+      v-if="mapExploring"
+      class="exploring-overlay"
+    >
+      <div class="exploring-box">
+        <div class="exploring-spinner" />
+        <div class="exploring-text">
+          正在探索未知之地
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -452,5 +476,55 @@ function backToStart() {
 .retry-btn:hover {
   background: rgba(180, 150, 90, 0.2);
   border-color: rgba(220, 190, 120, 0.8);
+}
+
+/* 地图探索 loading 遮罩：AI 生成子节点时阻断所有点击 */
+.exploring-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.exploring-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+/* 旋转加载圈（暖金光环） */
+.exploring-spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid rgba(200, 168, 104, 0.2);
+  border-top-color: #d4a868;
+  animation: exploring-spin 0.9s linear infinite;
+}
+
+@keyframes exploring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.exploring-text {
+  font-size: 16px;
+  color: #e8d5a0;
+  letter-spacing: 4px;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  /* 文字省略号呼吸动效 */
+  animation: exploring-fade 1.5s ease-in-out infinite;
+}
+
+@keyframes exploring-fade {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 </style>

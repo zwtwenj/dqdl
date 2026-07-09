@@ -115,7 +115,7 @@ const TYPE_LABEL = {
 
       <!-- 标题 -->
       <div class="bag-title">
-        百宝囊
+        背包
       </div>
 
       <!-- 物品网格区 -->
@@ -133,12 +133,6 @@ const TYPE_LABEL = {
             class="slot"
             :class="{ 'is-empty': slot.empty, 'has-item': !slot.empty }"
           >
-            <!-- 格子槽位背景 -->
-            <img
-              class="slot-groove"
-              src="/player/groove.png"
-              alt=""
-            >
             <!-- 物品图标 -->
             <template v-if="!slot.empty">
               <img
@@ -186,14 +180,6 @@ const TYPE_LABEL = {
           </div>
         </template>
       </div>
-
-      <!-- 空背包提示 -->
-      <div
-        v-if="!loading && slots.every((s) => s.empty)"
-        class="bag-empty"
-      >
-        囊中空空
-      </div>
   </div>
 </template>
 
@@ -205,8 +191,8 @@ const TYPE_LABEL = {
   right: 14px;
   bottom: 84px;
   z-index: 50;
-  width: 300px;
-  height: 378px;
+  width: 400px;
+  height: 500px;
   /* bag.png 原始 398x502，按比例缩放到 300x378 */
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.7));
 }
@@ -251,7 +237,7 @@ const TYPE_LABEL = {
 
 .bag-title {
   position: absolute;
-  top: 14px;
+  top: 8px;
   left: 0;
   right: 0;
   z-index: 2;
@@ -267,14 +253,14 @@ const TYPE_LABEL = {
 .bag-content {
   position: absolute;
   /* 网格区在边框内部，留出顶部标题栏和四周边距 */
-  top: 48px;
-  left: 30px;
-  right: 30px;
-  bottom: 22px;
+  top: 60px;
+  left: 60px;
+  right: 60px;
+  bottom: 70px;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(7, 1fr);
   gap: 4px;
 }
 
@@ -295,6 +281,8 @@ const TYPE_LABEL = {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(0,0,0, 0.9);
+  border-radius: 4px;
 }
 
 /* 格子槽位背景 */

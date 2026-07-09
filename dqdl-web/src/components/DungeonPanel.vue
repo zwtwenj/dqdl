@@ -115,8 +115,7 @@
                 </div>
                 <div class="dq-pack-sec">
                   <div class="dq-pack-title">随身行囊</div>
-                  <div v-if="!backpackItems.length" class="dq-empty">囊中空空</div>
-                  <div v-else class="bp-grid">
+                  <div class="bp-grid">
                     <div v-for="(it, i) in backpackItems" :key="'b' + i"
                       class="bp-slot" :class="{ 'is-usable': it.usable }"
                       @mouseenter="showItemTip(it, $event)" @mouseleave="hideItemTip"

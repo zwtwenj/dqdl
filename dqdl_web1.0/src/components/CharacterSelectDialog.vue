@@ -129,8 +129,9 @@ function fmtTime(ts) {
 }
 
 .modal {
-  width: 80vw;
-  height: 80vh;
+  /* 用百分比相对 .overlay(1200px) 而非 vw/vh，确保弹窗始终在 1200px 设计区内 */
+  width: 80%;
+  height: 70%;
   max-width: 1000px;
   background: rgba(18, 14, 10, 0.92);
   border: 1px solid rgba(180, 150, 90, 0.4);

@@ -490,15 +490,23 @@ def generate_training():
     won = data.get('won', True)
 
     def format_skills(skills):
+        """格式化斗技列表，兼容 dict [{name,...}] 和纯字符串 ['xxx'] 两种格式"""
         if not skills:
             return '无'
         lines = []
         for s in skills:
-            desc = s.get('description', '')
-            lines.append(f"- {s.get('name', '未知斗技')}（Lv.{s.get('level', 1)}）{f'：{desc}' if desc else ''}")
-        return '\n'.join(lines)
+            if isinstance(s, str):
+                lines.append(f'- {s}')
+            elif isinstance(s, dict):
+                desc = s.get('description', '')
+                lines.append(f"- {s.get('name', '未知斗技')}（Lv.{s.get('level', 1)}）{f'：{desc}' if desc else ''}")
+        return '\n'.join(lines) if lines else '无'
 
     equipped_skills_text = format_skills(player.get('equipped_skills', []))
+    technique_name = player.get('technique_name', '无')
+    has_technique = technique_name and technique_name != '无'
+    has_skills = equipped_skills_text and equipped_skills_text != '无'
+    has_any_move = bool(has_technique or has_skills)
 
     player_name = player.get('name', '旅行者')
 
@@ -507,6 +515,14 @@ def generate_training():
         '文字风格参考斗破苍穹小说，生动但不啰嗦。'
         f'全程严格使用第三人称，主语必须是"{player_name}"，禁止出现"你"、"我"、"玩家"等第一/第二人称。'
         '可将功法与斗技统称为招式/手段，自然融入叙事即可，不必刻意区分。'
+    )
+    if not has_any_move:
+        # 玩家尚无任何功法/斗技：严禁编造招式名，只能用斗气、拳脚、身法等泛称
+        system_prompt += (
+            f'重要：{player_name}目前尚未习得任何功法或斗技，严禁在叙事中出现任何功法名、斗技名'
+            '（如"弄焰诀""紫云翼"等）。战斗动作只能用斗气、掌风、拳脚、身法、斗气外放等泛称描述。'
+        )
+    system_prompt += (
         '字数控制在150字以内。'
         '必须输出JSON格式：{"text":"叙事文本","keywords":[{"text":"关键词","type":"类型"}]}'
         '其中 type 只能是：mob(魔兽名)、location(地点名)、skill(功法/斗技名)、item(物品名)、player(玩家名)。'
@@ -518,13 +534,23 @@ def generate_training():
         f'要求：严格第三人称叙事，主语只能是"{player_name}"，全文禁止出现"你"、"我"、"玩家"、"主角"等字样，违者重写。\n'
         f'【地点】{location.get("name", "")} - {location.get("description", "")}\n'
         f'【玩家姓名】{player_name}\n'
-        f'【可用招式】功法：{player.get("technique_name", "无")}；斗技：{equipped_skills_text}\n'
+        f'【可用招式】功法：{technique_name}；斗技：{equipped_skills_text}\n'
+    )
+    if not has_any_move:
+        user_prompt += '注意：上方"可用招式"为无，禁止编造功法/斗技名。\n'
+    user_prompt += (
         f'【遭遇怪物】{mob.get("name", "")}\n'
         f'  描述：{mob.get("description", "")}\n'
         f'【战斗信息】结局：{outcome}，战斗风格：{battle.get("style", "普通")}\n'
-        f'\n请用第三人称写一段遭遇→交锋→{outcome}的叙事，主语用"{player_name}"，不要出现"你"、"我"、"玩家"，自然提及使用的招式，不超过150字。'
+        f'\n请用第三人称写一段遭遇→交锋→{outcome}的叙事，主语用"{player_name}"，不要出现"你"、"我"、"玩家"，'
+    )
+    if has_any_move:
+        user_prompt += '自然提及使用的招式，'
+    user_prompt += (
+        f'不超过150字。'
         f'\n输出JSON：{{"text":"叙事文本","keywords":[{{"text":"{mob.get("name", "")}","type":"mob"}},{{"text":"{location.get("name", "")}","type":"location"}},{{"text":"{player_name}","type":"player"}}]}}'
         f'\nkeywords 里除了示例的 mob/location/player，如果叙事中提到了功法或斗技名则加 skill 类型，提到物品名则加 item 类型。'
+    )
     )
 
     try:

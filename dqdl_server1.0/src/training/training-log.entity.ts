@@ -32,6 +32,13 @@ export class TrainingLog {
   @Column({ type: 'tinyint', comment: '1=胜利 0=逃跑' })
   won: number;
 
+  @Column({
+    type: 'text',
+    nullable: true,
+    comment: '本次掉落物 JSON：[{item_id,name,count}]，胜利才有',
+  })
+  drops: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 }

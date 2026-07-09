@@ -85,7 +85,7 @@ export class AgentService {
    * @returns { text, keywords:[{text,type}] }；agent 不可用或出错时返回 null
    */
   async generateTraining(
-    player: { name: string; technique_name?: string },
+    player: { name: string; technique_name?: string; equipped_skills?: string[] },
     mob: { mob_id: string; name: string; description?: string },
     location: { name: string; description?: string },
     won: boolean,

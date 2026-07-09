@@ -237,7 +237,7 @@ const TYPE_LABEL = {
 
 .bag-title {
   position: absolute;
-  top: 8px;
+  top: 14px;
   left: 0;
   right: 0;
   z-index: 2;

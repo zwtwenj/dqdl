@@ -67,6 +67,17 @@ function highlight(text, keywords) {
   return html
 }
 
+/** 解析掉落物 JSON → [{item_id,name,count}]，失败返回 [] */
+function parseDrops(drops) {
+  if (!drops) return []
+  try {
+    const arr = typeof drops === 'string' ? JSON.parse(drops) : drops
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
+
 /** 标题栏点击：打开本日志（不切换关闭） */
 function openLog() {
   if (props.collapsed) {
@@ -125,7 +136,19 @@ function onStop() {
             class="log-text"
             v-html="highlight(log.content, log.keywords)"
           />
-          <span class="log-time">{{ log.won ? '胜利' : '逃跑' }}</span>
+          <div class="log-footer">
+            <span class="log-time">{{ log.won ? '胜利' : '逃跑' }}</span>
+            <span
+              v-if="log.drops"
+              class="log-drops"
+            >
+              <span
+                v-for="d in parseDrops(log.drops)"
+                :key="d.item_id"
+                class="drop-item"
+              >{{ d.name }}×{{ d.count }}</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -325,6 +348,35 @@ function onStop() {
       font-size: 10px;
       color: rgba(200, 180, 140, 0.45);
       letter-spacing: 0.5px;
+    }
+
+    .log-footer {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+      margin-top: 3px;
+    }
+
+    .log-drops {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 2px 8px;
+    }
+
+    .drop-item {
+      font-size: 11px;
+      color: #ffd870;
+      letter-spacing: 0.5px;
+      font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+
+      &::before {
+        content: '◆';
+        margin-right: 2px;
+        font-size: 8px;
+        color: rgba(255, 216, 112, 0.6);
+      }
     }
   }
 }

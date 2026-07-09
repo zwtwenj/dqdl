@@ -244,6 +244,7 @@ CREATE TABLE `training_log` (
   `keywords` TEXT DEFAULT NULL COMMENT '关键词 JSON：[{text,type}]',
   `mob_id` VARCHAR(64) NOT NULL COMMENT '遭遇的魔兽ID（如 WB-035）',
   `won` TINYINT NOT NULL COMMENT '1=胜利 0=逃跑',
+  `drops` TEXT DEFAULT NULL COMMENT '本次掉落物 JSON：[{item_id,name,count}]，胜利才有',
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   KEY `idx_training_log_training` (`training_id`)

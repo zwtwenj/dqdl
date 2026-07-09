@@ -405,6 +405,7 @@ function backToStart() {
   display: flex;
   width: 100%;
   padding: 0 10px;
+  gap: 10px;
   .game-map{
     width: 860px;
     overflow-y: auto;

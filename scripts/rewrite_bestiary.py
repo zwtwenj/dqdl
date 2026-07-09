@@ -6,16 +6,17 @@
 4. 生成材料图鉴docx（含怪物名、怪物ID、AI生成描述）
 5. 数据入库（mob + item表）
 """
+import os
 from docx import Document
 from docx.shared import Pt
 import json, re, pymysql, os, sys, random
 
 DB = {
-    'host': 'os.environ.get("DB_HOST", "127.0.0.1")',
+    'host': os.environ.get('DB_HOST', '127.0.0.1'),
     'port': 3306,
-    'user': 'root',
-    'password': 'os.environ.get("DB_PASSWORD", "")',
-    'database': 'dqdl',
+    'user': os.environ.get('DB_USER', 'root'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'database': os.environ.get('DB_DATABASE', 'dqdl'),
     'charset': 'utf8mb4',
 }
 

@@ -1,7 +1,8 @@
 """检查掉落物名称中的括号描述问题"""
+import os
 import pymysql, json
 
-c = pymysql.connect(host='os.environ.get("DB_HOST", "127.0.0.1")', user='root', password='os.environ.get("DB_PASSWORD", "")', database='dqdl', charset='utf8mb4', connect_timeout=10)
+c = pymysql.connect(host=os.environ.get('DB_HOST', '127.0.0.1'), user=os.environ.get('DB_USER', 'root'), password=os.environ.get('DB_PASSWORD', ''), database=os.environ.get('DB_DATABASE', 'dqdl'), charset='utf8mb4', connect_timeout=10)
 cur = c.cursor()
 
 # 1. item表中 "沙蝎尾钩"

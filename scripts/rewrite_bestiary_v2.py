@@ -4,16 +4,17 @@
 2. 属性参考严格按公式计算：TIER_ATTRS[tier] * POWER_MOD[战力编码] * 元素倾向
 3. 重写docx + 更新mob表
 """
+import os
 from docx import Document
 from docx.shared import Pt
 import json, re, pymysql, random
 
 DB = {
-    'host': 'os.environ.get("DB_HOST", "127.0.0.1")',
+    'host': os.environ.get('DB_HOST', '127.0.0.1'),
     'port': 3306,
-    'user': 'root',
-    'password': 'os.environ.get("DB_PASSWORD", "")',
-    'database': 'dqdl',
+    'user': os.environ.get('DB_USER', 'root'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'database': os.environ.get('DB_DATABASE', 'dqdl'),
     'charset': 'utf8mb4',
 }
 

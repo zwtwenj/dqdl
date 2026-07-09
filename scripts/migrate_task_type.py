@@ -1,9 +1,10 @@
+import os
 import pymysql
 
 conn = pymysql.connect(
-    host='os.environ.get("DB_HOST", "127.0.0.1")', port=3306,
-    user='root', password='os.environ.get("DB_PASSWORD", "")',
-    database='dqdl', charset='utf8mb4',
+    host=os.environ.get('DB_HOST', '127.0.0.1'), port=3306,
+    user=os.environ.get('DB_USER', 'root'), password=os.environ.get('DB_PASSWORD', ''),
+    database=os.environ.get('DB_DATABASE', 'dqdl'), charset='utf8mb4',
     autocommit=True
 )
 cur = conn.cursor()

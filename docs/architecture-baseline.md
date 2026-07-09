@@ -9,7 +9,7 @@
 ```
 Vue3/Pinia (5173) ──axios/SSE──> NestJS (3000) ──HTTP──> Flask/DeepSeek (5000)
                                        │
-                                       └──> MySQL (远程 os.environ.get("DB_HOST", "127.0.0.1"))
+                                       └──> MySQL (远程，地址见 .env)
 ```
 
 - **前端**：Vue 3.5 + Pinia 3 + Axios + Vite 8，仅 3 个运行时依赖。SSE 用原生 EventSource。

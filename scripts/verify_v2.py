@@ -1,7 +1,8 @@
 """验证mob表属性更新"""
+import os
 import pymysql, json
 
-DB = {'host': 'os.environ.get("DB_HOST", "127.0.0.1")','port': 3306,'user': 'root','password': 'os.environ.get("DB_PASSWORD", "")','database': 'dqdl','charset': 'utf8mb4'}
+DB = {'host': os.environ.get('DB_HOST', '127.0.0.1'),'port': 3306,'user': os.environ.get('DB_USER', 'root'),'password': os.environ.get('DB_PASSWORD', ''),'database': os.environ.get('DB_DATABASE', 'dqdl'),'charset': 'utf8mb4'}
 conn = pymysql.connect(**DB)
 cur = conn.cursor()
 

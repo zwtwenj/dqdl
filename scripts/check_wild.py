@@ -1,5 +1,6 @@
+import os
 import pymysql, json
-conn = pymysql.connect(host='os.environ.get("DB_HOST", "127.0.0.1")', port=3306, user='root', password='os.environ.get("DB_PASSWORD", "")', database='dqdl', charset='utf8mb4')
+conn = pymysql.connect(host=os.environ.get('DB_HOST', '127.0.0.1'), port=3306, user=os.environ.get('DB_USER', 'root'), password=os.environ.get('DB_PASSWORD', ''), database=os.environ.get('DB_DATABASE', 'dqdl'), charset='utf8mb4')
 cur = conn.cursor()
 cur.execute('SELECT id, name, loc_type, danger_level, depth, parent_id, common_mobs FROM location WHERE loc_type LIKE "wild%" ORDER BY id')
 for r in cur.fetchall():

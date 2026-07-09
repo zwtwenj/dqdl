@@ -1,9 +1,10 @@
 """
 用DeepSeek API批量生成材料描述，分批调用
 """
+import os
 import json, os, time, requests
 
-DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', 'os.environ.get("DEEPSEEK_API_KEY", "")')
+DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
 DEEPSEEK_BASE_URL = 'https://api.deepseek.com'
 
 # 加载材料数据

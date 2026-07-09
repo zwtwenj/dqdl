@@ -1,14 +1,15 @@
 """解析魔兽图鉴全部303条，生成数据并直接插入数据库和材料图鉴"""
+import os
 from docx import Document
 from docx.shared import Pt
 import json, re, pymysql, os
 
 DB = {
-    'host': 'os.environ.get("DB_HOST", "127.0.0.1")',
+    'host': os.environ.get('DB_HOST', '127.0.0.1'),
     'port': 3306,
-    'user': 'root',
-    'password': 'os.environ.get("DB_PASSWORD", "")',
-    'database': 'dqdl',
+    'user': os.environ.get('DB_USER', 'root'),
+    'password': os.environ.get('DB_PASSWORD', ''),
+    'database': os.environ.get('DB_DATABASE', 'dqdl'),
     'charset': 'utf8mb4',
 }
 

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
+import os
 import pymysql, json, sys
 sys.stdout.reconfigure(encoding='utf-8')
 
-conn = pymysql.connect(host='os.environ.get("DB_HOST", "127.0.0.1")', port=3306, user='root', password='os.environ.get("DB_PASSWORD", "")', database='dqdl', charset='utf8mb4')
+conn = pymysql.connect(host=os.environ.get('DB_HOST', '127.0.0.1'), port=3306, user=os.environ.get('DB_USER', 'root'), password=os.environ.get('DB_PASSWORD', ''), database=os.environ.get('DB_DATABASE', 'dqdl'), charset='utf8mb4')
 cur = conn.cursor()
 
 # 查所有 wild 的 common_mobs

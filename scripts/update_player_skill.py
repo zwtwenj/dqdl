@@ -1,12 +1,13 @@
+import os
 import pymysql
 import json
 
 conn = pymysql.connect(
-    host='os.environ.get("DB_HOST", "127.0.0.1")',
+    host=os.environ.get('DB_HOST', '127.0.0.1'),
     port=3306,
-    user='root',
-    password='os.environ.get("DB_PASSWORD", "")',
-    database='dqdl',
+    user=os.environ.get('DB_USER', 'root'),
+    password=os.environ.get('DB_PASSWORD', ''),
+    database=os.environ.get('DB_DATABASE', 'dqdl'),
     charset='utf8mb4'
 )
 try:

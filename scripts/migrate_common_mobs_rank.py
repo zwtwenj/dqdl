@@ -1,4 +1,5 @@
 """迁移脚本：给 location.common_mobs JSON 中每个魔兽补充 rank 字段"""
+import os
 import json, pymysql
 
 # 加载品阶映射
@@ -6,7 +7,7 @@ with open('mob_rank_map.json', 'r', encoding='utf-8') as f:
     rank_map = json.load(f)
 print(f'已加载 {len(rank_map)} 条品阶映射')
 
-c = pymysql.connect(host='os.environ.get("DB_HOST", "127.0.0.1")', user='root', password='os.environ.get("DB_PASSWORD", "")', database='dqdl', charset='utf8mb4', connect_timeout=10)
+c = pymysql.connect(host=os.environ.get('DB_HOST', '127.0.0.1'), user=os.environ.get('DB_USER', 'root'), password=os.environ.get('DB_PASSWORD', ''), database=os.environ.get('DB_DATABASE', 'dqdl'), charset='utf8mb4', connect_timeout=10)
 cur = c.cursor()
 
 # 查询所有有 common_mobs 的地点

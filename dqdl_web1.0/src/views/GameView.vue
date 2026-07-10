@@ -11,6 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 import PlayerInfo from '../components/PlayerInfo.vue'
 import IconToolbar from '../components/IconToolbar.vue'
 import BagPanel from '../components/BagPanel.vue'
+import PlayerPanel from '../components/PlayerPanel.vue'
 import CurrentMap from '../components/CurrentMap.vue'
 import NeighborMapDrawer from '../components/NeighborMapDrawer.vue'
 import ChildrenMapDrawer from '../components/ChildrenMapDrawer.vue'
@@ -42,6 +43,13 @@ const collectCollapsed = ref(true)
 
 // 背包弹窗显隐
 const bagOpen = ref(false)
+
+// 角色面板显隐
+const playerPanelOpen = ref(false)
+
+// 弹窗拖拽位置（null = 沿用默认右下定位；拖动后转为 {x,y}）
+const bagPos = ref(null)
+const playerPos = ref(null)
 
 // 地图探索中（AI 生成子节点时显示全屏遮罩，阻断玩家点击其他节点移动）
 const mapExploring = ref(false)
@@ -229,6 +237,10 @@ function onIconSelect(key) {
     bagOpen.value = !bagOpen.value
     return
   }
+  if (key === 'player') {
+    playerPanelOpen.value = !playerPanelOpen.value
+    return
+  }
   console.log('选中功能：', key)
 }
 
@@ -351,10 +363,18 @@ function backToStart() {
     <!-- 右下角功能图标栏 -->
     <IconToolbar @select="onIconSelect" />
 
-    <!-- 背包弹窗（功能栏上方） -->
+    <!-- 背包弹窗（功能栏上方，可拖拽，动态层级） -->
     <BagPanel
       v-model="bagOpen"
+      v-model:pos="bagPos"
       :player-id="player?.id"
+    />
+
+    <!-- 角色面板弹窗（功能栏上方，可拖拽，动态层级） -->
+    <PlayerPanel
+      v-model="playerPanelOpen"
+      v-model:pos="playerPos"
+      :player="player"
     />
 
     <!-- 地图探索 loading 遮罩（AI 生成子节点时阻断所有点击） -->

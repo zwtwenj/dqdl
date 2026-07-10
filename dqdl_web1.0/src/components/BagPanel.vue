@@ -14,17 +14,48 @@
  * Emits:
  *   update:modelValue - 关闭
  */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useBackpackStore } from '../stores/backpack'
 import { bus, BusEvents } from '../utils/eventBus'
+import { usePanelStack } from '../composables/usePanelStack'
+import { usePanelDraggable } from '../composables/usePanelDraggable'
 
 const props = defineProps({
   modelValue: Boolean,
   playerId: { type: Number, default: null },
+  /** 弹窗位置（受控）：null = 沿用 CSS 默认定位（右下）；{x,y} = 显式左上坐标 */
+  pos: { type: Object, default: null },
 })
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'update:pos'])
 
 const backpackStore = useBackpackStore()
+
+/* ============ 弹窗层级（后打开/点击的在上） ============ */
+const { z, focus, mount, unmount } = usePanelStack('bag')
+watch(
+  () => props.modelValue,
+  (v) => {
+    if (v) {
+      mount()
+      focus()
+    } else {
+      unmount()
+    }
+  },
+)
+/* ============ 弹窗拖拽（标题栏作手柄，不干扰内部格子 HTML5 DnD） ============ */
+const panelRef = ref(null)
+const posModel = computed({
+  get: () => props.pos,
+  set: (v) => emit('update:pos', v),
+})
+const { dragging, onHandlePointerDown } = usePanelDraggable({
+  elRef: panelRef,
+  pos: posModel,
+  onStart: focus,
+})
+onMounted(() => props.modelValue && mount())
+onUnmounted(unmount)
 
 /** 网格规格：5 列 × 7 行 = 35 格/页，共 10 页 = 350 格 */
 const GRID_COLS = 5
@@ -162,7 +193,11 @@ const TYPE_LABEL = {
 <template>
   <div
     v-if="modelValue"
+    ref="panelRef"
     class="bag-panel"
+    :class="{ 'is-dragging': dragging }"
+    :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto', zIndex: z } : { zIndex: z }"
+    @pointerdown="focus"
   >
     <!-- 边框背景图 -->
     <img
@@ -181,9 +216,13 @@ const TYPE_LABEL = {
       ×
     </button>
 
-    <!-- 标题 -->
-    <div class="bag-title">
-      百宝囊
+    <!-- 标题（同时是拖拽手柄） -->
+    <div
+      class="bag-title drag-handle"
+      title="拖拽移动"
+      @pointerdown.stop="onHandlePointerDown"
+    >
+      背包
     </div>
 
     <!-- 物品网格区（35 格，数据常驻内存，无加载态） -->
@@ -340,6 +379,23 @@ const TYPE_LABEL = {
   color: #e8d5a0;
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* 拖拽手柄：覆盖上面的 pointer-events:none，恢复交互 */
+.drag-handle {
+  pointer-events: auto;
+  cursor: move;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* 拖拽中禁用内部 iframe/拖拽事件干扰 */
+.bag-panel.is-dragging {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.bag-panel.is-dragging .slot {
+  /* 拖窗期间禁止格子被 HTML5 拖拽误触 */
   pointer-events: none;
 }
 

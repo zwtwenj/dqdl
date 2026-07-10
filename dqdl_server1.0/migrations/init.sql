@@ -201,10 +201,12 @@ CREATE TABLE `backpack` (
   `player_id` INT NOT NULL COMMENT '所属玩家ID',
   `item_id` VARCHAR(32) NOT NULL COMMENT '物品ID（与 item 表 item_id 对齐）',
   `count` INT NOT NULL DEFAULT 1 COMMENT '持有数量（0 时删除该行）',
+  `slot` INT DEFAULT NULL COMMENT '背包格位置1-350（null=待分配，grant时自动找最小空位）',
   `acquired_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '首次获得时间',
   `updated_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_backpack_player_item` (`player_id`, `item_id`),
+  UNIQUE KEY `idx_backpack_player_slot` (`player_id`, `slot`),
   KEY `idx_backpack_player` (`player_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='背包表';
 

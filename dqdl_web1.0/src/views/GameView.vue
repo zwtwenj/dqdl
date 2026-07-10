@@ -25,9 +25,11 @@ import {
   getActiveTraining,
 } from '../api'
 import { bus, BusEvents } from '../utils/eventBus'
+import { useBackpackStore } from '../stores/backpack'
 
 const route = useRoute()
 const router = useRouter()
+const backpackStore = useBackpackStore()
 
 // 玩家信息（由后端 findOne 聚合返回，含 final_attrs）
 const player = ref(null)
@@ -46,6 +48,7 @@ const mapExploring = ref(false)
 
 // 历练日志数据 + 轮询定时器
 const trainingLogs = ref([])
+const lastSeenLogId = ref(0) // 上次轮询看到的最新日志 id（用于判断新日志有无掉落）
 let trainingPollTimer = null
 
 /** 开始历练 */
@@ -79,7 +82,16 @@ async function pollTrainingLogs() {
   try {
     const data = await getActiveTraining()
     if (data) {
-      trainingLogs.value = data.logs || []
+      const newLogs = data.logs || []
+      // 如果新日志中有掉落（drops 非空），标记背包脏（下次打开静默刷新）
+      if (!backpackStore.dirty) {
+        const hasNewDrops = newLogs.some(
+          (l) => l.drops && l.drops !== 'null' && l.id > (lastSeenLogId.value || 0)
+        )
+        if (hasNewDrops) backpackStore.markDirty()
+      }
+      if (newLogs.length) lastSeenLogId.value = newLogs[0].id // logs 按 id DESC，第一个是最新
+      trainingLogs.value = newLogs
       // 后端可能已自动结束（到时间），同步状态
       if (data.status === 1 && player.value?.status === 2) {
         player.value.status = 1
@@ -146,6 +158,9 @@ async function loadPlayer() {
     // 初始化当前地点
     currentLocationId.value = data.location_id
     await loadLocation(data.location_id)
+    // 预加载背包到内存（之后打开背包直接读 store，不请求）
+    backpackStore.reset()
+    await backpackStore.load(playerId)
     // 检查是否在历练中（刷新恢复轮询）
     await checkActiveTraining()
   } catch (err) {

@@ -18,6 +18,7 @@ import {
  */
 @Entity('backpack')
 @Index('idx_backpack_player_item', ['player_id', 'item_id'], { unique: true })
+@Index('idx_backpack_player_slot', ['player_id', 'slot'], { unique: true })
 export class Backpack {
   @PrimaryGeneratedColumn()
   id: number;
@@ -30,6 +31,9 @@ export class Backpack {
 
   @Column({ type: 'int', default: 1, comment: '持有数量（0 时删除该行）' })
   count: number;
+
+  @Column({ type: 'int', nullable: true, comment: '背包格位置1-350（null=待分配）' })
+  slot: number | null;
 
   @CreateDateColumn({ comment: '首次获得时间' })
   acquired_at: Date;

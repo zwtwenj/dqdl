@@ -243,7 +243,7 @@ export class TrainingService {
             );
           }
           if (valid.length > 0) {
-            await this.backpackService.grant(playerId, valid);
+            await this.backpackService.grant(playerId, valid, 'training_drop');
             dropsResult = valid.map((g) => ({
               item_id: g.item_id,
               name: nameMap.get(g.item_id)!,

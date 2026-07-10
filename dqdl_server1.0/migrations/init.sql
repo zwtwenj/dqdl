@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS `agent_call_log`;
 DROP TABLE IF EXISTS `training_log`;
 DROP TABLE IF EXISTS `training`;
 DROP TABLE IF EXISTS `backpack`;
+DROP TABLE IF EXISTS `backpack_log`;
 DROP TABLE IF EXISTS `location_gen_rule`;
 DROP TABLE IF EXISTS `item`;
 DROP TABLE IF EXISTS `alchemy`;
@@ -209,6 +210,25 @@ CREATE TABLE `backpack` (
   UNIQUE KEY `idx_backpack_player_slot` (`player_id`, `slot`),
   KEY `idx_backpack_player` (`player_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='背包表';
+
+-- ========== 背包流水日志表（记录每次物品变动） ==========
+CREATE TABLE `backpack_log` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `player_id` INT NOT NULL COMMENT '玩家ID',
+  `item_id` VARCHAR(32) NOT NULL COMMENT '物品ID',
+  `action` VARCHAR(32) NOT NULL COMMENT '操作类型：grant/addItem/removeItem/moveItem/sortBackpack/discard/clearByPlayer',
+  `source` VARCHAR(64) DEFAULT NULL COMMENT '操作来源：training_drop/shop_buy/quest_reward/use_item/manual等',
+  `change_amount` INT NOT NULL DEFAULT 0 COMMENT '变化数量（正=增加，负=减少，0=移动/整理等无数量变化）',
+  `count_before` INT DEFAULT NULL COMMENT '变更前数量（null=之前没有此物品）',
+  `count_after` INT DEFAULT NULL COMMENT '变更后数量（0=已删除该行）',
+  `from_slot` INT DEFAULT NULL COMMENT '拖拽：源格位',
+  `to_slot` INT DEFAULT NULL COMMENT '拖拽：目标格位',
+  `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `idx_bplog_player` (`player_id`),
+  KEY `idx_bplog_action` (`action`),
+  KEY `idx_bplog_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='背包流水日志表';
 
 -- ========== 地点生成规则表（按 depth 存 AI 生成 prompt 模板） ==========
 CREATE TABLE `location_gen_rule` (

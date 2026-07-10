@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Backpack } from './backpack.entity';
+import { BackpackLog } from './backpack-log.entity';
 import { Item } from '../item/item.entity';
 import { Biz } from '../common/biz.exception';
 
@@ -34,16 +35,62 @@ export const BACKPACK_CAPACITY = 350;
  * - 一个玩家一个物品一行，(player_id, item_id) 唯一。
  * - slot 记录物品在背包中的格位（1-350），(player_id, slot) 唯一。
  * - 新物品发放时自动分配最小空位 slot。
- * - 增加数量用原生 SQL `INSERT ... ON DUPLICATE KEY UPDATE count = count + n`，原子且并发安全。
- * - 拖拽（moveItem）= 交换两个 slot；整理（sortBackpack）= 按 item_id 排序重排 slot。
+ * - 所有写入方法用事务 + 悲观行锁，防止并发冲突。
+ * - 每次物品变动写一条 backpack_log 流水（审计/排查用）。
  */
 @Injectable()
 export class BackpackService {
+  private readonly logger = new Logger(BackpackService.name);
+
   constructor(
     @InjectRepository(Backpack)
     private readonly repo: Repository<Backpack>,
+    @InjectRepository(BackpackLog)
+    private readonly logRepo: Repository<BackpackLog>,
     private readonly dataSource: DataSource,
   ) {}
+
+  /* ============ 流水日志 ============ */
+
+  /**
+   * 写一条背包流水日志。
+   * 既支持事务内（传 em）也支持独立写入（不传 em）。
+   * 日志写入失败不影响业务（catch 吞掉，仅记日志）。
+   */
+  private async logChange(params: {
+    playerId: number;
+    itemId: string;
+    action: string;
+    source?: string | null;
+    changeAmount?: number;
+    countBefore?: number | null;
+    countAfter?: number | null;
+    fromSlot?: number | null;
+    toSlot?: number | null;
+    em?: any; // 事务内传 EntityManager，保证一致性
+  }): Promise<void> {
+    const entry: Partial<BackpackLog> = {
+      player_id: params.playerId,
+      item_id: params.itemId,
+      action: params.action,
+      source: params.source ?? null,
+      change_amount: params.changeAmount ?? 0,
+      count_before: params.countBefore ?? null,
+      count_after: params.countAfter ?? null,
+      from_slot: params.fromSlot ?? null,
+      to_slot: params.toSlot ?? null,
+    };
+    try {
+      if (params.em) {
+        await params.em.save(BackpackLog, entry);
+      } else {
+        await this.logRepo.save(entry);
+      }
+    } catch (e) {
+      // 日志写入失败不影响业务
+      this.logger.error(`背包流水写入失败（已忽略）: ${e}`);
+    }
+  }
 
   /* ============ 查询 ============ */
 
@@ -74,9 +121,265 @@ export class BackpackService {
   /* ============ 增加 ============ */
 
   /**
-   * 找到玩家背包的最小空位 slot（1-350）。
-   * 遍历已占用 slot，找第一个空缺。背包满返回 null。
+   * 给玩家增加物品数量（合并到已有行）。
+   * 新物品自动分配最小空位 slot。
+   * @param source 操作来源（如 shop_buy/quest_reward），写入流水日志
    */
+  async addItem(
+    playerId: number,
+    itemId: string,
+    count: number,
+    source?: string,
+  ): Promise<void> {
+    if (count <= 0) {
+      throw Biz.badRequest('增加数量必须大于 0');
+    }
+    await this.dataSource.transaction(async (em) => {
+      const existing = await em.findOne(Backpack, {
+        where: { player_id: playerId, item_id: itemId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const countBefore = existing?.count ?? null;
+      let slot: number | null = existing?.slot ?? null;
+      if (slot === null) {
+        slot = await this.findMinEmptySlotWithEm(em, playerId);
+        if (slot === null) {
+          throw Biz.conflict('背包已满（350格），无法放入新物品');
+        }
+      }
+      await em.query(
+        `INSERT INTO backpack (player_id, item_id, count, slot)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE count = count + VALUES(count)`,
+        [playerId, itemId, count, slot],
+      );
+      // 写流水
+      await this.logChange({
+        playerId, itemId, action: 'addItem', source,
+        changeAmount: count, countBefore,
+        countAfter: (countBefore ?? 0) + count, em,
+      });
+    });
+  }
+
+  /**
+   * 批量发放物品（对齐 mob.drops 滚动后的结果）。
+   * @param source 操作来源（如 training_drop），写入流水日志
+   */
+  async grant(
+    playerId: number,
+    entries: GrantEntry[],
+    source?: string,
+  ): Promise<void> {
+    if (entries.length === 0) return;
+    const merged = new Map<string, number>();
+    for (const e of entries) {
+      if (!e.item_id || e.count <= 0) continue;
+      merged.set(e.item_id, (merged.get(e.item_id) ?? 0) + e.count);
+    }
+    if (merged.size === 0) return;
+
+    await this.dataSource.transaction(async (em) => {
+      const existingRows = await em.find(Backpack, {
+        where: { player_id: playerId },
+        select: ['id', 'item_id', 'slot', 'count'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      const existingMap = new Map(existingRows.map((r) => [r.item_id, r]));
+      const usedSlots = new Set(
+        existingRows.map((r) => r.slot).filter((s): s is number => s !== null),
+      );
+
+      for (const [itemId, count] of merged) {
+        const existing = existingMap.get(itemId);
+        const countBefore = existing?.count ?? null;
+        let slot = existing?.slot ?? null;
+        if (slot === null) {
+          slot = this.findMinEmptySlotFromUsed(usedSlots);
+          if (slot === null) continue; // 背包满，跳过
+          usedSlots.add(slot);
+          existingMap.set(itemId, { item_id: itemId, slot, count: countBefore ?? 0 } as Backpack);
+        }
+        await em.query(
+          `INSERT INTO backpack (player_id, item_id, count, slot)
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE count = count + VALUES(count)`,
+          [playerId, itemId, count, slot],
+        );
+        await this.logChange({
+          playerId, itemId, action: 'grant', source,
+          changeAmount: count, countBefore,
+          countAfter: (countBefore ?? 0) + count, em,
+        });
+      }
+    });
+  }
+
+  /* ============ 扣除 ============ */
+
+  /**
+   * 扣除玩家物品数量。扣除后 count<=0 则删除该行。
+   * @param source 操作来源（如 use_item/shop_sell），写入流水日志
+   */
+  async removeItem(
+    playerId: number,
+    itemId: string,
+    count: number,
+    source?: string,
+  ): Promise<number> {
+    if (count <= 0) {
+      throw Biz.badRequest('扣除数量必须大于 0');
+    }
+    return this.dataSource.transaction(async (em) => {
+      const row = await em.findOne(Backpack, {
+        where: { player_id: playerId, item_id: itemId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!row || row.count < count) {
+        throw Biz.conflict(
+          `物品 ${itemId} 持有量不足（现有 ${row?.count ?? 0}，需 ${count}）`,
+        );
+      }
+      const countBefore = row.count;
+      const remaining = row.count - count;
+      if (remaining <= 0) {
+        await em.delete(Backpack, { id: row.id });
+      } else {
+        await em.update(Backpack, { id: row.id }, { count: remaining });
+      }
+      await this.logChange({
+        playerId, itemId, action: 'removeItem', source,
+        changeAmount: -count, countBefore,
+        countAfter: remaining, em,
+      });
+      return remaining;
+    });
+  }
+
+  /* ============ 拖拽 / 整理 ============ */
+
+  /**
+   * 拖拽移动物品：交换两个 slot 的物品。
+   */
+  async moveItem(
+    playerId: number,
+    fromSlot: number,
+    toSlot: number,
+  ): Promise<BackpackSlot[]> {
+    if (fromSlot === toSlot) return this.listByPlayer(playerId);
+    if (fromSlot < 1 || fromSlot > BACKPACK_CAPACITY || toSlot < 1 || toSlot > BACKPACK_CAPACITY) {
+      throw Biz.badRequest('格位超出范围（1-350）');
+    }
+
+    await this.dataSource.transaction(async (em) => {
+      const fromRow = await em.findOne(Backpack, {
+        where: { player_id: playerId, slot: fromSlot },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!fromRow) return;
+      const toRow = await em.findOne(Backpack, {
+        where: { player_id: playerId, slot: toSlot },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!toRow) {
+        fromRow.slot = toSlot;
+        await em.save(fromRow);
+        await this.logChange({
+          playerId, itemId: fromRow.item_id, action: 'moveItem',
+          fromSlot, toSlot, em,
+        });
+      } else if (toRow.item_id === fromRow.item_id) {
+        toRow.count += fromRow.count;
+        await em.save(toRow);
+        await em.delete(Backpack, { id: fromRow.id });
+        await this.logChange({
+          playerId, itemId: fromRow.item_id, action: 'moveItem',
+          changeAmount: fromRow.count, fromSlot, toSlot,
+          countBefore: toRow.count - fromRow.count, countAfter: toRow.count, em,
+        });
+      } else {
+        const oldFromSlot = fromRow.slot;
+        fromRow.slot = null;
+        await em.save(fromRow);
+        toRow.slot = oldFromSlot;
+        await em.save(toRow);
+        fromRow.slot = toSlot;
+        await em.save(fromRow);
+        // 记录两条日志（交换）
+        await this.logChange({
+          playerId, itemId: fromRow.item_id, action: 'moveItem', fromSlot, toSlot, em,
+        });
+        await this.logChange({
+          playerId, itemId: toRow.item_id, action: 'moveItem',
+          fromSlot: toSlot, toSlot: fromSlot, em,
+        });
+      }
+    });
+    return this.listByPlayer(playerId);
+  }
+
+  /**
+   * 整理背包：按 item_id 字典序排序，从 slot 1 开始连续分配。
+   */
+  async sortBackpack(playerId: number): Promise<BackpackSlot[]> {
+    await this.dataSource.transaction(async (em) => {
+      const rows = await em.find(Backpack, {
+        where: { player_id: playerId },
+        order: { item_id: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      for (const r of rows) r.slot = null;
+      await em.save(rows);
+      for (let i = 0; i < rows.length; i++) {
+        rows[i].slot = i + 1;
+      }
+      await em.save(rows);
+      // 整理记一条汇总日志
+      await this.logChange({
+        playerId, itemId: '*', action: 'sortBackpack',
+        changeAmount: 0, em,
+      });
+    });
+    return this.listByPlayer(playerId);
+  }
+
+  /* ============ 清空 ============ */
+
+  async clearByPlayer(playerId: number): Promise<void> {
+    await this.dataSource.transaction(async (em) => {
+      const rows = await em.find(Backpack, {
+        where: { player_id: playerId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      for (const r of rows) {
+        await this.logChange({
+          playerId, itemId: r.item_id, action: 'clearByPlayer',
+          changeAmount: -r.count, countBefore: r.count, countAfter: 0, em,
+        });
+      }
+      await em.delete(Backpack, { player_id: playerId });
+    });
+  }
+
+  async discard(playerId: number, itemId: string): Promise<void> {
+    await this.dataSource.transaction(async (em) => {
+      const row = await em.findOne(Backpack, {
+        where: { player_id: playerId, item_id: itemId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (row) {
+        await em.delete(Backpack, { id: row.id });
+        await this.logChange({
+          playerId, itemId, action: 'discard',
+          changeAmount: -row.count, countBefore: row.count, countAfter: 0, em,
+        });
+      }
+    });
+  }
+
+  /* ============ 内部 ============ */
+
   private async findMinEmptySlot(playerId: number): Promise<number | null> {
     const rows = await this.repo.find({
       where: { player_id: playerId },
@@ -90,182 +393,26 @@ export class BackpackService {
     return null;
   }
 
-  /**
-   * 给玩家增加物品数量（合并到已有行）。
-   * 新物品自动分配最小空位 slot。
-   */
-  async addItem(playerId: number, itemId: string, count: number): Promise<void> {
-    if (count <= 0) {
-      throw Biz.badRequest('增加数量必须大于 0');
-    }
-    // 查是否已有该物品（有则只 +count，不动 slot）
-    const existing = await this.repo.findOneBy({ player_id: playerId, item_id: itemId });
-    let slot: number | null = existing?.slot ?? null;
-    if (slot === null) {
-      slot = await this.findMinEmptySlot(playerId);
-      if (slot === null) {
-        throw Biz.conflict('背包已满（350格），无法放入新物品');
-      }
-    }
-    await this.dataSource.query(
-      `INSERT INTO backpack (player_id, item_id, count, slot)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE count = count + VALUES(count)`,
-      [playerId, itemId, count, slot],
-    );
-  }
-
-  /**
-   * 批量发放物品（对齐 mob.drops 滚动后的结果）。
-   * 同一 item_id 会先合并数量再写一次。每个新 item_id 分配一个空位 slot。
-   */
-  async grant(playerId: number, entries: GrantEntry[]): Promise<void> {
-    if (entries.length === 0) return;
-    // 合并同 item_id
-    const merged = new Map<string, number>();
-    for (const e of entries) {
-      if (!e.item_id || e.count <= 0) continue;
-      merged.set(e.item_id, (merged.get(e.item_id) ?? 0) + e.count);
-    }
-    if (merged.size === 0) return;
-
-    // 查已有物品（避免重复分配 slot）
-    const existingRows = await this.repo.find({
+  private async findMinEmptySlotWithEm(em: any, playerId: number): Promise<number | null> {
+    const rows = await em.find(Backpack, {
       where: { player_id: playerId },
-      select: ['item_id', 'slot'],
+      select: ['slot'],
+      order: { slot: 'ASC' },
+      lock: { mode: 'pessimistic_write' },
     });
-    const existingMap = new Map(
-      existingRows.map((r) => [r.item_id, r.slot]),
-    );
-    const usedSlots = new Set(
-      existingRows.map((r) => r.slot).filter((s): s is number => s !== null),
-    );
-
-    for (const [itemId, count] of merged) {
-      let slot = existingMap.get(itemId) ?? null;
-      if (slot === null) {
-        // 找最小空位
-        slot = this.findMinEmptySlotFromUsed(usedSlots);
-        if (slot === null) continue; // 背包满，跳过此物品
-        usedSlots.add(slot);
-        existingMap.set(itemId, slot);
-      }
-      await this.dataSource.query(
-        `INSERT INTO backpack (player_id, item_id, count, slot)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE count = count + VALUES(count)`,
-        [playerId, itemId, count, slot],
-      );
-    }
-  }
-
-  /** 从已占用 slot 集合中找最小空位（grant 批量时用，避免逐条查询） */
-  private findMinEmptySlotFromUsed(used: Set<number>): number | null {
+    const used = new Set(rows.map((r: Backpack) => r.slot));
     for (let i = 1; i <= BACKPACK_CAPACITY; i++) {
       if (!used.has(i)) return i;
     }
     return null;
   }
 
-  /* ============ 扣除 ============ */
-
-  /**
-   * 扣除玩家物品数量。扣除后 count<=0 则删除该行。
-   */
-  async removeItem(
-    playerId: number,
-    itemId: string,
-    count: number,
-  ): Promise<number> {
-    if (count <= 0) {
-      throw Biz.badRequest('扣除数量必须大于 0');
+  private findMinEmptySlotFromUsed(used: Set<number>): number | null {
+    for (let i = 1; i <= BACKPACK_CAPACITY; i++) {
+      if (!used.has(i)) return i;
     }
-    const row = await this.repo.findOneBy({
-      player_id: playerId,
-      item_id: itemId,
-    });
-    if (!row || row.count < count) {
-      throw Biz.conflict(
-        `物品 ${itemId} 持有量不足（现有 ${row?.count ?? 0}，需 ${count}）`,
-      );
-    }
-    const remaining = row.count - count;
-    if (remaining <= 0) {
-      await this.repo.delete({ id: row.id });
-      return 0;
-    }
-    await this.repo.update({ id: row.id }, { count: remaining });
-    return remaining;
+    return null;
   }
-
-  /* ============ 拖拽 / 整理 ============ */
-
-  /**
-   * 拖拽移动物品：交换两个 slot 的物品。
-   * - 目标格为空 → 直接移过去
-   * - 目标格有同 item_id → 合并数量，源格删除
-   * - 目标格有不同 item_id → 交换两格
-   */
-  async moveItem(
-    playerId: number,
-    fromSlot: number,
-    toSlot: number,
-  ): Promise<BackpackSlot[]> {
-    if (fromSlot === toSlot) return this.listByPlayer(playerId);
-    if (fromSlot < 1 || fromSlot > BACKPACK_CAPACITY || toSlot < 1 || toSlot > BACKPACK_CAPACITY) {
-      throw Biz.badRequest('格位超出范围（1-350）');
-    }
-    const fromRow = await this.repo.findOneBy({ player_id: playerId, slot: fromSlot });
-    if (!fromRow) return this.listByPlayer(playerId); // 源格空，无操作
-    const toRow = await this.repo.findOneBy({ player_id: playerId, slot: toSlot });
-
-    if (!toRow) {
-      // 目标格空：直接移过去
-      fromRow.slot = toSlot;
-      await this.repo.save(fromRow);
-    } else if (toRow.item_id === fromRow.item_id) {
-      // 同物品合并：数量加到目标格，删除源格
-      toRow.count += fromRow.count;
-      await this.repo.save(toRow);
-      await this.repo.delete({ id: fromRow.id });
-    } else {
-      // 不同物品交换 slot
-      fromRow.slot = toSlot;
-      toRow.slot = fromSlot;
-      await this.repo.save([fromRow, toRow]);
-    }
-    return this.listByPlayer(playerId);
-  }
-
-  /**
-   * 整理背包：按 item_id 字典序排序，从 slot 1 开始连续分配。
-   */
-  async sortBackpack(playerId: number): Promise<BackpackSlot[]> {
-    const rows = await this.repo.find({
-      where: { player_id: playerId },
-      order: { item_id: 'ASC' },
-    });
-    // 逐个重分配 slot（1,2,3...）
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].slot !== i + 1) {
-        rows[i].slot = i + 1;
-      }
-    }
-    await this.repo.save(rows);
-    return this.listByPlayer(playerId);
-  }
-
-  /* ============ 清空 ============ */
-
-  async clearByPlayer(playerId: number): Promise<void> {
-    await this.repo.delete({ player_id: playerId });
-  }
-
-  async discard(playerId: number, itemId: string): Promise<void> {
-    await this.repo.delete({ player_id: playerId, item_id: itemId });
-  }
-
-  /* ============ 内部：聚合 item 详情 ============ */
 
   private async withItems(rows: Backpack[]): Promise<BackpackSlot[]> {
     if (rows.length === 0) return [];

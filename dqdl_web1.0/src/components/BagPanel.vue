@@ -113,6 +113,11 @@ function onDragStart(e, slotNum) {
   }
   draggingSlot.value = slotNum
   e.dataTransfer.effectAllowed = 'move'
+  // 自定义拖拽镜像：只用物品图标，不用整个 slot（避免 tooltip 等子元素干扰）
+  const icon = e.currentTarget.querySelector('.slot-icon')
+  if (icon) {
+    e.dataTransfer.setDragImage(icon, icon.offsetWidth / 2, icon.offsetHeight / 2)
+  }
 }
 
 function onDragOver(e) {
@@ -208,8 +213,11 @@ const TYPE_LABEL = {
               class="slot-count"
             >{{ ps.data.count }}</span>
 
-            <!-- hover tooltip -->
-            <div class="slot-tip">
+            <!-- hover tooltip（拖拽进行中时不显示） -->
+            <div
+              v-show="draggingSlot === null"
+              class="slot-tip"
+            >
               <div class="tip-name">
                 {{ ps.data.item?.name || ps.data.item_id }}
               </div>

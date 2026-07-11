@@ -5,7 +5,8 @@
  * common_mobs/common_herbs 是 JSON 字符串，这里 parse 后渲染。
  * 图标路径按 mob_id/item_id 直接拼，onerror 回退到 WB-001/yb-001。
  */
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
+import FloatingTooltip from './FloatingTooltip.vue'
 
 const props = defineProps({
   location: { type: Object, default: null },
@@ -75,6 +76,20 @@ function onMobError(e) {
 }
 function onHerbError(e) {
   e.target.src = '/icon/alchemy/yb-001.png'
+}
+
+/* ============ 魔兽/药草 tooltip（共享一个 FloatingTooltip 实例） ============
+   hover 某图标时记录该图标 DOM 元素 + 名称，单一浮层显示名称。 */
+const hoveredEl = ref(null)
+const hoveredName = ref('')
+const tipOpen = ref(false)
+function onDropEnter(e, name) {
+  hoveredEl.value = e.currentTarget
+  hoveredName.value = name
+  tipOpen.value = true
+}
+function onDropLeave() {
+  tipOpen.value = false
 }
 </script>
 
@@ -147,7 +162,8 @@ function onHerbError(e) {
             v-for="m in mobs"
             :key="m.mob_id"
             class="drop-item"
-            :title="m.name"
+            @pointerenter="onDropEnter($event, m.name)"
+            @pointerleave="onDropLeave"
           >
             <img
               :src="m.icon"
@@ -168,7 +184,8 @@ function onHerbError(e) {
             v-for="h in herbs"
             :key="h.item_id"
             class="drop-item"
-            :title="h.name"
+            @pointerenter="onDropEnter($event, h.name)"
+            @pointerleave="onDropLeave"
           >
             <img
               :src="h.icon"
@@ -179,6 +196,17 @@ function onHerbError(e) {
         </div>
       </div>
     </div>
+
+    <!-- 魔兽/药草 tooltip：共享一个浮层，Teleport 到 body -->
+    <FloatingTooltip
+      v-model:open="tipOpen"
+      :reference="hoveredEl"
+      placement="top"
+    >
+      <div class="drop-tip-name">
+        {{ hoveredName }}
+      </div>
+    </FloatingTooltip>
   </div>
 </template>
 
@@ -358,5 +386,13 @@ function onHerbError(e) {
       }
     }
   }
+}
+
+/* 魔兽/药草 tooltip 名称（浮层外壳由 FloatingTooltip 提供，Teleport 到 body） */
+.drop-tip-name{
+  font-size: 13px;
+  color: #e8d5a0;
+  letter-spacing: 1px;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
 </style>

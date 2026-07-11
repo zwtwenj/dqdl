@@ -10,6 +10,9 @@ import { LocationService } from '../location/location.service';
 import { AgentService } from '../agent/agent.service';
 import { Biz } from '../common/biz.exception';
 
+/** 单次会话最大对话轮次（风险控制：避免上下文无限膨胀导致 token 失控） */
+const MAX_DIALOG_ROUNDS = 30;
+
 /**
  * NPC 服务（对外可注入）。
  *
@@ -112,9 +115,14 @@ export class NpcService {
   async talkInSession(
     sessionId: number,
     message: string,
-  ): Promise<{ reply: string; callId: number | null }> {
+  ): Promise<{ reply: string; callId: number | null; rounds: number; maxRounds: number }> {
     const session = await this.sessionRepo.findOneBy({ id: sessionId });
     if (!session) throw Biz.notFound(`对话会话 ${sessionId} 不存在`);
+
+    // 轮次上限校验：达到上限拒绝继续对话（前端也会禁用输入，这里是后端兜底）
+    if (session.rounds >= MAX_DIALOG_ROUNDS) {
+      throw Biz.conflict('当前对话轮数过长，请重新进行会话');
+    }
 
     const npc = await this.findOne(session.npc_id);
 
@@ -181,7 +189,13 @@ export class NpcService {
       })
       .execute();
 
-    return { reply: result.reply, callId: result.call_id };
+    // 返回更新后的轮次（callIndex = 原 rounds + 1，即更新后的值）
+    return {
+      reply: result.reply,
+      callId: result.call_id,
+      rounds: callIndex,
+      maxRounds: MAX_DIALOG_ROUNDS,
+    };
   }
 
   /**

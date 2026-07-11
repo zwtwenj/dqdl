@@ -12,9 +12,12 @@
  *   - 记忆由 server 从 session.messages 提取塞入上下文，前端不再维护 history
  *   - 本地 history 仅用于渲染气泡（server 是权威源）
  */
-import { ref, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { bus, BusEvents } from '../utils/eventBus'
 import { createNpcSession, talkInSession } from '../api'
+
+/** 单次会话最大对话轮次（与后端 MAX_DIALOG_ROUNDS 保持一致） */
+const MAX_DIALOG_ROUNDS = 30
 
 const open = ref(false)
 const npc = ref(null)        // NPC 详情（含 name/gender/age/role_name/nature_name）
@@ -22,6 +25,9 @@ const sessionId = ref(null)  // server 会话 id（记忆权威源）
 const history = ref([])      // [{ player, npc }] 仅渲染用，权威在 server
 const loading = ref(false)
 const input = ref('')
+const rounds = ref(0)        // 当前会话轮次（后端返回，达上限禁用输入）
+/** 是否已达轮次上限（禁用输入 + 显示提示） */
+const reachedLimit = computed(() => rounds.value >= MAX_DIALOG_ROUNDS)
 
 const msgBox = ref(null)
 
@@ -39,6 +45,7 @@ async function handleOpen({ playerId, npcId }) {
   sessionId.value = null
   history.value = []
   input.value = ''
+  rounds.value = 0
   loading.value = true
   try {
     // 1. 创建会话（server 建 dialog_session，返回 sessionId + npc 详情）
@@ -48,6 +55,7 @@ async function handleOpen({ playerId, npcId }) {
     // 2. 取 AI 开场白（message 为空 → agent 生成开场白）
     const res = await talkInSession(sessionId.value, '')
     history.value.push({ player: '', npc: res.reply || '...' })
+    rounds.value = res.rounds || 1
   } catch (err) {
     history.value.push({ player: '', npc: `（${err.message || '对话开启失败'}）` })
   } finally {
@@ -59,12 +67,17 @@ async function handleOpen({ playerId, npcId }) {
 /** 发送消息 */
 async function handleSend() {
   const msg = input.value.trim()
-  if (!msg || loading.value || !sessionId.value) return
+  if (!msg || loading.value || !sessionId.value || reachedLimit.value) return
   input.value = ''
   loading.value = true
   try {
     const res = await talkInSession(sessionId.value, msg)
     history.value.push({ player: msg, npc: res.reply || '...' })
+    rounds.value = res.rounds || rounds.value + 1
+    // 达到轮次上限：追加系统提示（下次输入将被禁用）
+    if (res.rounds >= MAX_DIALOG_ROUNDS) {
+      history.value.push({ player: '', npc: '（当前对话轮数过长，请重新进行会话）' })
+    }
   } catch (err) {
     history.value.push({ player: msg, npc: `（${err.message || '对方没有回应'}）` })
   } finally {
@@ -80,6 +93,7 @@ function close() {
   sessionId.value = null
   history.value = []
   input.value = ''
+  rounds.value = 0
 }
 
 /** ESC 关闭 */
@@ -155,14 +169,18 @@ onUnmounted(() => {
         </div>
 
         <!-- 输入区 -->
-        <div class="npc-input">
+        <div
+          class="npc-input"
+          :class="{ 'is-limited': reachedLimit }"
+        >
           <input
             v-model="input"
-            placeholder="说点什么..."
-            :disabled="loading"
+            :placeholder="reachedLimit ? '当前对话轮数过长，请重新进行会话' : '说点什么...'"
+            :disabled="loading || reachedLimit"
             @keyup.enter="handleSend"
           >
           <button
+            v-if="!reachedLimit"
             class="send-btn"
             type="button"
             :disabled="loading || !input.trim()"
@@ -170,6 +188,10 @@ onUnmounted(() => {
           >
             发送
           </button>
+          <span
+            v-else
+            class="round-limit-tip"
+          >已达上限</span>
         </div>
       </div>
     </div>
@@ -342,5 +364,17 @@ onUnmounted(() => {
 .send-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+/* 轮次上限提示（替换发送按钮位置） */
+.round-limit-tip {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  color: rgba(255, 144, 128, 0.75);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.npc-input.is-limited input {
+  border-color: rgba(200, 90, 80, 0.4);
 }
 </style>

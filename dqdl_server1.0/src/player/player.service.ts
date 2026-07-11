@@ -39,6 +39,7 @@ export const PLAYER_STATUS = {
   CULTIVATING: 4,
   ROOM_CULTIVATING: 5,
   GATHERING: 6,
+  BATTLE: 7,
 } as const;
 
 export const STATUS_LABEL: Record<number, string> = {
@@ -48,6 +49,7 @@ export const STATUS_LABEL: Record<number, string> = {
   4: '洞天福地修炼',
   5: '修炼室修炼',
   6: '采集',
+  7: '战斗',
 };
 
 /** 修炼基础收益（后续可被宝物/功法效率加成放大） */
@@ -438,6 +440,11 @@ export class PlayerService {
   /** 直接设置玩家状态（供历练等活动 service 使用） */
   async setStatus(playerId: number, status: number): Promise<void> {
     await this.repo.update({ id: playerId }, { status });
+  }
+
+  /** 部分字段更新（供战斗等模块持久化 hp/energy 等运行时状态） */
+  async patch(playerId: number, updates: Partial<Player>): Promise<void> {
+    await this.repo.update({ id: playerId }, updates as any);
   }
 
   /** 删除角色的 player（删角色时级联） */

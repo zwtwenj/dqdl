@@ -13,6 +13,7 @@ import IconToolbar from '../components/IconToolbar.vue'
 import BagPanel from '../components/BagPanel.vue'
 import PlayerPanel from '../components/PlayerPanel.vue'
 import SkillPanel from '../components/SkillPanel.vue'
+import BattlePanel from '../components/BattlePanel.vue'
 import CurrentMap from '../components/CurrentMap.vue'
 import NeighborMapDrawer from '../components/NeighborMapDrawer.vue'
 import ChildrenMapDrawer from '../components/ChildrenMapDrawer.vue'
@@ -25,6 +26,9 @@ import {
   startTraining,
   stopTraining,
   getActiveTraining,
+  startBattle,
+  battleAction,
+  getBattleState,
 } from '../api'
 import { bus, BusEvents } from '../utils/eventBus'
 import { useBackpackStore } from '../stores/backpack'
@@ -50,6 +54,11 @@ const playerPanelOpen = ref(false)
 
 // 斗技弹窗显隐
 const skillPanelOpen = ref(false)
+
+// 战斗界面
+const battleOpen = ref(false)
+const battleSnapshot = ref(null)
+const battleBusy = ref(false)
 
 // 弹窗拖拽位置（null = 沿用默认右下定位；拖动后转为 {x,y}）
 const bagPos = ref(null)
@@ -143,6 +152,24 @@ async function checkActiveTraining() {
   }
 }
 
+/** 刷新恢复战斗：status=7(战斗中) 时调 getBattleState 尝试接回会话 */
+async function checkActiveBattle() {
+  if (player.value?.status !== 7) return
+  try {
+    const snap = await getBattleState()
+    if (snap) {
+      // 会话还在（含已结束态）→ 打开战斗界面接回
+      battleSnapshot.value = snap
+      battleOpen.value = true
+    } else {
+      // 会话已丢失（后端重启），后端已自动恢复 IDLE → 同步前端 status
+      if (player.value) player.value.status = 1
+    }
+  } catch (err) {
+    console.warn('恢复战斗状态失败:', err.message)
+  }
+}
+
 onUnmounted(stopTrainingPoll)
 
 // 互斥：历练展开时收起采集，采集展开时收起历练
@@ -176,6 +203,8 @@ async function loadPlayer() {
     await backpackStore.load(playerId)
     // 检查是否在历练中（刷新恢复轮询）
     await checkActiveTraining()
+    // 检查是否在战斗中（刷新恢复战斗界面 / 清理孤儿状态）
+    await checkActiveBattle()
   } catch (err) {
     errorMsg.value = err.message || '加载玩家信息失败'
   } finally {
@@ -236,7 +265,7 @@ function onMapBack() {
 
 onMounted(loadPlayer)
 
-/** 功能图标点击：背包/角色/斗技切换弹窗，其余暂记录 */
+/** 功能图标点击：背包/角色/斗技/战斗切换弹窗，其余暂记录 */
 function onIconSelect(key) {
   if (key === 'bag') {
     bagOpen.value = !bagOpen.value
@@ -250,7 +279,51 @@ function onIconSelect(key) {
     skillPanelOpen.value = !skillPanelOpen.value
     return
   }
+  if (key === 'battle') {
+    onBattleStart()
+    return
+  }
   console.log('选中功能：', key)
+}
+
+/* ============ 战斗 ============ */
+/** 固定测试怪 mobId */
+const TEST_MOB_ID = 'WB-001'
+
+/** 开始战斗：点战斗按钮 → 调后端开战 → 打开战斗界面 */
+async function onBattleStart() {
+  if (battleOpen.value) return
+  battleBusy.value = true
+  battleOpen.value = true
+  try {
+    battleSnapshot.value = await startBattle(TEST_MOB_ID)
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '开始战斗失败' })
+    battleOpen.value = false
+  } finally {
+    battleBusy.value = false
+  }
+}
+
+/** 玩家行动（普攻/斗技/逃跑） */
+async function onBattleAction(action) {
+  if (battleBusy.value || battleSnapshot.value?.over) return
+  battleBusy.value = true
+  try {
+    battleSnapshot.value = await battleAction(action.type, action.slot)
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '行动失败' })
+  } finally {
+    battleBusy.value = false
+  }
+}
+
+/** 关闭战斗界面（战斗结束后） */
+async function onBattleClose() {
+  battleOpen.value = false
+  battleSnapshot.value = null
+  // 刷新玩家信息（hp/energy/status 可能已变）
+  await loadPlayer()
 }
 
 /** 历练按钮 → 开始历练 */
@@ -405,6 +478,15 @@ function backToStart() {
         </div>
       </div>
     </div>
+
+    <!-- 战斗界面（全屏覆盖层） -->
+    <BattlePanel
+      v-if="battleOpen"
+      :snapshot="battleSnapshot"
+      :busy="battleBusy"
+      @action="onBattleAction"
+      @close="onBattleClose"
+    />
   </div>
 </template>
 

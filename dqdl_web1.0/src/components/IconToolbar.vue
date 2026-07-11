@@ -11,6 +11,7 @@ const items = [
   { key: 'player', label: '角色', icon: '/icon/btn/player.png' },
   { key: 'bag', label: '背包', icon: '/icon/btn/bag.png' },
   { key: 'skill', label: '斗技', icon: '/icon/btn/skill.png' },
+  { key: 'battle', label: '战斗', icon: '/icon/btn/encounter.png' },
   { key: 'treasure', label: '宝物', icon: '/icon/btn/treasure.png' },
   { key: 'pill', label: '炼丹', icon: '/icon/btn/pill.png' },
   { key: 'task', label: '任务', icon: '/icon/btn/task.png' },

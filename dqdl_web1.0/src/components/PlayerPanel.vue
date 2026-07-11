@@ -13,6 +13,7 @@
 import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
+import TechniqueTooltip from './TechniqueTooltip.vue'
 
 const props = defineProps({
   modelValue: Boolean,
@@ -74,7 +75,7 @@ const hpPct = computed(() => Math.min(100, ((props.player?.hp ?? 0) / Math.max(1
 const energyPct = computed(() => Math.min(100, ((props.player?.energy ?? 0) / Math.max(1, maxEnergy.value)) * 100))
 const cultivationPct = computed(() => Math.min(100, ((props.player?.cultivation ?? 0) / Math.max(1, maxCult.value)) * 100))
 
-/** 技能/功法（JSON 字符串解析） */
+/** 斗技（JSON 字符串解析） */
 function parseList(raw) {
   if (!raw) return []
   try {
@@ -85,7 +86,32 @@ function parseList(raw) {
   }
 }
 const skills = computed(() => parseList(props.player?.skill))
-const techniques = computed(() => parseList(props.player?.technique))
+
+/**
+ * 功法：优先用后端聚合的 techniques 详情数组（含 name/item_id/level/max_cultivation 等），
+ * 兼容旧的 technique JSON 字符串（仅有 id/name）。后者无 name 时前端兜底显示「未知」。
+ */
+const techniques = computed(() => {
+  const agg = props.player?.techniques
+  if (Array.isArray(agg) && agg.length) return agg
+  return parseList(props.player?.technique)
+})
+
+/** 图标兜底：缺失统一用 cl-100.png */
+const FALLBACK_ICON = '/icon/cl/cl-100.png'
+
+/** 功法图标路径：按 item_id 前缀路由。gf- 前缀 → /icon/technique/{item_id}.png */
+function techniqueIconUrl(t) {
+  const id = t?.item_id
+  if (id && id.startsWith('gf-')) return `/icon/technique/${id}.png`
+  return FALLBACK_ICON
+}
+
+function onIconError(e) {
+  if (e.target.src !== FALLBACK_ICON) {
+    e.target.src = FALLBACK_ICON
+  }
+}
 
 function close() {
   emit('update:modelValue', false)
@@ -142,8 +168,12 @@ function close() {
           v-if="player"
           class="name-plate"
         >
-          <div class="char-name">{{ player.name }}</div>
-          <div class="char-title">{{ player.level_name || ('Lv.' + player.level) }}</div>
+          <div class="char-name">
+            {{ player.name }}
+          </div>
+          <div class="char-title">
+            {{ player.level_name || ('Lv.' + player.level) }}
+          </div>
         </div>
       </div>
 
@@ -188,7 +218,9 @@ function close() {
 
         <!-- 五维属性（竖向列表行） -->
         <section class="card">
-          <h4 class="card-title">资质</h4>
+          <h4 class="card-title">
+            基础属性
+          </h4>
           <div class="attr-rows">
             <div
               v-for="a in ATTRS"
@@ -210,16 +242,29 @@ function close() {
 
         <!-- 功法 -->
         <section class="card">
-          <h4 class="card-title">功法</h4>
+          <h4 class="card-title">
+            功法
+          </h4>
           <div
             v-if="techniques.length"
-            class="tag-list"
+            class="technique-list"
           >
-            <span
+            <TechniqueTooltip
               v-for="(t, i) in techniques"
               :key="'t'+i"
-              class="tag"
-            >{{ t.name || t.skill_name || '未知' }}</span>
+              :technique="t"
+            >
+              <div class="technique-item">
+                <img
+                  class="technique-icon"
+                  :src="techniqueIconUrl(t)"
+                  :alt="t.name || ''"
+                  @error="onIconError"
+                >
+                <span class="technique-name">{{ t.name || t.skill_name || '未知' }}</span>
+                <span class="technique-level">Lv.{{ t.level ?? 1 }}</span>
+              </div>
+            </TechniqueTooltip>
           </div>
           <span
             v-else
@@ -229,7 +274,9 @@ function close() {
 
         <!-- 斗技 -->
         <section class="card">
-          <h4 class="card-title">斗技</h4>
+          <h4 class="card-title">
+            斗技
+          </h4>
           <div
             v-if="skills.length"
             class="tag-list"
@@ -519,7 +566,7 @@ function close() {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
-/* ---------- 功法/斗技标签 ---------- */
+/* ---------- 斗技标签 ---------- */
 .tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -535,6 +582,46 @@ function close() {
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
 }
+
+/* ---------- 功法项：图标 + 名称 + 等级 ---------- */
+.technique-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.technique-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  background: linear-gradient(180deg, rgba(45, 34, 20, 0.8), rgba(28, 22, 14, 0.8));
+  border: 1px solid rgba(160, 130, 70, 0.45);
+  border-radius: 4px;
+}
+.technique-icon {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+}
+.technique-name {
+  flex: 1;
+  font-size: 12px;
+  color: #ecd9a8;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+.technique-level {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #9fc880;
+  letter-spacing: 1px;
+  font-family: 'Georgia', serif;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
 .empty-hint {
   font-size: 10px;
   letter-spacing: 1px;

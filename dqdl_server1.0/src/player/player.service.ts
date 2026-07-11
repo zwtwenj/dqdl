@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Player } from './player.entity';
 import { CharacterService } from '../character/character.service';
 import { LocationService } from '../location/location.service';
+import { TechniqueService } from '../technique/technique.service';
 import { Biz } from '../common/biz.exception';
 
 /** 等阶 K 常量：1-9=100, 11-19=200, 21-29=300, 31+=400 */
@@ -64,6 +65,7 @@ export class PlayerService {
     private readonly repo: Repository<Player>,
     private readonly characterService: CharacterService,
     private readonly locationService: LocationService,
+    private readonly techniqueService: TechniqueService,
   ) {}
 
   /** 等级名称：1-9 斗之气段 / 11-19 斗者星 / ... */
@@ -136,29 +138,102 @@ export class PlayerService {
 
   /**
    * 查询 player 并聚合 final_attrs（后端统一计算 status）。
-   * 当前无功法/宝物，final_attrs = player 属性；后续接入 technique/treasure 时在此聚合。
+   * final_attrs 五维属性 = 玩家自身属性 + 已装备功法 base 加成；
+   * max_hp = 含功法加成的 stamina × 10 + 功法 hp 加成；
+   * max_energy = level × 20 + 功法 energy 加成。
+   * （对齐老版本 dqdl-server 语义，宝物 hp/energy 加成待宝物系统接入后在此累加。）
+   * techniques 为聚合后的功法详情数组（前端直接渲染），原始 technique JSON 字符串保留。
    */
   async findOne(id: number): Promise<any> {
     const player = await this.repo.findOneBy({ id });
     if (!player) return null;
 
+    const techniques = await this.aggregateTechniques(player.technique);
+
+    // 已装备功法的 base 属性加成之和（按当前修炼等级取 params）。
+    // base params 可能含五维（power/intelligence/quick/stamina/lucky）+ hp/energy。
+    const techBonus = {
+      power: 0, intelligence: 0, quick: 0, stamina: 0, lucky: 0,
+      hp: 0, energy: 0,
+    };
+    for (const t of techniques) {
+      if (t.equipped && t.base_params) {
+        for (const k of Object.keys(techBonus)) {
+          techBonus[k] += Number(t.base_params[k]) || 0;
+        }
+      }
+    }
+
+    // 对齐老版本语义：max_hp = 含功法加成的 stamina × 10 + 功法 hp 加成；
+    // max_energy = level × 20 + 功法 energy 加成。
+    // player.max_hp/max_energy 是突破时持久化的基础值，功法加成只放大 final_attrs 的临时上限。
+    const finalStamina = player.stamina + techBonus.stamina;
     const finalAttrs = {
-      power: player.power,
-      intelligence: player.intelligence,
-      quick: player.quick,
-      stamina: player.stamina,
-      lucky: player.lucky,
-      max_hp: player.max_hp,
-      max_energy: player.max_energy,
+      power: player.power + techBonus.power,
+      intelligence: player.intelligence + techBonus.intelligence,
+      quick: player.quick + techBonus.quick,
+      stamina: finalStamina,
+      lucky: player.lucky + techBonus.lucky,
+      max_hp: finalStamina * 10 + techBonus.hp,
+      max_energy: (player.level || 1) * 20 + techBonus.energy,
     };
 
     return {
       ...player,
       final_attrs: finalAttrs,
+      techniques,
       level_name: PlayerService.levelName(player.level),
       status_label: STATUS_LABEL[player.status] || '未知',
       cultivation_efficiency: 0, // 预留：宝物/功法修炼效率加成
     };
+  }
+
+  /**
+   * 解析 player.technique(JSON 字符串) → 功法详情数组。
+   * 玩家持有态元素结构：{id, level, cultivation, equipped}（id 为 technique 表主键）。
+   * 批量按 id 查功法定义，合并出 {id, item_id, name, attribute, rank, level, max_level,
+   * cultivation, max_cultivation, base_params, equipped}。
+   * max_cultivation（升至下一级所需修为）由功法定义 base 数据驱动，一并给出供前端显示进度。
+   * base_params 为该等级的属性加成（params），final_attrs 叠加已装备功法的此项。
+   * 定义缺失（脏数据）的条目仍保留，name 落空由前端兜底。
+   */
+  private async aggregateTechniques(raw: string | null): Promise<any[]> {
+    let arr: any[] = [];
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) arr = parsed;
+      } catch {
+        arr = [];
+      }
+    }
+    if (arr.length === 0) return [];
+
+    const ids = arr
+      .map((e) => Number(e?.id))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const defs = ids.length ? await this.techniqueService.findByIds(ids) : [];
+    const defMap = new Map(defs.map((d) => [d.id, d]));
+
+    return arr.map((e) => {
+      const def = defMap.get(Number(e?.id)) ?? null;
+      const level = Number(e?.level) || 1;
+      return {
+        id: Number(e?.id),
+        item_id: def?.item_id ?? null,
+        name: def?.name ?? null,
+        attribute: def?.attribute ?? null,
+        rank: def?.rank ?? null,
+        level,
+        max_level: def?.max_level ?? null,
+        cultivation: Number(e?.cultivation) || 0,
+        max_cultivation: this.techniqueService.maxCultivationAtLevel(def, level),
+        /** 该等级的属性加成（params），用于 final_attrs 叠加 */
+        base_params: def ? this.techniqueService.parseBase(def.base, level) : {},
+        description: def?.description ?? null,
+        equipped: !!e?.equipped,
+      };
+    });
   }
 
   /** 查询角色的 player（聚合结果） */

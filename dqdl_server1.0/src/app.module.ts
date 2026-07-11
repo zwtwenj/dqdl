@@ -10,6 +10,7 @@ import { MobModule } from './mob/mob.module';
 import { AlchemyModule } from './alchemy/alchemy.module';
 import { MaterialModule } from './material/material.module';
 import { MagicCoreModule } from './magic_core/magic_core.module';
+import { TechniqueModule } from './technique/technique.module';
 import { ItemModule } from './item/item.module';
 import { BackpackModule } from './backpack/backpack.module';
 import { TrainingModule } from './training/training.module';
@@ -41,6 +42,7 @@ import { AppController } from './app.controller';
     AlchemyModule,
     MaterialModule,
     MagicCoreModule,
+    TechniqueModule,
     ItemModule,
     BackpackModule,
     TrainingModule,

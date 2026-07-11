@@ -6,6 +6,7 @@ import { PlayerController } from './player.controller';
 import { AuthModule } from '../auth/auth.module';
 import { CharacterModule } from '../character/character.module';
 import { LocationModule } from '../location/location.module';
+import { TechniqueModule } from '../technique/technique.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { LocationModule } from '../location/location.module';
     AuthModule,
     CharacterModule,
     LocationModule,
+    TechniqueModule,
   ],
   providers: [PlayerService],
   controllers: [PlayerController],

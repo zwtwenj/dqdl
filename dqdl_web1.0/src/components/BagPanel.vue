@@ -19,6 +19,7 @@ import { useBackpackStore } from '../stores/backpack'
 import { bus, BusEvents } from '../utils/eventBus'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
+import FloatingTooltip from './FloatingTooltip.vue'
 
 const props = defineProps({
   modelValue: Boolean,
@@ -115,7 +116,7 @@ watch(
       // 有外部变更（如掉落），静默刷新（后台拉取，不阻塞显示）
       try {
         await backpackStore.reload(props.playerId)
-      } catch (err) {
+      } catch {
         bus.emit(BusEvents.TOAST, { type: 'error', message: '背包刷新失败' })
       }
     }
@@ -188,6 +189,21 @@ const TYPE_LABEL = {
   武器: '武器', 功法: '功法', 武技: '武技', 防具: '防具',
   消耗品: '消耗品', 特殊: '特殊', 丹方: '丹方', 丹炉: '丹炉',
 }
+
+/* ============ 物品 tooltip（35 格共享一个 FloatingTooltip 实例） ============
+   hover 某格时记录该格 DOM 元素 + 物品数据，传给单一浮层；拖拽中禁用。 */
+const hoveredEl = ref(null)
+const hoveredData = ref(null)
+const tipOpen = ref(false)
+function onSlotEnter(e, data) {
+  if (draggingSlot.value !== null) return
+  hoveredEl.value = e.currentTarget
+  hoveredData.value = data
+  tipOpen.value = true
+}
+function onSlotLeave() {
+  tipOpen.value = false
+}
 </script>
 
 <template>
@@ -236,52 +252,55 @@ const TYPE_LABEL = {
         @dragstart="onDragStart($event, ps.slot)"
         @dragover="onDragOver"
         @drop="onDrop($event, ps.slot)"
+        @pointerenter="ps.data && onSlotEnter($event, ps.data)"
+        @pointerleave="ps.data && onSlotLeave"
       >
-          <!-- 物品 -->
-          <template v-if="ps.data">
-            <img
-              class="slot-icon"
-              :src="iconUrl(ps.data.item)"
-              :alt="ps.data.item?.name"
-              @error="onIconError"
-            >
+        <!-- 物品 -->
+        <template v-if="ps.data">
+          <img
+            class="slot-icon"
+            :src="iconUrl(ps.data.item)"
+            :alt="ps.data.item?.name"
+            @error="onIconError"
+          >
 
-            <!-- 数量角标 -->
-            <span
-              v-if="ps.data.count > 1"
-              class="slot-count"
-            >{{ ps.data.count }}</span>
-
-            <!-- hover tooltip（拖拽进行中时不显示） -->
-            <div
-              v-show="draggingSlot === null"
-              class="slot-tip"
-            >
-              <div class="tip-name">
-                {{ ps.data.item?.name || ps.data.item_id }}
-              </div>
-              <div
-                v-if="ps.data.item?.type"
-                class="tip-type"
-              >
-                {{ TYPE_LABEL[ps.data.item.type] || ps.data.item.type }}
-              </div>
-              <div
-                v-if="ps.data.item?.description"
-                class="tip-desc"
-              >
-                {{ ps.data.item.description }}
-              </div>
-              <div
-                v-if="ps.data.item?.price"
-                class="tip-price"
-              >
-                约值 {{ ps.data.item.price }} 金
-              </div>
-            </div>
-          </template>
+          <!-- 数量角标 -->
+          <span
+            v-if="ps.data.count > 1"
+            class="slot-count"
+          >{{ ps.data.count }}</span>
+        </template>
       </div>
     </div>
+
+    <!-- 物品 tooltip：35 格共享一个浮层，Teleport 到 body（绕开 .bag-content overflow） -->
+    <FloatingTooltip
+      v-model:open="tipOpen"
+      :reference="hoveredEl"
+      placement="top"
+    >
+      <div class="tip-name">
+        {{ hoveredData?.item?.name || hoveredData?.item_id }}
+      </div>
+      <div
+        v-if="hoveredData?.item?.type"
+        class="tip-type"
+      >
+        {{ TYPE_LABEL[hoveredData.item.type] || hoveredData.item.type }}
+      </div>
+      <div
+        v-if="hoveredData?.item?.description"
+        class="tip-desc"
+      >
+        {{ hoveredData.item.description }}
+      </div>
+      <div
+        v-if="hoveredData?.item?.price"
+        class="tip-price"
+      >
+        约值 {{ hoveredData.item.price }} 金
+      </div>
+    </FloatingTooltip>
 
     <!-- 底部工具栏：整理 | 分页 | 金币 -->
     <div class="bag-toolbar">
@@ -299,14 +318,18 @@ const TYPE_LABEL = {
           type="button"
           :disabled="currentPage <= 1"
           @click="prevPage"
-        >‹</button>
+        >
+          ‹
+        </button>
         <span class="pager-text">{{ currentPage }}/{{ TOTAL_PAGES }}</span>
         <button
           class="pager-btn"
           type="button"
           :disabled="currentPage >= TOTAL_PAGES"
           @click="nextPage"
-        >›</button>
+        >
+          ›
+        </button>
       </div>
       <div class="toolbar-money">
         <img
@@ -490,30 +513,8 @@ const TYPE_LABEL = {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
 }
 
-/* hover tooltip */
-.slot-tip {
-  position: absolute;
-  bottom: calc(100% + 4px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  width: 150px;
-  padding: 6px 8px;
-  background: rgba(15, 12, 8, 0.96);
-  border: 1px solid rgba(200, 170, 100, 0.5);
-  border-radius: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.15s;
-  pointer-events: none;
-  text-align: center;
-}
-.slot:hover .slot-tip {
-  opacity: 1;
-  visibility: visible;
-}
-
+/* hover tooltip 内容样式（浮层外壳由 FloatingTooltip 提供，Teleport 到 body；
+   这些 class 打在 BagPanel 模板的元素上，scoped 属性随元素走，仍能匹配） */
 .tip-name {
   font-size: 13px;
   color: #e8d5a0;

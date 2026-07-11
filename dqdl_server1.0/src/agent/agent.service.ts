@@ -7,6 +7,8 @@ import type {
   AgentMapParent,
   AgentMapRule,
   AgentMapResult,
+  AgentDialogBody,
+  AgentDialogResult,
 } from './agent.types';
 
 /**
@@ -114,6 +116,30 @@ export class AgentService {
         `agent /generate/training 调用失败：${err.message}（code=${err.code}）`,
       );
       return null;
+    }
+  }
+
+  /**
+   * 生成 NPC 对话：调 POST /generate/dialog。
+   * 上下文（npc/player/location/history）由 NpcService 后端组装，
+   * session_id/call_index 透传给 agent，agent 据此落 agent_dialog_call。
+   * 失败时降级返回固定台词 + call_id=null，不抛异常（对话不应因 agent 故障中断）。
+   */
+  async generateDialog(body: AgentDialogBody): Promise<AgentDialogResult> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<AgentDialogResult>(`${this.baseUrl}/generate/dialog`, body),
+      );
+      return {
+        reply: data?.reply || '......（对方似乎没有听懂你在说什么）',
+        call_id: data?.call_id ?? null,
+      };
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/dialog 调用失败：${err.message}（code=${err.code}）`,
+      );
+      return { reply: '......（对方似乎没有听懂你在说什么）', call_id: null };
     }
   }
 }

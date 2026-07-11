@@ -20,3 +20,4 @@ export { getPlayer, getPlayerStatus, cultivate, breakthrough, movePlayerLocation
 export { startTraining, stopTraining, getActiveTraining } from './training'
 export { getBackpack, moveBackpackItem, sortBackpack } from './backpack'
 export { startBattle, battleAction, getBattleState, fleeBattle } from './battle'
+export { getNpc, getNpcsByLocation, createNpcSession, talkInSession } from './npc'

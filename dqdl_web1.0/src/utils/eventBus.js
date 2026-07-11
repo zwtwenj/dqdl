@@ -12,6 +12,10 @@ export const BusEvents = {
   TOAST: 'toast',
   /** 登录失效：token 过期/被清，监听者应执行登出清理 */
   UNAUTHORIZED: 'unauthorized',
+  /** 打开 NPC 对话：{ playerId: number, npcId: number }
+   *  原子化触发——任何业务（点击 NPC 卡片 / 随机事件兜售 / 送信任务）只需 emit 这两个 id，
+   *  对话 UI/状态/数据组装全部由全局挂载的 NpcDialog 自治处理。 */
+  NPC_DIALOG_OPEN: 'npc-dialog-open',
 }
 
 const listeners = new Map()

@@ -10,9 +10,10 @@ import FloatingTooltip from './FloatingTooltip.vue'
 
 const props = defineProps({
   location: { type: Object, default: null },
+  npcs: { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['back'])
+const emit = defineEmits(['back', 'npc-select'])
 
 /* loc_type → 图标映射 */
 const typeIconMap = {
@@ -195,6 +196,30 @@ function onDropLeave() {
           </div>
         </div>
       </div>
+      <!--此地之人：NPC 卡片，点击触发对话（npc-select 事件）-->
+      <div
+        v-if="npcs.length"
+        class="npcs-row"
+      >
+        <span class="drops-label">此地之人</span>
+        <div class="npcs-list">
+          <div
+            v-for="npc in npcs"
+            :key="npc.id"
+            class="npc-card"
+            @pointerenter="onDropEnter($event, `${npc.name}·${npc.role_name}`)"
+            @pointerleave="onDropLeave"
+            @click="emit('npc-select', npc)"
+          >
+            <span class="npc-card-icon">🧙</span>
+            <span class="npc-card-body">
+              <span class="npc-card-name">{{ npc.name }}</span>
+              <span class="npc-card-role">{{ npc.role_name }} · {{ npc.nature_name }}</span>
+            </span>
+            <span class="npc-card-gender">{{ npc.gender }}·{{ npc.age }}</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 魔兽/药草 tooltip：共享一个浮层，Teleport 到 body -->
@@ -359,7 +384,7 @@ function onDropLeave() {
       font-size: 13px;
       color: #c8a868;
       letter-spacing: 2px;
-      flex-shrink: 0;
+      flex-shrink:  0;
     }
     .drops-icons{
       display: flex;
@@ -383,6 +408,75 @@ function onDropLeave() {
           border-color: rgba(220, 190, 120, 0.7);
           background: rgba(40, 30, 18, 0.6);
         }
+      }
+    }
+  }
+  /* 「此地之人」NPC 卡片行：独占一整行（与上方魔兽/药草横向区隔开） */
+  .npcs-row{
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(180, 150, 90, 0.18);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    .drops-label{
+      font-size: 13px;
+      color: #c8a868;
+      letter-spacing: 2px;
+      flex-shrink: 0;
+      line-height: 34px;
+    }
+    .npcs-list{
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .npc-card{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px 5px 6px;
+      background: rgba(30, 24, 16, 0.6);
+      border: 1px solid rgba(150, 120, 70, 0.35);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+      .npc-card-icon{
+        font-size: 1.3rem;
+        line-height: 1;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+      }
+      .npc-card-body{
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        .npc-card-name{
+          font-size: 14px;
+          color: #e8d5a0;
+          letter-spacing: 1px;
+          line-height: 1.2;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+        }
+        .npc-card-role{
+          font-size: 11px;
+          color: rgba(200, 170, 110, 0.7);
+          line-height: 1.2;
+        }
+      }
+      .npc-card-gender{
+        font-size: 11px;
+        color: rgba(180, 160, 130, 0.55);
+        letter-spacing: 1px;
+        align-self: center;
+      }
+      &:hover{
+        border-color: rgba(220, 190, 120, 0.8);
+        background: rgba(45, 36, 22, 0.8);
+        box-shadow: 0 0 12px rgba(212, 175, 106, 0.18);
+        transform: translateY(-1px);
       }
     }
   }

@@ -80,3 +80,60 @@ def log_ai_call(
             conn.close()
     except Exception as e:
         logger.error(f'写入 agent_call_log 失败（已忽略）: {e}')
+
+
+def log_dialog_call(
+    server_session_id,
+    call_index,
+    messages=None,
+    player_input=None,
+    reply=None,
+    model=None,
+    usage=None,
+    duration_ms=None,
+    success=True,
+    error_msg=None,
+):
+    """
+    写入一条 agent_dialog_call 记录（每次 deepseek 调用一行，智能体视角）。
+    server_session_id 绑定 server 端 dialog_session.id（跨服务唯一耦合键）。
+    messages 存完整快照（system+history+user，第 N 次天然含前 N-1 次记忆）。
+    返回新插入记录的 id（call_id）；任何异常吞掉（日志写入不影响业务）。
+    """
+    try:
+        import json as _json
+        u = usage or {}
+        conn = pymysql.connect(**_db_config(), connect_timeout=5)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO agent_dialog_call
+                       (server_session_id, call_index, messages, player_input, reply, model,
+                        prompt_tokens, completion_tokens, total_tokens,
+                        cache_hit_tokens, cache_miss_tokens, duration_ms, success, error_msg)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (
+                        int(server_session_id),
+                        int(call_index),
+                        _json.dumps(messages, ensure_ascii=False) if messages is not None else None,
+                        (player_input or '')[:500] if player_input else None,
+                        reply,
+                        model,
+                        int(u.get('prompt', 0) or 0),
+                        int(u.get('completion', 0) or 0),
+                        int(u.get('total', 0) or 0),
+                        int(u.get('cache_hit', 0) or 0),
+                        int(u.get('cache_miss', 0) or 0),
+                        duration_ms,
+                        1 if success else 0,
+                        (error_msg or '')[:500] if error_msg else None,
+                    ),
+                )
+                call_id = cur.lastrowid
+            conn.commit()
+            return call_id
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f'写入 agent_dialog_call 失败（已忽略）: {e}')
+        return None

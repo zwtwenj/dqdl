@@ -17,6 +17,7 @@ import { BattleModule } from './battle/battle.module';
 import { ItemModule } from './item/item.module';
 import { BackpackModule } from './backpack/backpack.module';
 import { TrainingModule } from './training/training.module';
+import { NpcModule } from './npc/npc.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -52,6 +53,7 @@ import { AppController } from './app.controller';
     ItemModule,
     BackpackModule,
     TrainingModule,
+    NpcModule,
   ],
   controllers: [AppController],
 })

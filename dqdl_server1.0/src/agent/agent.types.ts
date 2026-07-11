@@ -39,3 +39,38 @@ export interface AgentMapResult {
   common_herbs?: { item_id: string; name: string }[] | null;
   seed?: string;
 }
+
+/** NPC 对话请求体（传给 agent /generate/dialog） */
+export interface AgentDialogBody {
+  npc: {
+    name: string;
+    nature_name: string;
+    nature_hint: string;
+    role_name: string;
+    role_hint: string;
+  };
+  location: {
+    name: string;
+    loc_type: string;
+    description: string;
+    tags: string[];
+  };
+  player: {
+    name: string;
+    level: number;
+  };
+  player_input: string;
+  history: { player: string; npc: string }[];
+  /** server 的 dialog_session.id（跨服务绑定键，agent 据此落 agent_dialog_call） */
+  session_id: number;
+  /** 会话内第几次调用（1=开场白） */
+  call_index: number;
+}
+
+/** NPC 对话响应（agent /generate/dialog 返回） */
+export interface AgentDialogResult {
+  reply: string;
+  /** agent_dialog_call.id（agent 侧调用记录 id） */
+  call_id: number | null;
+}
+

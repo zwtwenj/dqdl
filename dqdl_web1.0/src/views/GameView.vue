@@ -29,6 +29,7 @@ import {
   startBattle,
   battleAction,
   getBattleState,
+  getNpcsByLocation,
 } from '../api'
 import { bus, BusEvents } from '../utils/eventBus'
 import { useBackpackStore } from '../stores/backpack'
@@ -183,6 +184,8 @@ watch(collectCollapsed, (v) => {
 // 当前地点（单一数据源：locationId 变化驱动三个组件刷新）
 const currentLocationId = ref(null)
 const currentLocation = ref(null)
+// 当前地点的 NPC 列表（「此地之人」渲染 + 点击触发对话）
+const currentNpcs = ref([])
 
 /** 拉取玩家完整信息，初始化当前地点 */
 async function loadPlayer() {
@@ -212,16 +215,23 @@ async function loadPlayer() {
   }
 }
 
-/** 拉取当前地点详情 */
+/** 拉取当前地点详情 + 该地点 NPC 列表 */
 async function loadLocation(locationId) {
   if (!locationId) {
     currentLocation.value = null
+    currentNpcs.value = []
     return
   }
   try {
     currentLocation.value = await getLocation(locationId)
   } catch (err) {
     bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '加载地点失败' })
+  }
+  // 拉取该地点 NPC（非野外地点才有，用于「此地之人」卡片渲染）
+  try {
+    currentNpcs.value = await getNpcsByLocation(locationId)
+  } catch {
+    currentNpcs.value = []
   }
 }
 
@@ -261,6 +271,12 @@ function onMapBack() {
   if (currentLocation.value?.parent_id) {
     moveTo(currentLocation.value.parent_id)
   }
+}
+
+/** 点击 NPC 卡片 → 原子化触发对话（事件总线，全局 NpcDialog 监听处理） */
+function onNpcSelect(npc) {
+  if (!player.value?.id) return
+  bus.emit(BusEvents.NPC_DIALOG_OPEN, { playerId: player.value.id, npcId: npc.id })
 }
 
 onMounted(loadPlayer)
@@ -395,8 +411,10 @@ function backToStart() {
         <CurrentMap
           v-if="currentLocation"
           :location="currentLocation"
+          :npcs="currentNpcs"
           class="current-map"
           @back="onMapBack"
+          @npc-select="onNpcSelect"
         />
         <!-- 左侧地图抽屉：邻近之地 + 可达之所 -->
         <div class="map-drawers">

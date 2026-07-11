@@ -175,14 +175,6 @@ function close() {
 <template>
   <div class="battle-overlay">
     <div class="battle-box">
-      <button
-        class="battle-close"
-        type="button"
-        @click="close"
-      >
-        &times;
-      </button>
-
       <div class="battle-body">
         <!-- ========== 左侧：战斗舞台 + 操作 ========== -->
         <div class="left-col">
@@ -429,17 +421,15 @@ function close() {
 </template>
 
 <style scoped>
-/* ========== 全屏覆盖层（约束在 1200px 内，与游戏背景同宽） ========== */
+/* ========== 全屏覆盖层（与游戏背景同宽，左对齐到 1200px 设计区，参考 CharacterSelectDialog） ========== */
 .battle-overlay {
   position: fixed;
+  width: 1200px;
   inset: 0;
   z-index: 300;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
   background: rgba(5, 5, 12, 0.8);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
@@ -457,22 +447,6 @@ function close() {
   position: relative;
   color: #e8e2d0;
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
-}
-
-.battle-close {
-  position: absolute;
-  top: 10px;
-  right: 14px;
-  background: none;
-  border: none;
-  color: rgba(200, 180, 150, 0.6);
-  font-size: 1.6rem;
-  cursor: pointer;
-  z-index: 10;
-  line-height: 1;
-}
-.battle-close:hover {
-  color: #ff9080;
 }
 
 /* ========== 主体布局 ========== */

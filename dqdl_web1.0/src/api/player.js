@@ -15,3 +15,7 @@ export const breakthrough = (id) => http.post(`/player/${id}/breakthrough`)
 /** 切换当前地点 POST /api/player/:id/move { locationId } */
 export const movePlayerLocation = (id, locationId) =>
   http.post(`/player/${id}/move`, { locationId })
+
+/** 更新斗技装配 POST /api/player/:id/skill { skill } skill 为 JSON 字符串 */
+export const updatePlayerSkills = (id, skillJson) =>
+  http.post(`/player/${id}/skill`, { skill: skillJson })

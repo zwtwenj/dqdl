@@ -62,4 +62,15 @@ export class PlayerController {
     await this.playerService.verifyOwnership(id, req.user.id);
     return this.playerService.moveToLocation(id, Number(body.locationId));
   }
+
+  /** 更新斗技装配 POST /api/player/:id/skill { skill } skill 为 JSON 字符串 */
+  @Post(':id/skill')
+  async updateSkill(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { skill: string },
+    @Req() req: any,
+  ) {
+    await this.playerService.verifyOwnership(id, req.user.id);
+    return this.playerService.updateSkillEquip(id, body?.skill ?? '[]');
+  }
 }

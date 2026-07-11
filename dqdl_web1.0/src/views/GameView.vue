@@ -12,6 +12,7 @@ import PlayerInfo from '../components/PlayerInfo.vue'
 import IconToolbar from '../components/IconToolbar.vue'
 import BagPanel from '../components/BagPanel.vue'
 import PlayerPanel from '../components/PlayerPanel.vue'
+import SkillPanel from '../components/SkillPanel.vue'
 import CurrentMap from '../components/CurrentMap.vue'
 import NeighborMapDrawer from '../components/NeighborMapDrawer.vue'
 import ChildrenMapDrawer from '../components/ChildrenMapDrawer.vue'
@@ -47,9 +48,13 @@ const bagOpen = ref(false)
 // 角色面板显隐
 const playerPanelOpen = ref(false)
 
+// 斗技弹窗显隐
+const skillPanelOpen = ref(false)
+
 // 弹窗拖拽位置（null = 沿用默认右下定位；拖动后转为 {x,y}）
 const bagPos = ref(null)
 const playerPos = ref(null)
+const skillPos = ref(null)
 
 // 地图探索中（AI 生成子节点时显示全屏遮罩，阻断玩家点击其他节点移动）
 const mapExploring = ref(false)
@@ -231,7 +236,7 @@ function onMapBack() {
 
 onMounted(loadPlayer)
 
-/** 功能图标点击：背包切换弹窗，其余暂记录 */
+/** 功能图标点击：背包/角色/斗技切换弹窗，其余暂记录 */
 function onIconSelect(key) {
   if (key === 'bag') {
     bagOpen.value = !bagOpen.value
@@ -239,6 +244,10 @@ function onIconSelect(key) {
   }
   if (key === 'player') {
     playerPanelOpen.value = !playerPanelOpen.value
+    return
+  }
+  if (key === 'skill') {
+    skillPanelOpen.value = !skillPanelOpen.value
     return
   }
   console.log('选中功能：', key)
@@ -374,6 +383,13 @@ function backToStart() {
     <PlayerPanel
       v-model="playerPanelOpen"
       v-model:pos="playerPos"
+      :player="player"
+    />
+
+    <!-- 斗技弹窗（功能栏上方，可拖拽，动态层级） -->
+    <SkillPanel
+      v-model="skillPanelOpen"
+      v-model:pos="skillPos"
       :player="player"
     />
 

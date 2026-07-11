@@ -5,6 +5,7 @@ import { Player } from './player.entity';
 import { CharacterService } from '../character/character.service';
 import { LocationService } from '../location/location.service';
 import { TechniqueService } from '../technique/technique.service';
+import { SkillService } from '../skill/skill.service';
 import { Biz } from '../common/biz.exception';
 
 /** 等阶 K 常量：1-9=100, 11-19=200, 21-29=300, 31+=400 */
@@ -66,6 +67,7 @@ export class PlayerService {
     private readonly characterService: CharacterService,
     private readonly locationService: LocationService,
     private readonly techniqueService: TechniqueService,
+    private readonly skillService: SkillService,
   ) {}
 
   /** 等级名称：1-9 斗之气段 / 11-19 斗者星 / ... */
@@ -149,6 +151,7 @@ export class PlayerService {
     if (!player) return null;
 
     const techniques = await this.aggregateTechniques(player.technique);
+    const skills = await this.aggregateSkills(player.skill);
 
     // 已装备功法的 base 属性加成之和（按当前修炼等级取 params）。
     // base params 可能含五维（power/intelligence/quick/stamina/lucky）+ hp/energy。
@@ -182,6 +185,7 @@ export class PlayerService {
       ...player,
       final_attrs: finalAttrs,
       techniques,
+      skills,
       level_name: PlayerService.levelName(player.level),
       status_label: STATUS_LABEL[player.status] || '未知',
       cultivation_efficiency: 0, // 预留：宝物/功法修炼效率加成
@@ -232,6 +236,54 @@ export class PlayerService {
         base_params: def ? this.techniqueService.parseBase(def.base, level) : {},
         description: def?.description ?? null,
         equipped: !!e?.equipped,
+      };
+    });
+  }
+
+  /**
+   * 解析 player.skill(JSON 字符串) → 斗技详情数组。
+   * 玩家持有态元素结构：{id, level, cultivation, carry}（id 为 skill 表主键，carry=1~5 表装备槽位）。
+   * 批量按 id 查斗技定义，合并出 {id, item_id, name, attr, rank, level, max_level,
+   * cultivation, max_cultivation, carry, energy_cost, description}。
+   * max_cultivation（升至下一级所需修为）由公式 K(阶)*2^(level-1) 给出供前端显示进度。
+   * 定义缺失（脏数据）的条目仍保留，name 落空由前端兜底。
+   */
+  private async aggregateSkills(raw: string | null): Promise<any[]> {
+    let arr: any[] = [];
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) arr = parsed;
+      } catch {
+        arr = [];
+      }
+    }
+    if (arr.length === 0) return [];
+
+    const ids = arr
+      .map((e) => Number(e?.id))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const defs = ids.length ? await this.skillService.findByIds(ids) : [];
+    const defMap = new Map(defs.map((d) => [d.id, d]));
+
+    return arr.map((e) => {
+      const def = defMap.get(Number(e?.id)) ?? null;
+      const level = Number(e?.level) || 1;
+      return {
+        id: Number(e?.id),
+        item_id: def?.item_id ?? null,
+        name: def?.name ?? null,
+        attr: def?.attr ?? null,
+        rank: def?.rank ?? null,
+        level,
+        max_level: def?.max_level ?? null,
+        cultivation: Number(e?.cultivation) || 0,
+        max_cultivation: this.skillService.maxCultivationAtLevel(def, level),
+        energy_cost: def?.energy_cost ?? 0,
+        base_damage: def?.base_damage ?? 0,
+        description: def?.description ?? null,
+        /** carry=1~5 表示已装备到该槽位；null/其它表示未装备 */
+        carry: Number(e?.carry) >= 1 && Number(e?.carry) <= 5 ? Number(e.carry) : null,
       };
     });
   }
@@ -330,6 +382,50 @@ export class PlayerService {
     // 校验目标地点存在
     await this.locationService.findOne(locationId);
     player.location_id = locationId;
+    await this.repo.save(player);
+    return this.findOne(playerId);
+  }
+
+  /**
+   * 更新玩家斗技装配：前端斗技弹窗拖拽/点击装配后，把整份 skill JSON 回传。
+   * 元素结构：{id, level, cultivation, carry}（carry=1~5 装备槽位，null=未装备）。
+   * 后端只做基本校验：元素须含合法 id、carry 落在 1~5 或空、槽位不重复，不重算属性。
+   * @returns 聚合后的最新玩家数据（含 skills 数组）
+   */
+  async updateSkillEquip(playerId: number, skillJson: string): Promise<any> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+
+    let arr: any[] = [];
+    try {
+      const parsed = JSON.parse(skillJson);
+      if (Array.isArray(parsed)) arr = parsed;
+      else throw new Error('skill 必须是数组');
+    } catch {
+      throw Biz.badRequest('skill JSON 格式错误');
+    }
+
+    // 规整：保留 id/level/cultivation，carry 限 1~5 或 null
+    const seenSlots = new Set<number>();
+    const cleaned = arr
+      .filter((e) => Number(e?.id) > 0)
+      .map((e) => {
+        let carry: number | null = Number(e?.carry);
+        carry = carry >= 1 && carry <= 5 ? carry : null;
+        // 槽位唯一：重复槽位降级为未装备
+        if (carry !== null) {
+          if (seenSlots.has(carry)) carry = null;
+          else seenSlots.add(carry);
+        }
+        return {
+          id: Number(e.id),
+          level: Number(e?.level) || 1,
+          cultivation: Number(e?.cultivation) || 0,
+          ...(carry !== null ? { carry } : {}),
+        };
+      });
+
+    player.skill = JSON.stringify(cleaned);
     await this.repo.save(player);
     return this.findOne(playerId);
   }

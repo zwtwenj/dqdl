@@ -14,6 +14,7 @@ import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
 import TechniqueTooltip from './TechniqueTooltip.vue'
+import FloatingTooltip from './FloatingTooltip.vue'
 
 const props = defineProps({
   modelValue: Boolean,
@@ -85,7 +86,16 @@ function parseList(raw) {
     return []
   }
 }
-const skills = computed(() => parseList(props.player?.skill))
+/** 斗技：优先用后端聚合的 skills 详情数组（含 name/item_id/carry 等），兼容旧 JSON 字符串 */
+const skills = computed(() => {
+  const agg = props.player?.skills
+  if (Array.isArray(agg) && agg.length) return agg
+  return parseList(props.player?.skill)
+})
+/** 角色面板只展示已装备的斗技（carry 1~5） */
+const equippedSkills = computed(() =>
+  skills.value.filter((s) => s.carry >= 1 && s.carry <= 5),
+)
 
 /**
  * 功法：优先用后端聚合的 techniques 详情数组（含 name/item_id/level/max_cultivation 等），
@@ -107,10 +117,45 @@ function techniqueIconUrl(t) {
   return FALLBACK_ICON
 }
 
+/** 斗技图标路径：dj- 前缀 → /icon/skill/{item_id}.png */
+function skillIconUrl(s) {
+  const id = s?.item_id
+  if (id && id.startsWith('dj-')) return `/icon/skill/${id}.png`
+  return FALLBACK_ICON
+}
+
 function onIconError(e) {
   if (e.target.src !== FALLBACK_ICON) {
     e.target.src = FALLBACK_ICON
   }
+}
+
+/* ============ 斗技品阶/属性文本（供 tooltip 展示） ============ */
+const SKILL_RANK_LABEL = {
+  11: '天阶上品', 12: '天阶中品', 13: '天阶下品',
+  21: '地阶上品', 22: '地阶中品', 23: '地阶下品',
+  31: '玄阶上品', 32: '玄阶中品', 33: '玄阶下品',
+  41: '黄阶上品', 42: '黄阶中品', 43: '黄阶下品',
+}
+const SKILL_ATTR_LABEL = { power: '力量', intelligence: '智力', quick: '敏捷', stamina: '体质' }
+function skillRankLabel(rank) {
+  return SKILL_RANK_LABEL[rank] || ''
+}
+function skillAttrLabel(a) {
+  return SKILL_ATTR_LABEL[a] || a || ''
+}
+
+/* ============ 斗技 tooltip（已装备项共享一个 FloatingTooltip） ============ */
+const skillTipEl = ref(null)
+const skillTipData = ref(null)
+const skillTipOpen = ref(false)
+function onSkillEnter(e, s) {
+  skillTipEl.value = e.currentTarget
+  skillTipData.value = s
+  skillTipOpen.value = true
+}
+function onSkillLeave() {
+  skillTipOpen.value = false
 }
 
 function close() {
@@ -272,28 +317,72 @@ function close() {
           >— 尚未习得 —</span>
         </section>
 
-        <!-- 斗技 -->
+        <!-- 斗技（仅已装备 carry 1~5） -->
         <section class="card">
           <h4 class="card-title">
             斗技
           </h4>
           <div
-            v-if="skills.length"
-            class="tag-list"
+            v-if="equippedSkills.length"
+            class="technique-list"
           >
-            <span
-              v-for="(s, i) in skills"
+            <div
+              v-for="(s, i) in equippedSkills"
               :key="'s'+i"
-              class="tag"
-            >{{ s.name || s.skill_name || '未知' }}</span>
+              class="technique-item"
+              @pointerenter="onSkillEnter($event, s)"
+              @pointerleave="onSkillLeave"
+            >
+              <img
+                class="technique-icon"
+                :src="skillIconUrl(s)"
+                :alt="s.name || ''"
+                @error="onIconError"
+              >
+              <span class="technique-name">{{ s.name || s.skill_name || '未知' }}</span>
+              <span class="technique-level">Lv.{{ s.level ?? 1 }}</span>
+            </div>
           </div>
           <span
             v-else
             class="empty-hint"
-          >— 尚未习得 —</span>
+          >— 尚未装配 —</span>
         </section>
       </div>
     </div>
+
+    <!-- 斗技 tooltip：已装备项共享一个浮层，Teleport 到 body -->
+    <FloatingTooltip
+      v-model:open="skillTipOpen"
+      :reference="skillTipEl"
+      placement="right-start"
+    >
+      <div class="skill-tip-name">
+        {{ skillTipData?.name || '未知斗技' }}
+        <span
+          v-if="skillTipData && skillRankLabel(skillTipData.rank)"
+          class="skill-tip-rank"
+        >{{ skillRankLabel(skillTipData.rank) }}</span>
+      </div>
+      <div
+        v-if="skillTipData && skillTipData.attr"
+        class="skill-tip-meta"
+      >
+        {{ skillAttrLabel(skillTipData.attr) }}属性 · 耗气 {{ skillTipData.energy_cost ?? 0 }}
+      </div>
+      <div
+        v-if="skillTipData && skillTipData.max_level"
+        class="skill-tip-progress"
+      >
+        Lv.{{ skillTipData.level ?? 1 }}/{{ skillTipData.max_level }}
+      </div>
+      <div
+        v-if="skillTipData && skillTipData.description"
+        class="skill-tip-desc"
+      >
+        {{ skillTipData.description }}
+      </div>
+    </FloatingTooltip>
   </div>
 </template>
 
@@ -372,7 +461,10 @@ function close() {
   font-size: 16px;
   letter-spacing: 4px;
   color: #f0d896;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  /* 标题是纯装饰文字，让出指针事件给下层的拖拽手柄（z-index 2），避免该区域无法拖动 */
+  pointer-events: none;
 }
 
 /* ========== 内容流式布局：行方向，左立绘右属性 ========== */
@@ -566,23 +658,6 @@ function close() {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
-/* ---------- 斗技标签 ---------- */
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.tag {
-  font-size: 11px;
-  padding: 2px 9px;
-  color: #ecd9a8;
-  background: linear-gradient(180deg, rgba(45, 34, 20, 0.8), rgba(28, 22, 14, 0.8));
-  border: 1px solid rgba(160, 130, 70, 0.45);
-  border-radius: 10px;
-  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
-}
-
 /* ---------- 功法项：图标 + 名称 + 等级 ---------- */
 .technique-list {
   display: flex;
@@ -627,5 +702,36 @@ function close() {
   letter-spacing: 1px;
   color: rgba(200, 170, 110, 0.4);
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+}
+
+/* ---------- 斗技 tooltip 内容（浮层 Teleport 到 body，class 仍匹配） ---------- */
+.skill-tip-name {
+  font-size: 13px;
+  color: #e8d5a0;
+  letter-spacing: 1px;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  margin-bottom: 4px;
+}
+.skill-tip-rank {
+  font-size: 10px;
+  color: #c0a060;
+  margin-left: 5px;
+  font-weight: normal;
+}
+.skill-tip-meta {
+  font-size: 10px;
+  color: rgba(210, 180, 120, 0.8);
+  margin-bottom: 3px;
+}
+.skill-tip-progress {
+  font-size: 10px;
+  color: rgba(200, 170, 110, 0.7);
+  margin-bottom: 3px;
+}
+.skill-tip-desc {
+  font-size: 10px;
+  line-height: 1.5;
+  color: rgba(190, 175, 145, 0.85);
+  word-break: break-all;
 }
 </style>

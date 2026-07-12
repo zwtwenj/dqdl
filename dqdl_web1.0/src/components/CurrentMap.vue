@@ -38,33 +38,35 @@ function dangerText(level) {
   return ['', '低危', '中危', '高危', '极危', '禁地'][level] || ''
 }
 
-/** 解析 common_mobs JSON 字符串 → 数组 */
-const mobs = computed(() => {
-  if (!props.location?.common_mobs) return []
+/** 解析 common_mobs → 数组。
+ *  兼容两种入参：后端 toView 已 parse 的数组，或旧接口返回的 JSON 字符串。 */
+function parseMobList(raw) {
+  if (!raw) return []
+  // 已经是数组（新 location_net 接口 toView 已 parse）
+  if (Array.isArray(raw)) return raw
+  // 字符串（旧 location 接口）：JSON.parse
   try {
-    const arr = JSON.parse(props.location.common_mobs)
-    return (Array.isArray(arr) ? arr : []).map((m) => ({
-      ...m,
-      icon: `/icon/mob/${m.mob_id}.png`,
-    }))
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr : []
   } catch {
     return []
   }
-})
+}
 
-/** 解析 common_herbs JSON 字符串 → 数组 */
-const herbs = computed(() => {
-  if (!props.location?.common_herbs) return []
-  try {
-    const arr = JSON.parse(props.location.common_herbs)
-    return (Array.isArray(arr) ? arr : []).map((h) => ({
-      ...h,
-      icon: `/icon/alchemy/${h.item_id}.png`,
-    }))
-  } catch {
-    return []
-  }
-})
+const mobs = computed(() =>
+  parseMobList(props.location?.common_mobs).map((m) => ({
+    ...m,
+    icon: `/icon/mob/${m.mob_id}.png`,
+  })),
+)
+
+/** 解析 common_herbs → 数组（同上兼容） */
+const herbs = computed(() =>
+  parseMobList(props.location?.common_herbs).map((h) => ({
+    ...h,
+    icon: `/icon/alchemy/${h.item_id}.png`,
+  })),
+)
 
 /** 类型图标 */
 const typeIcon = computed(
@@ -305,6 +307,7 @@ function onDropLeave() {
   }
   .location-description-text{
     position: absolute;
+    overflow-y: auto;
     top: 25%;
     left: 7%;
     font-size: 13px;
@@ -312,7 +315,6 @@ function onDropLeave() {
     color: #1d1604;
     width: 86%;
     height: 52%;
-    overflow: hidden;
     letter-spacing: 1px;
     text-shadow: 0 1px 0px rgba(0, 0, 0, 0.9);
   }

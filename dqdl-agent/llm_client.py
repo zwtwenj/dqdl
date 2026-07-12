@@ -59,8 +59,10 @@ def call_deepseek(system_prompt, user_prompt, temperature=0.85, max_tokens=4000,
 
 def _chat_with_logging(messages, temperature=0.85, max_tokens=4000,
                        call_type='unknown', ref_type=None, ref_id=None):
-    """直接用 messages 数组调 LLM（按 call_type 选模型）并记录 token 消耗。
+    """直接用 messages 数组调 LLM（按 call_type 选模型）。
     供 dialog 等多轮对话场景使用（call_deepseek 只支持 system+user 两条）。
+    本身不写 agent_call_log——dialog 路由会落库 agent_dialog_call（含 token），
+    避免与 agent_call_log 双写重复。
     返回 (content, usage_dict)。"""
     client, model, need_disable_thinking = _pick_client(call_type)
     start = time.time()
@@ -74,25 +76,10 @@ def _chat_with_logging(messages, temperature=0.85, max_tokens=4000,
         if need_disable_thinking:
             kwargs['extra_body'] = {'thinking': {'type': 'disabled'}}
         r = client.chat.completions.create(**kwargs)
-        duration_ms = int((time.time() - start) * 1000)
         content = r.choices[0].message.content
         u = _extract_usage(getattr(r, 'usage', None))
-        log_ai_call(
-            call_type=call_type, model=model,
-            prompt_tokens=u['prompt'], completion_tokens=u['completion'],
-            total_tokens=u['total'], cache_hit_tokens=u['cache_hit'],
-            cache_miss_tokens=u['cache_miss'], temperature=temperature,
-            duration_ms=duration_ms, success=True,
-            ref_type=ref_type, ref_id=ref_id,
-        )
         return content, u
     except Exception as e:
-        duration_ms = int((time.time() - start) * 1000)
-        log_ai_call(
-            call_type=call_type, model=model, temperature=temperature,
-            duration_ms=duration_ms, success=False, error_msg=str(e),
-            ref_type=ref_type, ref_id=ref_id,
-        )
         raise
 
 

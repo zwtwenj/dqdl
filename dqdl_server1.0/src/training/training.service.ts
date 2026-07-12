@@ -4,13 +4,12 @@ import { Repository } from 'typeorm';
 import { Training } from './training.entity';
 import { TrainingLog } from './training-log.entity';
 import { PlayerService, PLAYER_STATUS } from '../player/player.service';
-import { LocationService } from '../location/location.service';
+import { LocationNetService, NetNodeView } from '../location_net/location-net.service';
 import { AgentService } from '../agent/agent.service';
 import { MobService } from '../mob/mob.service';
 import { ItemService } from '../item/item.service';
 import { BackpackService, GrantEntry } from '../backpack/backpack.service';
 import { Biz } from '../common/biz.exception';
-import type { Location } from '../location/location.entity';
 import { Player } from '../player/player.entity';
 
 /** 单条掉落物定义（mob.drops JSON 解析后的结构） */
@@ -48,7 +47,7 @@ export class TrainingService {
     @InjectRepository(TrainingLog)
     private readonly logRepo: Repository<TrainingLog>,
     private readonly playerService: PlayerService,
-    private readonly locationService: LocationService,
+    private readonly locationNetService: LocationNetService,
     private readonly agentService: AgentService,
     private readonly mobService: MobService,
     private readonly backpackService: BackpackService,
@@ -70,11 +69,14 @@ export class TrainingService {
       throw Biz.conflict('当前状态忙碌，无法开始历练');
     }
 
-    // 校验地点
+    // 校验地点（location_net 网状地图）
     if (!player.location_id) {
       throw Biz.conflict('玩家当前位置未知');
     }
-    const location = await this.locationService.findOne(player.location_id);
+    const location = await this.locationNetService.getNode(player.location_id);
+    if (!location) {
+      throw Biz.notFound(`地点 ${player.location_id} 不存在`);
+    }
     if (!WILD_TYPES.includes(location.loc_type)) {
       throw Biz.conflict('请前往野外地图进行历练');
     }
@@ -146,7 +148,7 @@ export class TrainingService {
     playerId: number,
     trainingId: number,
     mobs: { mob_id: string; name: string }[],
-    location: Location,
+    location: NetNodeView,
     player: Player,
   ) {
     const timer = setInterval(async () => {
@@ -164,7 +166,7 @@ export class TrainingService {
     playerId: number,
     trainingId: number,
     mobs: { mob_id: string; name: string }[],
-    location: Location,
+    location: NetNodeView,
     player: Player,
   ) {
     // 检查历练是否该结束
@@ -284,15 +286,10 @@ export class TrainingService {
     await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
   }
 
-  /** 解析 location.common_mobs JSON 字符串 */
-  private parseCommonMobs(location: Location): { mob_id: string; name: string }[] {
+  /** 解析 location_net 的 common_mobs（NetNodeView 已是数组，直接返回） */
+  private parseCommonMobs(location: NetNodeView): { mob_id: string; name: string }[] {
     if (!location.common_mobs) return [];
-    try {
-      const arr = JSON.parse(location.common_mobs);
-      return Array.isArray(arr) ? arr : [];
-    } catch {
-      return [];
-    }
+    return Array.isArray(location.common_mobs) ? location.common_mobs : [];
   }
 
   /** 属性中文 → 魔核 item_id 字母前缀 */

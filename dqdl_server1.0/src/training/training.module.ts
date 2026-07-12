@@ -5,7 +5,7 @@ import { TrainingLog } from './training-log.entity';
 import { TrainingService } from './training.service';
 import { TrainingController } from './training.controller';
 import { PlayerModule } from '../player/player.module';
-import { LocationModule } from '../location/location.module';
+import { LocationNetModule } from '../location_net/location-net.module';
 import { AgentModule } from '../agent/agent.module';
 import { MobModule } from '../mob/mob.module';
 import { BackpackModule } from '../backpack/backpack.module';
@@ -16,7 +16,7 @@ import { AuthModule } from '../auth/auth.module';
   imports: [
     TypeOrmModule.forFeature([Training, TrainingLog]),
     PlayerModule,
-    LocationModule,
+    LocationNetModule,
     AgentModule,
     MobModule,
     BackpackModule,

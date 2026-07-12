@@ -281,6 +281,15 @@ function onNpcSelect(npc) {
 
 onMounted(loadPlayer)
 
+/* ============ 跨组件面板控制（事件总线） ============ */
+/** 监听 BAG_OPEN：其它组件（如商店联动）请求打开/置顶背包 */
+const offBagOpen = bus.on(BusEvents.BAG_OPEN, () => {
+  bagOpen.value = true
+})
+onUnmounted(() => {
+  offBagOpen && offBagOpen()
+})
+
 /** 功能图标点击：背包/角色/斗技/战斗切换弹窗，其余暂记录 */
 function onIconSelect(key) {
   if (key === 'bag') {

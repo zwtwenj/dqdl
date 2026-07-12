@@ -5,6 +5,7 @@ import { StaticNpc } from './static-npc.entity';
 import { Nature } from './nature.entity';
 import { NpcRole } from './npc-role.entity';
 import { DialogSession } from './dialog-session.entity';
+import { DialogEvent } from './dialog-event.entity';
 import { PlayerService } from '../player/player.service';
 import { LocationService } from '../location/location.service';
 import { AgentService } from '../agent/agent.service';
@@ -39,6 +40,8 @@ export class NpcService {
     private readonly roleRepo: Repository<NpcRole>,
     @InjectRepository(DialogSession)
     private readonly sessionRepo: Repository<DialogSession>,
+    @InjectRepository(DialogEvent)
+    private readonly eventRepo: Repository<DialogEvent>,
     private readonly playerService: PlayerService,
     private readonly locationService: LocationService,
     private readonly agent: AgentService,
@@ -67,13 +70,18 @@ export class NpcService {
     return result;
   }
 
-  /** 单 NPC 详情（含 nature/role 文案） */
+  /** 单 NPC 详情（含 nature/role 文案 + dialog_events 快捷按钮） */
   async findOne(id: number): Promise<any> {
     const npc = await this.npcRepo.findOneBy({ id });
     if (!npc) throw Biz.notFound(`NPC ${id} 不存在`);
-    const [nature, role] = await Promise.all([
+    const [nature, role, events] = await Promise.all([
       this.natureRepo.findOneBy({ id: npc.nature_id }),
       this.roleRepo.findOneBy({ id: npc.role_id }),
+      // 按 role_id 查快捷事件（同 role 共享），前端渲染快捷按钮
+      this.eventRepo.find({
+        where: { role_id: npc.role_id },
+        order: { sort: 'ASC', id: 'ASC' },
+      }),
     ]);
     return {
       ...npc,
@@ -81,6 +89,11 @@ export class NpcService {
       nature_hint: nature?.prompt_hint || '',
       role_name: role?.name || '',
       role_hint: role?.prompt_hint || '',
+      dialog_events: events.map((e) => ({
+        id: e.id,
+        text: e.text,
+        event: e.event,
+      })),
     };
   }
 

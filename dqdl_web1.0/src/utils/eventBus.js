@@ -16,6 +16,11 @@ export const BusEvents = {
    *  原子化触发——任何业务（点击 NPC 卡片 / 随机事件兜售 / 送信任务）只需 emit 这两个 id，
    *  对话 UI/状态/数据组装全部由全局挂载的 NpcDialog 自治处理。 */
   NPC_DIALOG_OPEN: 'npc-dialog-open',
+  /** 打开 NPC 商店：{ playerId: number, npcId: number }
+   *  原子化触发——对话弹窗内点「交易」快捷事件触发，商品 UI/查询由全局挂载的 NpcShopPanel 自治处理。 */
+  NPC_SHOP_OPEN: 'npc-shop-open',
+  /** 打开/置顶玩家背包（跨组件：全局组件触发，GameView 监听打开 bagOpen） */
+  BAG_OPEN: 'bag-open',
 }
 
 const listeners = new Map()

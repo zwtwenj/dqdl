@@ -18,6 +18,7 @@ import { ItemModule } from './item/item.module';
 import { BackpackModule } from './backpack/backpack.module';
 import { TrainingModule } from './training/training.module';
 import { NpcModule } from './npc/npc.module';
+import { ShopModule } from './shop/shop.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -54,6 +55,7 @@ import { AppController } from './app.controller';
     BackpackModule,
     TrainingModule,
     NpcModule,
+    ShopModule,
   ],
   controllers: [AppController],
 })

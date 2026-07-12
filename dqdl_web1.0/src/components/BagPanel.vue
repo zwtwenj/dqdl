@@ -295,10 +295,10 @@ function onSlotLeave() {
         {{ hoveredData.item.description }}
       </div>
       <div
-        v-if="hoveredData?.item?.price"
+        v-if="hoveredData?.sell_price != null"
         class="tip-price"
       >
-        约值 {{ hoveredData.item.price }} 金
+        出售 {{ hoveredData.sell_price }} 金
       </div>
     </FloatingTooltip>
 

@@ -424,15 +424,20 @@ export class BackpackService {
       .getMany();
     const itemMap = new Map<string, Item>();
     for (const it of found) itemMap.set(it.item_id, it);
-    return rows.map((r) => ({
-      id: r.id,
-      player_id: r.player_id,
-      item_id: r.item_id,
-      count: r.count,
-      slot: r.slot,
-      acquired_at: r.acquired_at,
-      updated_at: r.updated_at,
-      item: itemMap.get(r.item_id) ?? null,
-    }));
+    return rows.map((r) => {
+      const item = itemMap.get(r.item_id) ?? null;
+      return {
+        id: r.id,
+        player_id: r.player_id,
+        item_id: r.item_id,
+        count: r.count,
+        slot: r.slot,
+        acquired_at: r.acquired_at,
+        updated_at: r.updated_at,
+        item,
+        // 出售价（price/2 向下取整，后端计算，前端不参与 DB 派生运算）
+        sell_price: Math.floor((item?.price ?? 0) / 2),
+      };
+    });
   }
 }

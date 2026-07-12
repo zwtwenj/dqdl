@@ -9,7 +9,7 @@
  *
  * 幂等：先按 item_id 查重，已存在则跳过（不覆盖）。
  * item 表镜像：type='材料'/'魔核'，ref_type 指向专用表，ref_id 指向专用表自增 id。
- *   材料无价格，item.price=0；魔核 item.price 取 (price_min+price_max)/2 向下取整。
+ *   材料无价格源，item.price 统一默认 50 金（出售价 25 金，后续可按 rarity 细化）；魔核 item.price 取 (price_min+price_max)/2 向下取整。
  */
 import 'reflect-metadata';
 import { config } from 'dotenv';
@@ -108,7 +108,7 @@ async function main() {
         name: m.name,
         type: '材料',
         icon: null,
-        price: 0,
+        price: 50, // 材料无价格源，统一默认价 50 金（出售价 25 金），后续可按 rarity 细化
         description: m.description || null,
         usable: 0,
         use_effect: null,

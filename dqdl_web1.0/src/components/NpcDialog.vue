@@ -15,13 +15,15 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { bus, BusEvents } from '../utils/eventBus'
 import { createNpcSession, talkInSession } from '../api'
+import { dispatchDialogEvent } from '../utils/dialogEventHandlers'
 
 /** 单次会话最大对话轮次（与后端 MAX_DIALOG_ROUNDS 保持一致） */
 const MAX_DIALOG_ROUNDS = 30
 
 const open = ref(false)
-const npc = ref(null)        // NPC 详情（含 name/gender/age/role_name/nature_name）
+const npc = ref(null)        // NPC 详情（含 name/gender/age/role_name/nature_name/dialog_events）
 const sessionId = ref(null)  // server 会话 id（记忆权威源）
+const playerId = ref(null)   // 当前玩家 id（emit 商店事件用）
 const history = ref([])      // [{ player, npc }] 仅渲染用，权威在 server
 const loading = ref(false)
 const input = ref('')
@@ -39,17 +41,18 @@ async function scrollBottom() {
 }
 
 /** 打开对话：{ playerId, npcId } → 建会话 → 取开场白 */
-async function handleOpen({ playerId, npcId }) {
+async function handleOpen({ playerId: pid, npcId }) {
   open.value = true
   npc.value = null
   sessionId.value = null
+  playerId.value = pid
   history.value = []
   input.value = ''
   rounds.value = 0
   loading.value = true
   try {
     // 1. 创建会话（server 建 dialog_session，返回 sessionId + npc 详情）
-    const sessionRes = await createNpcSession(npcId, playerId)
+    const sessionRes = await createNpcSession(npcId, pid)
     sessionId.value = sessionRes.sessionId
     npc.value = sessionRes.npc
     // 2. 取 AI 开场白（message 为空 → agent 生成开场白）
@@ -91,9 +94,23 @@ function close() {
   open.value = false
   npc.value = null
   sessionId.value = null
+  playerId.value = null
   history.value = []
   input.value = ''
   rounds.value = 0
+}
+
+/** 点击快捷事件按钮（dialog_event）
+ *  按 event 名查 dialogEventHandlers 回调库分发（一对一匹配），命中则执行 handler。
+ *  handler 只做 UI/store 操作，DB 数据计算走后端接口。 */
+function handleEventClick(evt) {
+  if (!npc.value || !playerId.value) return
+  dispatchDialogEvent(evt.event, {
+    evt,
+    npc: npc.value,
+    playerId: playerId.value,
+    closeDialog: close,
+  })
 }
 
 /** ESC 关闭 */
@@ -131,6 +148,22 @@ onUnmounted(() => {
             @click="close"
           >
             ×
+          </button>
+        </div>
+
+        <!-- 快捷事件按钮（dialog_event：如「我想买卖些物品」触发交易） -->
+        <div
+          v-if="npc?.dialog_events?.length"
+          class="npc-actions"
+        >
+          <button
+            v-for="evt in npc.dialog_events"
+            :key="evt.id"
+            class="npc-action-btn"
+            type="button"
+            @click="handleEventClick(evt)"
+          >
+            {{ evt.text }}
           </button>
         </div>
 
@@ -269,6 +302,33 @@ onUnmounted(() => {
   color: #ff9080;
   border-color: rgba(255, 120, 100, 0.6);
   background: rgba(60, 20, 15, 0.5);
+}
+
+/* 快捷事件按钮区（dialog_event：交易/任务等入口） */
+.npc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(180, 150, 90, 0.25);
+  background: rgba(18, 14, 9, 0.5);
+}
+.npc-action-btn {
+  padding: 6px 14px;
+  background: linear-gradient(180deg, rgba(55, 42, 24, 0.85), rgba(38, 28, 18, 0.85));
+  border: 1px solid rgba(180, 150, 90, 0.45);
+  border-radius: 4px;
+  color: #e8d5a0;
+  cursor: pointer;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  transition: all 0.15s ease;
+}
+.npc-action-btn:hover {
+  border-color: rgba(220, 190, 120, 0.9);
+  background: linear-gradient(180deg, rgba(70, 54, 30, 0.95), rgba(48, 36, 22, 0.95));
+  box-shadow: 0 0 10px rgba(212, 175, 106, 0.25);
 }
 
 /* 对话区 */

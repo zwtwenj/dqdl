@@ -13,11 +13,13 @@
  */
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { bus, BusEvents } from '../utils/eventBus'
-import { getNpcShop } from '../api'
+import { getNpcShop, buyItem } from '../api'
+import { useBackpackStore } from '../stores/backpack'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
 
 const FALLBACK_ICON = '/icon/cl/cl-100.png'
+const backpackStore = useBackpackStore()
 
 /* ============ 弹窗层级（与背包/角色面板共享 usePanelStack） ============ */
 const { z, focus, mount, unmount } = usePanelStack('shop')
@@ -26,7 +28,9 @@ const open = ref(false)
 const loading = ref(false)
 const npcName = ref('')
 const npcId = ref(null)
+const playerId = ref(null)
 const items = ref([])
+const buying = ref(false) // 防重复提交
 
 /* ============ 拖拽（标题栏作手柄） ============ */
 const panelRef = ref(null)
@@ -37,10 +41,15 @@ const { dragging, onHandlePointerDown } = usePanelDraggable({
   onStart: focus,
 })
 
-// open 状态联动 mount/unmount（加入/移出层级栈）
+// open 状态联动 mount/unmount（加入/移出层级栈）+ 交易态
 watch(open, (v) => {
-  if (v) mount()
-  else unmount()
+  if (v) {
+    mount()
+    backpackStore.setTrading(true)
+  } else {
+    unmount()
+    backpackStore.setTrading(false)
+  }
 })
 
 /** 物品图标路径推导（复用 BagPanel 逻辑） */
@@ -60,8 +69,9 @@ function onIconError(e) {
 }
 
 /** 打开商店：{ playerId, npcId } → 拉商品 → mount + focus 置顶 */
-async function handleOpen({ npcId: id }) {
+async function handleOpen({ npcId: id, playerId: pid }) {
   npcId.value = id
+  playerId.value = pid
   open.value = true
   focus() // 置顶（在背包之上）
   loading.value = true
@@ -80,9 +90,54 @@ async function handleOpen({ npcId: id }) {
   }
 }
 
-/** 购买（本期置灰，待后续接入。购买金额/扣费由后端计算） */
-function handleBuy() {
-  bus.emit(BusEvents.TOAST, { type: 'info', message: '购买功能即将开放' })
+/** 购买入口：直接点击=买1个，Shift+点击=弹数量输入框 */
+function handleBuy(item, shift = false) {
+  if (buying.value || !playerId.value) return
+  if (shift) {
+    // Shift+点击：弹数量输入框
+    buyModal.value = { item_id: item.item_id, name: item.name, price: item.price }
+    buyCount.value = 1
+  } else {
+    // 直接点击：买1个
+    doBuy(item, 1)
+  }
+}
+
+/** 执行购买（调后端 buy，单事务扣钱+加背包），返回新 money 同步 store + 标脏背包 */
+async function doBuy(item, count) {
+  if (buying.value || !playerId.value) return
+  buying.value = true
+  try {
+    const res = await buyItem(playerId.value, item.item_id, count)
+    backpackStore.setMoney(res.money)       // 同步金币（后端返回，前端不计算）
+    // 主动刷新背包（背包此时已打开，markDirty 不会触发已开面板重载，必须 reload）
+    await backpackStore.reload(playerId.value)
+    bus.emit(BusEvents.TOAST, { type: 'success', message: `购买了 ${count} 个 ${item.name}` })
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '购买失败' })
+  } finally {
+    buying.value = false
+    buyModal.value = null
+  }
+}
+
+/* ============ 购买数量弹窗 ============ */
+const buyModal = ref(null) // { item_id, name, price } 弹窗状态，null=关闭
+const buyCount = ref(1)
+
+/** 确认弹窗购买（按当前输入数量，校验上限=玩家金币可买数量） */
+function confirmBuy() {
+  const c = Math.max(1, Math.floor(Number(buyCount.value) || 0))
+  if (!buyModal.value) return
+  doBuy({ item_id: buyModal.value.item_id, name: buyModal.value.name }, c)
+}
+
+/** 弹窗：根据当前金币算"最大可购买数"并填入 */
+function setBuyMax() {
+  if (!buyModal.value) return
+  const price = buyModal.value.price || 0
+  const max = price > 0 ? Math.floor(backpackStore.money / price) : 1
+  buyCount.value = Math.max(1, max)
 }
 
 /** 关闭 */
@@ -91,6 +146,7 @@ function close() {
   items.value = []
   npcName.value = ''
   npcId.value = null
+  playerId.value = null
 }
 
 /** 悬浮提示 */
@@ -132,6 +188,7 @@ onUnmounted(() => {
         @pointerdown="onHandlePointerDown"
       >
         <span class="shop-title">{{ npcName }} · 杂货铺</span>
+        <span class="shop-money">💰 {{ backpackStore.money }} 金</span>
         <button
           class="shop-close"
           type="button"
@@ -183,10 +240,10 @@ onUnmounted(() => {
               <button
                 class="buy-btn"
                 type="button"
-                disabled
-                title="购买功能即将开放"
+                :disabled="buying || backpackStore.money < item.price"
+                :title="backpackStore.money < item.price ? '金币不足' : '购买（Shift+点击购买多个）'"
                 @pointerdown.stop
-                @click.stop="handleBuy"
+                @click.stop="handleBuy(item, $event.shiftKey)"
               >
                 购买
               </button>
@@ -210,6 +267,48 @@ onUnmounted(() => {
           {{ hoveredItem.description }}
         </div>
       </div>
+
+      <!-- 购买数量弹窗（Shift+点击购买时弹出） -->
+      <Teleport to="body">
+        <div
+          v-if="buyModal"
+          class="buy-overlay"
+          @click.self="buyModal = null"
+        >
+          <div class="buy-box">
+            <div class="buy-title">购买 · {{ buyModal.name }}</div>
+            <div class="buy-hint">单价 {{ buyModal.price }} 金 · 金币 {{ backpackStore.money }}</div>
+            <div class="buy-input-row">
+              <button
+                class="buy-max-btn"
+                type="button"
+                @click="setBuyMax"
+              >最大</button>
+              <input
+                v-model.number="buyCount"
+                type="number"
+                :min="1"
+                class="buy-input"
+                @keyup.enter="confirmBuy"
+              >
+            </div>
+            <div class="buy-total">合计 {{ (buyModal.price || 0) * Math.max(0, buyCount || 0) }} 金</div>
+            <div class="buy-actions">
+              <button
+                class="buy-cancel"
+                type="button"
+                @click="buyModal = null"
+              >取消</button>
+              <button
+                class="buy-confirm"
+                type="button"
+                :disabled="buying || !buyCount || buyCount < 1"
+                @click="confirmBuy"
+              >{{ buying ? '购买中...' : '确认购买' }}</button>
+            </div>
+          </div>
+        </div>
+      </Teleport>
     </div>
   </Teleport>
 </template>
@@ -256,6 +355,14 @@ onUnmounted(() => {
   font-size: 1rem;
   letter-spacing: 2px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.shop-money {
+  flex: 1;
+  text-align: center;
+  color: #f0d890;
+  font-size: 0.88rem;
+  letter-spacing: 1px;
+  margin: 0 8px;
 }
 .shop-close {
   background: none;
@@ -368,11 +475,22 @@ onUnmounted(() => {
   border: 1px solid rgba(180, 150, 90, 0.4);
   border-radius: 4px;
   color: #e8d5a0;
-  cursor: not-allowed;
+  cursor: pointer;
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
   font-size: 0.75rem;
   letter-spacing: 1px;
-  opacity: 0.5;
+  transition: all 0.15s ease;
+}
+/* 金币充足时 hover 高亮 */
+.buy-btn:hover:not(:disabled) {
+  border-color: rgba(220, 190, 120, 0.9);
+  background: linear-gradient(180deg, rgba(75, 56, 32, 0.95), rgba(50, 38, 25, 0.95));
+  box-shadow: 0 0 8px rgba(212, 175, 106, 0.25);
+}
+/* 金币不足 / 购买中：置灰禁止 */
+.buy-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* 悬浮提示 */
@@ -404,5 +522,113 @@ onUnmounted(() => {
   color: #c8c0a8;
   font-size: 0.78rem;
   line-height: 1.5;
+}
+
+/* ============ 购买数量弹窗（与出售弹窗同暗金风格） ============ */
+.buy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+.buy-box {
+  width: 280px;
+  padding: 20px;
+  background: linear-gradient(160deg, rgba(28, 22, 16, 0.97), rgba(14, 11, 8, 0.98));
+  border: 1px solid rgba(180, 150, 90, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7);
+  color: #e8e2d0;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+}
+.buy-title {
+  font-size: 1rem;
+  color: #f0d890;
+  letter-spacing: 2px;
+  text-align: center;
+  margin-bottom: 4px;
+}
+.buy-hint {
+  text-align: center;
+  color: rgba(200, 170, 110, 0.6);
+  font-size: 0.78rem;
+  margin-bottom: 14px;
+}
+.buy-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.buy-max-btn {
+  padding: 6px 14px;
+  background: rgba(55, 42, 24, 0.85);
+  border: 1px solid rgba(180, 150, 90, 0.45);
+  border-radius: 4px;
+  color: #e8d5a0;
+  cursor: pointer;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  font-size: 0.82rem;
+  letter-spacing: 1px;
+}
+.buy-max-btn:hover {
+  border-color: rgba(220, 190, 120, 0.9);
+}
+.buy-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  background: rgba(20, 16, 10, 0.7);
+  border: 1px solid rgba(150, 120, 70, 0.4);
+  border-radius: 4px;
+  color: #e8d5a0;
+  font-size: 0.9rem;
+  outline: none;
+}
+.buy-input:focus {
+  border-color: rgba(220, 190, 120, 0.7);
+}
+.buy-total {
+  text-align: center;
+  color: #f0d890;
+  font-size: 0.82rem;
+  margin-bottom: 14px;
+  letter-spacing: 1px;
+}
+.buy-actions {
+  display: flex;
+  gap: 10px;
+}
+.buy-cancel,
+.buy-confirm {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  transition: all 0.15s ease;
+}
+.buy-cancel {
+  background: rgba(35, 28, 18, 0.6);
+  border: 1px solid rgba(150, 120, 70, 0.4);
+  color: rgba(200, 170, 110, 0.7);
+}
+.buy-confirm {
+  background: linear-gradient(180deg, rgba(55, 90, 130, 0.85), rgba(38, 65, 95, 0.85));
+  border: 1px solid rgba(138, 180, 255, 0.5);
+  color: #bcd8ff;
+}
+.buy-confirm:hover:not(:disabled) {
+  border-color: rgba(138, 180, 255, 0.9);
+  box-shadow: 0 0 10px rgba(138, 180, 255, 0.25);
+}
+.buy-confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 </style>

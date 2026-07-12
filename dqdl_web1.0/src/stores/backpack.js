@@ -15,6 +15,8 @@ export const useBackpackStore = defineStore('backpack', () => {
   /** 背包完整数据 { money, slots:[{slot,item_id,count,item,...}] } */
   const money = ref(0)
   const slots = ref([])
+  /** 交易态（前端自用 UI 状态）：商店面板打开时为 true，背包右键变为出售 */
+  const trading = ref(false)
 
   /** 是否已加载（避免重复请求） */
   const loaded = ref(false)
@@ -78,8 +80,19 @@ export const useBackpackStore = defineStore('backpack', () => {
     return data.slots
   }
 
+  /** 设置交易态（商店面板开关时调用） */
+  function setTrading(v) {
+    trading.value = v
+  }
+
+  /** 同步金币（buy/sell 返回后调用） */
+  function setMoney(v) {
+    money.value = v
+  }
+
   return {
-    money, slots, loaded, dirty,
+    money, slots, loaded, dirty, trading,
     load, reload, markDirty, reset, move, sort,
+    setTrading, setMoney,
   }
 })

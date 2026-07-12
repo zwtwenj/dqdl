@@ -86,6 +86,11 @@ function pick<T>(arr: readonly T[]): T {
 function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+/** 数字转中文序号后缀：2→② 3→③ ...，用于重名改名（赤焰城 → 赤焰城②） */
+function cnOrdinal(n: number): string {
+  const symbols = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+  return symbols[n - 1] ?? `(${n})`;
+}
 
 // ---------- 返回类型 ----------
 export interface NetNodeView {
@@ -449,21 +454,36 @@ export class LocationNetService {
     const allNodes = await this.netRepo.find();
     const existingNames = allNodes.map((x) => x.name);
 
-    // 并发生成（一次 Promise.all，总耗时 ≈ 单次 agent 调用）
-    const created = await Promise.all(
-      toCreate.map((slot) =>
-        this.generateNodeAt(slot.gx, slot.gy, parentContext, existingNames),
-      ),
+    // 阶段1：并发生成候选（只调 agent，不入库），总耗时 ≈ 单次 agent 调用
+    const candidates = await Promise.all(
+      toCreate.map((slot) => this.proposeNodeAt(slot.gx, slot.gy, parentContext, existingNames)),
     );
+
+    // 阶段2：串行入库，做"已存在 + 本批已入库"双重去重，重名则加序号后缀
+    const usedNames = new Set(existingNames);
+    const created: LocationNet[] = [];
+    for (const c of candidates) {
+      let finalName = c.name;
+      if (usedNames.has(finalName)) {
+        // 重名：加数字后缀直到唯一（赤焰城 → 赤焰城②）
+        let i = 2;
+        while (usedNames.has(`${finalName}${cnOrdinal(i)}`)) i++;
+        finalName = `${finalName}${cnOrdinal(i)}`;
+        this.logger.warn(`节点 (${c.gx},${c.gy}) 与已有/本批重名，改名为 ${finalName}`);
+      }
+      usedNames.add(finalName);
+      const node = await this.commitNode({ ...c, name: finalName });
+      created.push(node);
+    }
 
     await this.recomputeFrontierAround(nodeId);
     return created;
   }
 
   /**
-   * 在指定网格点生成一个新节点。
-   * server 定 loc_type（保留分布），agent 生成名称/描述/文案；agent 失败走名称池 fallback。
-   * 新城市自动补 3 个默认场景。
+   * 在指定网格点生成一个新节点（单点版，串行调用安全）。
+   * server 定 loc_type，agent 生成名称/描述/文案；agent 失败走名称池 fallback。
+   * 入库前会查同名并改名。新城市自动补 3 个默认场景。
    *
    * @param gx, gy         目标网格坐标
    * @param parentContext  周边已知地点（供 agent 保持地理连贯），可空
@@ -475,6 +495,38 @@ export class LocationNetService {
     parentContext?: { name: string; loc_type: string; direction?: string }[],
     existingNames?: string[],
   ): Promise<LocationNet> {
+    const candidate = await this.proposeNodeAt(gx, gy, parentContext, existingNames);
+    // 单点调用也要防重名（agent 可能返回已存在的名字）
+    const allNames = (await this.netRepo.find()).map((n) => n.name);
+    let finalName = candidate.name;
+    if (allNames.includes(finalName)) {
+      let i = 2;
+      while (allNames.includes(`${finalName}${cnOrdinal(i)}`)) i++;
+      finalName = `${finalName}${cnOrdinal(i)}`;
+      this.logger.warn(`节点 (${gx},${gy}) 与已有重名，改名为 ${finalName}`);
+    }
+    return this.commitNode({ ...candidate, name: finalName });
+  }
+
+  /**
+   * 阶段1：生成节点候选（调 agent + 选字段，不入库，不建场景）。
+   * 用于 ensureRing1 的并发阶段——多个候选可同时生成，再串行入库去重。
+   */
+  private async proposeNodeAt(
+    gx: number,
+    gy: number,
+    parentContext?: { name: string; loc_type: string; direction?: string }[],
+    existingNames?: string[],
+  ): Promise<{
+    gx: number;
+    gy: number;
+    name: string;
+    loc_type: string;
+    description: string | null;
+    danger_level: number;
+    qi_density: number;
+    tags: string[] | null;
+  }> {
     // 1. server 定类型（保留原分布）
     const r = Math.random();
     const loc_type = r < 0.6 ? 'wild' : r < 0.85 ? 'city' : r < 0.95 ? 'sect' : 'secret';
@@ -498,7 +550,7 @@ export class LocationNetService {
       danger_level = agentResult.danger_level ?? (loc_type === 'wild' ? randInt(1, 3) : 0);
       qi_density = agentResult.qi_density ?? (loc_type === 'wild' ? Math.round(Math.pow(1.45, danger_level) * 100) : 0);
       tags = agentResult.tags ?? (loc_type === 'wild' ? ['野外'] : null);
-      this.logger.log(`agent 生成节点 (${gx},${gy}) ${loc_type}: ${name}`);
+      this.logger.log(`agent 生成候选 (${gx},${gy}) ${loc_type}: ${name}`);
     } else {
       // fallback 名称池
       name = pick(NAME_POOL[loc_type] || NAME_POOL.wild);
@@ -506,22 +558,39 @@ export class LocationNetService {
       danger_level = loc_type === 'wild' ? randInt(1, 3) : 0;
       qi_density = loc_type === 'wild' ? Math.round(Math.pow(1.45, danger_level) * 100) : 0;
       tags = loc_type === 'wild' ? ['野外'] : null;
-      this.logger.warn(`agent 不可用，fallback 生成节点 (${gx},${gy}) ${loc_type}: ${name}`);
+      this.logger.warn(`agent 不可用，fallback 生成候选 (${gx},${gy}) ${loc_type}: ${name}`);
     }
 
+    return { gx, gy, name, loc_type, description, danger_level, qi_density, tags };
+  }
+
+  /**
+   * 阶段2：把候选入库（建 location_net 行 + 城市补场景）。
+   * 调用方负责保证 name 在"已存在 + 本批"中唯一。
+   */
+  private async commitNode(c: {
+    gx: number;
+    gy: number;
+    name: string;
+    loc_type: string;
+    description: string | null;
+    danger_level: number;
+    qi_density: number;
+    tags: string[] | null;
+  }): Promise<LocationNet> {
     const node = this.netRepo.create({
-      name,
-      loc_type,
-      description,
-      gx,
-      gy,
+      name: c.name,
+      loc_type: c.loc_type,
+      description: c.description,
+      gx: c.gx,
+      gy: c.gy,
       is_frontier: 1,
-      danger_level,
-      qi_density,
-      tags,
+      danger_level: c.danger_level,
+      qi_density: c.qi_density,
+      tags: c.tags,
     });
     const saved = await this.netRepo.save(node);
-    if (loc_type === 'city') {
+    if (c.loc_type === 'city') {
       await this.ensureCityScenes(saved.id, saved.name);
     }
     return saved;

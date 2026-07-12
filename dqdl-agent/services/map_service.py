@@ -267,21 +267,23 @@ def ensure_city_districts(results, parent_info):
 # ========== 网状地图单节点生成（location_net 专用） ==========
 
 # 各 loc_type 的命名风格 + 文案约束（喂给 LLM 的 user prompt 模板）
+# 注意：不给具体地名示例——LLM 见到示例会直接抄，导致跨请求高度重复。
+# 改为描述"命名规律"，让 LLM 自行组合地形/元素/意象。
 _NODE_STYLE = {
     'wild': {
-        'naming': '野外地理名，如「迷雾森林」「毒雾沼泽」「血色荒原」「幽暗山谷」',
+        'naming': '由【地貌】+【修饰/氛围】组合的原创野外地名，地貌可选森林/沼泽/峡谷/荒原/戈壁/草原/雪原/丘陵/湖泊/裂谷/密林/台地 等，修饰可选迷雾/血色/幽暗/落日/寒霜/毒瘴/枯骨/暗影 等，但要避免直接照搬常见组合，尽量独特',
         'desc_hint': '描写此地荒凉/危险的氛围、地形特征',
     },
     'city': {
-        'naming': '城市名，参考斗破苍穹世界观的城池命名，如「加玛城」「黑岩城」「出云城」',
+        'naming': '原创城池名，参考斗破苍穹世界观（诸侯国/势力命名风格），2-4字，避免使用原著已有的加玛城/出云城等',
         'desc_hint': '描写城市的繁华、势力格局或商旅特色',
     },
     'sect': {
-        'naming': '宗派/势力名，如「云岚宗」「黑骷盟」「百花谷」「铁血门」',
+        'naming': '原创宗派/势力名，2-4字，体现宗派特色（剑/药/兽/阵/魔/佛等），避免使用原著已有的云岚宗等',
         'desc_hint': '描写宗派的性质（正道/魔道）、所在环境',
     },
     'secret': {
-        'naming': '秘境/遗迹名，如「古帝洞府」「天焚神塔」「异火秘境」',
+        'naming': '原创秘境/遗迹名，体现远古/神秘/机缘色彩，避免使用原著已有的古帝洞府等',
         'desc_hint': '描写秘境的神秘、危险与机缘',
     },
 }
@@ -308,16 +310,21 @@ def generate_map_node(loc_type, parent_context=None, existing_names=None):
         '只输出一个 JSON 对象，不要输出数组，不要输出其他内容。'
     )
 
-    forbidden = f'禁止使用以下已有名称：{"、".join(existing_names)}。' if existing_names else ''
+    # 强约束：已存在的名字绝对不能用（放最前面，权重最高）
+    forbidden = ''
+    if existing_names:
+        forbidden = f'【硬性约束】以下名称已被占用，绝对不可重复使用，否则视为失败：{ "、".join(existing_names) }\n'
+
     nearby = ''
     if parent_context:
         nearby = '周边已知地点：' + '、'.join(
             f'{c.get("name")}（{c.get("loc_type")}，在{c.get("direction","附近")}）'
             for c in parent_context
-        ) + '。新地点应与它们地理连贯。'
+        ) + '。新地点应与它们地理连贯、风格协调但名字完全不同。\n'
 
     user_prompt = (
-        f'请在斗气大陆生成一个「{loc_type}」类型的地点。{forbidden}{nearby}\n'
+        f'{forbidden}{nearby}'
+        f'请在斗气大陆生成一个「{loc_type}」类型的【全新原创】地点，名字必须独特，不得与任何已知地点或常见模板词重复。\n'
         f'命名要求：{style["naming"]}。\n'
         f'描述要求：{style["desc_hint"]}，约30-60字。\n'
         f'危险等级：{loc_type} 类型请给 1-3 之间的值（{ "野外越危险斗气越浓" if loc_type == "wild" else "非野外填0" }）。\n'

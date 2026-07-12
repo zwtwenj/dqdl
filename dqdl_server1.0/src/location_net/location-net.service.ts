@@ -1,0 +1,639 @@
+import { Injectable, Inject, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { LocationNet } from './location-net.entity';
+import { LocationScene } from './location-scene.entity';
+import { Player } from '../player/player.entity';
+import { Biz } from '../common/biz.exception';
+import { AgentService } from '../agent/agent.service';
+
+/**
+ * 网状地图 + 场景 服务（地图生成走 agent/DeepSeek，失败降级到名称池）。
+ *
+ * 数据模型（见 docs/map-graph-redesign.md 和 migrations/add_location_net_scene.sql）：
+ *   location_net   平面地图节点，整数网格 (gx,gy)，4 对角邻接（X 形交叉网）
+ *   location_scene 地图内部场景（城市：坊市/佣兵工会/炼药师公会），不显示在地图上
+ *
+ * 玩家位置双状态：
+ *   player.location_id = 当前所在地图节点（location_net.id）
+ *   player.scene_id    = 当前所在场景（location_scene.id，NULL=在地图上未进场景）
+ */
+
+// ---------- 4 对角方向 ----------
+interface DirDef {
+  key: string;
+  dx: number;
+  dy: number;
+  cn: string;
+}
+const DIRS: DirDef[] = [
+  { key: 'NE', dx: 1, dy: 1, cn: '东北' },
+  { key: 'NW', dx: -1, dy: 1, cn: '西北' },
+  { key: 'SE', dx: 1, dy: -1, cn: '东南' },
+  { key: 'SW', dx: -1, dy: -1, cn: '西南' },
+];
+const DIR_MAP = new Map(DIRS.map((d) => [d.key, d]));
+// 边去重：只看 NE/NW，SE/SW 由对端补齐
+const EDGE_DIRS = ['NE', 'NW'];
+
+// ---------- 城市默认场景模板（丹房→炼药师公会） ----------
+interface SceneTemplate {
+  name: string;
+  scene_type: string;
+  description: (cityName: string) => string;
+  available_actions: string[];
+}
+const CITY_SCENES: SceneTemplate[] = [
+  {
+    name: '佣兵工会',
+    scene_type: 'guild',
+    description: (c) => `${c}的佣兵工会分部，发布和接取各类任务，佣兵们的聚集之地。`,
+    available_actions: ['quest', 'rest'],
+  },
+  {
+    name: '坊市',
+    scene_type: 'market',
+    description: (c) => `${c}的坊市，中低端物品交易集散地，各类商贩云集，偶有意外之宝。`,
+    available_actions: ['buy', 'sell', 'explore'],
+  },
+  {
+    name: '炼药师公会',
+    scene_type: 'alchemy',
+    description: (c) => `${c}炼药师公会分部，炼药师考核与丹药交易的权威场所。`,
+    available_actions: ['buy', 'sell', 'cultivate'],
+  },
+];
+
+// ---------- 命名素材池（真实工程换 agent/DeepSeek） ----------
+const NAME_POOL: Record<string, string[]> = {
+  wild: ['迷雾森林', '荒芜戈壁', '幽暗山谷', '毒雾沼泽', '落日草原', '血色荒原', '千年古林', '寒霜雪原'],
+  city: ['加玛城', '出云城', '黑岩城', '白石都', '紫晶城', '风灵城', '赤焰城'],
+  sect: ['云岚宗', '黑骷盟', '百花谷', '铁血门', '天蛇府'],
+  secret: ['古帝洞府', '天焚神塔', '远古遗迹', '异火秘境'],
+};
+const DESC_POOL = [
+  '此地灵气充沛，草木葱茏。',
+  '四周寂静无人，远处隐有兽吼。',
+  '空气中弥漫着淡淡的药香。',
+  '地势险要，易守难攻。',
+  '人流熙攘，商队络绎不绝。',
+  '迷雾缭绕，难辨方向。',
+];
+
+function pick<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+function randInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// ---------- 返回类型 ----------
+export interface NetNodeView {
+  id: number;
+  name: string;
+  loc_type: string;
+  description: string | null;
+  gx: number;
+  gy: number;
+  is_frontier: boolean;
+  danger_level: number;
+  qi_density: number;
+  tags: string[] | null;
+}
+export interface NetEdgeView {
+  from_id: number;
+  to_id: number;
+  direction: string;
+  direction_cn: string;
+  distance: number;
+  travel_type: string;
+}
+export interface ExitView {
+  edge_id: string;
+  direction: string;
+  direction_cn: string;
+  distance: number;
+  travel_type: string;
+  status: 'open' | 'unknown';
+  to: { id: number; name: string; loc_type: string } | null;
+}
+
+@Injectable()
+export class LocationNetService {
+  private readonly logger = new Logger(LocationNetService.name);
+
+  constructor(
+    @InjectRepository(LocationNet) private readonly netRepo: Repository<LocationNet>,
+    @InjectRepository(LocationScene) private readonly sceneRepo: Repository<LocationScene>,
+    @InjectRepository(Player) private readonly playerRepo: Repository<Player>,
+    private readonly agent: AgentService,
+  ) {}
+
+  // ---------- 映射 ----------
+  private toView(n: LocationNet): NetNodeView {
+    return {
+      id: n.id,
+      name: n.name,
+      loc_type: n.loc_type,
+      description: n.description,
+      gx: n.gx,
+      gy: n.gy,
+      is_frontier: !!n.is_frontier,
+      danger_level: n.danger_level,
+      qi_density: n.qi_density,
+      tags: n.tags,
+    };
+  }
+
+  private travelType(a: LocationNet, b: LocationNet): string {
+    const settle = (t: string) => t === 'city' || t === 'sect';
+    if (settle(a.loc_type) && settle(b.loc_type)) return 'road';
+    return 'wild';
+  }
+
+  // ---------- 读：全图 ----------
+  async getGraph() {
+    const nodes = await this.netRepo.find({ order: { id: 'ASC' } });
+    const byGrid = new Map(nodes.map((n) => [`${n.gx},${n.gy}`, n]));
+    const edges: NetEdgeView[] = [];
+    for (const n of nodes) {
+      for (const dk of EDGE_DIRS) {
+        const d = DIR_MAP.get(dk)!;
+        const m = byGrid.get(`${n.gx + d.dx},${n.gy + d.dy}`);
+        if (!m) continue;
+        edges.push({
+          from_id: Math.min(n.id, m.id),
+          to_id: Math.max(n.id, m.id),
+          direction: d.key,
+          direction_cn: d.cn,
+          distance: randInt(60, 100),
+          travel_type: this.travelType(n, m),
+        });
+      }
+    }
+    return { nodes: nodes.map((n) => this.toView(n)), edges };
+  }
+
+  // ---------- 读：单节点 / 场景 / 出口 ----------
+  async getNode(id: number): Promise<NetNodeView | null> {
+    const n = await this.netRepo.findOneBy({ id });
+    return n ? this.toView(n) : null;
+  }
+
+  async getScenes(netId: number) {
+    const scenes = await this.sceneRepo.find({
+      where: { net_id: netId },
+      order: { id: 'ASC' },
+    });
+    return scenes;
+  }
+
+  async getExits(id: number): Promise<ExitView[]> {
+    const n = await this.netRepo.findOneBy({ id });
+    if (!n) throw Biz.notFound(`地图节点 ${id} 不存在`);
+    const byGrid = new Map<string, LocationNet>();
+    const all = await this.netRepo.find();
+    for (const x of all) byGrid.set(`${x.gx},${x.gy}`, x);
+
+    const out: ExitView[] = [];
+    for (const d of DIRS) {
+      const m = byGrid.get(`${n.gx + d.dx},${n.gy + d.dy}`);
+      if (m) {
+        out.push({
+          edge_id: `e-${Math.min(n.id, m.id)}-${Math.max(n.id, m.id)}`,
+          direction: d.key,
+          direction_cn: d.cn,
+          distance: 70,
+          travel_type: this.travelType(n, m),
+          status: 'open',
+          to: { id: m.id, name: m.name, loc_type: m.loc_type },
+        });
+      } else {
+        out.push({
+          edge_id: `stub-${n.id}-${d.key}`,
+          direction: d.key,
+          direction_cn: d.cn,
+          distance: 0,
+          travel_type: 'wild',
+          status: 'unknown',
+          to: null,
+        });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * 玩家视野（迷雾机制核心）：
+   *   ring0 = 玩家所在节点
+   *   ring1 = 玩家位置的 4 个对角邻居（永远可见，无迷雾）
+   *   ring2 = 每个 ring1 节点再往外的对角方向（迷雾，只显示方位，不显示目的地）
+   * 仅返回玩家当前能"看见"的节点 + 边 + 迷雾出口；其余已存在节点不返回（未发现）。
+   */
+  async getPlayerView(playerId: number) {
+    const player = await this.playerRepo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    if (player.location_id == null) throw Biz.conflict('玩家尚未在任何地图上');
+
+    // 兜底：保证玩家所在节点的 ring1 全部生成（首次进入/数据缺失时）
+    await this.ensureRing1(player.location_id);
+
+    const all = await this.netRepo.find();
+    const byGrid = new Map<string, LocationNet>();
+    for (const x of all) byGrid.set(`${x.gx},${x.gy}`, x);
+
+    const center = byGrid.get(
+      // 上面查 location_id 对应的 gx/gy；用 all 查一下更稳
+      (() => {
+        const c = all.find((n) => n.id === player.location_id);
+        return c ? `${c.gx},${c.gy}` : '';
+      })(),
+    );
+    if (!center) throw Biz.conflict('玩家所在地图节点不存在');
+
+    const visibleNodes = new Map<number, NetNodeView>();
+    const visibleEdges: NetEdgeView[] = [];
+    const fogExits: Array<{ from_gx: number; from_gy: number; direction: string; direction_cn: string }> = [];
+
+    // ring0
+    visibleNodes.set(center.id, this.toView(center));
+
+    // ring1：4 对角邻居
+    const ring1: LocationNet[] = [];
+    for (const d of DIRS) {
+      const nb = byGrid.get(`${center.gx + d.dx},${center.gy + d.dy}`);
+      if (!nb) continue; // 理论上 ensureRing1 已补齐，这里防御
+      ring1.push(nb);
+      visibleNodes.set(nb.id, this.toView(nb));
+      visibleEdges.push({
+        from_id: Math.min(center.id, nb.id),
+        to_id: Math.max(center.id, nb.id),
+        direction: d.key,
+        direction_cn: d.cn,
+        distance: 70,
+        travel_type: this.travelType(center, nb),
+      });
+    }
+
+    // ring2：每个 ring1 节点再往外的对角方向；若该位置已有节点则纳入可见（含边），
+    // 若为空则记为迷雾出口（仅方位，前端画雾）
+    const seenGrid = new Set<string>([`${center.gx},${center.gy}`]);
+    for (const r1 of ring1) {
+      seenGrid.add(`${r1.gx},${r1.gy}`);
+    }
+    for (const r1 of ring1) {
+      for (const d of DIRS) {
+        const tx = r1.gx + d.dx;
+        const ty = r1.gy + d.dy;
+        const key = `${tx},${ty}`;
+        if (seenGrid.has(key)) continue; // 已在 ring0/ring1
+        const exist = byGrid.get(key);
+        if (exist) {
+          // ring2 处已有节点：可见 + 边（这会让环形回连变得可见）
+          if (!visibleNodes.has(exist.id)) visibleNodes.set(exist.id, this.toView(exist));
+          visibleEdges.push({
+            from_id: Math.min(r1.id, exist.id),
+            to_id: Math.max(r1.id, exist.id),
+            direction: d.key,
+            direction_cn: d.cn,
+            distance: 70,
+            travel_type: this.travelType(r1, exist),
+          });
+          seenGrid.add(key);
+        } else {
+          // ring2 迷雾出口：未生成
+          fogExits.push({ from_gx: r1.gx, from_gy: r1.gy, direction: d.key, direction_cn: d.cn });
+          seenGrid.add(key);
+        }
+      }
+    }
+
+    return {
+      player_net_id: center.id,
+      ring0: this.toView(center),
+      ring1: ring1.map((n) => this.toView(n)),
+      nodes: [...visibleNodes.values()],
+      edges: visibleEdges,
+      fog: fogExits,
+    };
+  }
+
+  // ---------- 写：拓展前沿 ----------
+  /**
+   * 在某节点的某对角方向（相邻空位）生成一个新地图节点。
+   * 网格模型：新节点一落到网格上，它与所有已有对角邻居的边自动产生。
+   * 新城市自动补 3 个默认场景（佣兵工会/坊市/炼药师公会）。
+   */
+  async expandFrontier(nodeId: number, direction?: string) {
+    const n = await this.netRepo.findOneBy({ id: nodeId });
+    if (!n) throw Biz.notFound(`地图节点 ${nodeId} 不存在`);
+
+    // 选目标方向
+    let targetDir;
+    if (direction) {
+      const d = DIR_MAP.get(direction);
+      if (!d) throw Biz.badRequest(`未知方向 ${direction}`);
+      const exist = await this.netRepo.findOneBy({ gx: n.gx + d.dx, gy: n.gy + d.dy });
+      if (exist) throw Biz.conflict(`方向 ${direction} 已有节点，无需探索`);
+      targetDir = d;
+    } else {
+      // 任选一个空位
+      for (const d of DIRS) {
+        const exist = await this.netRepo.findOneBy({ gx: n.gx + d.dx, gy: n.gy + d.dy });
+        if (!exist) {
+          targetDir = d;
+          break;
+        }
+      }
+      if (!targetDir) throw Biz.conflict('该节点四周已无空位可探索');
+    }
+
+    const gx = n.gx + targetDir.dx;
+    const gy = n.gy + targetDir.dy;
+
+    // 复用统一的节点生成逻辑（含新城市补场景）
+    const saved = await this.generateNodeAt(gx, gy);
+    const newScenes = await this.sceneRepo.find({ where: { net_id: saved.id } });
+
+    // 查新节点连上了哪些已有邻居（必然 ≥1：来源方向有）
+    const neighborIds: number[] = [];
+    for (const d of DIRS) {
+      const m = await this.netRepo.findOneBy({ gx: gx + d.dx, gy: gy + d.dy });
+      if (m && m.id !== saved.id) neighborIds.push(m.id);
+    }
+
+    // 重算相关节点 frontier 标记
+    await this.recomputeFrontierAround(saved.id);
+    await this.recomputeFrontierAround(nodeId);
+
+    return {
+      new_node: this.toView(saved),
+      new_scenes: newScenes.map((s) => ({ id: s.id, name: s.name, scene_type: s.scene_type })),
+      connected_to: neighborIds,
+      direction: targetDir.key,
+      direction_cn: targetDir.cn,
+    };
+  }
+
+  /** 给城市补默认场景（已存在的类型跳过，靠 uk_net_scene 幂等） */
+  private async ensureCityScenes(netId: number, cityName: string): Promise<LocationScene[]> {
+    const created: LocationScene[] = [];
+    for (const tpl of CITY_SCENES) {
+      const exist = await this.sceneRepo.findOneBy({ net_id: netId, scene_type: tpl.scene_type });
+      if (exist) continue;
+      const s = await this.sceneRepo.save(
+        this.sceneRepo.create({
+          net_id: netId,
+          name: tpl.name,
+          scene_type: tpl.scene_type,
+          description: tpl.description(cityName),
+          available_actions: tpl.available_actions,
+        }),
+      );
+      created.push(s);
+    }
+    return created;
+  }
+
+  /** 重算某节点及其对角邻居的 frontier 标记 */
+  private async recomputeFrontierAround(nodeId: number) {
+    const n = await this.netRepo.findOneBy({ id: nodeId });
+    if (!n) return;
+    const hasEmpty = await this.hasEmptyNeighbor(n.gx, n.gy);
+    const newVal = hasEmpty ? 1 : 0;
+    if (n.is_frontier !== newVal) {
+      n.is_frontier = newVal;
+      await this.netRepo.save(n);
+    }
+  }
+
+  private async hasEmptyNeighbor(gx: number, gy: number): Promise<boolean> {
+    for (const d of DIRS) {
+      const exist = await this.netRepo.findOneBy({ gx: gx + d.dx, gy: gy + d.dy });
+      if (!exist) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Ring1 自动生成：保证某节点的 4 个对角邻居全部存在。
+   * 玩家走到某节点后，该节点的 ring1 永远可见、无迷雾。
+   * 返回新建的节点列表（已存在的邻居不返回）。
+   *
+   * 性能：多个新节点用 Promise.all 并发调 agent（避免串行卡顿）。
+   * agent context：把中心节点 + 已有邻居作为周边信息传给 LLM，避免重名、保持地理连贯。
+   */
+  async ensureRing1(nodeId: number): Promise<LocationNet[]> {
+    const n = await this.netRepo.findOneBy({ id: nodeId });
+    if (!n) throw Biz.notFound(`地图节点 ${nodeId} 不存在`);
+
+    // 收集需要生成的空位
+    const toCreate: Array<{ gx: number; gy: number; dir: typeof DIRS[number] }> = [];
+    for (const d of DIRS) {
+      const exist = await this.netRepo.findOneBy({ gx: n.gx + d.dx, gy: n.gy + d.dy });
+      if (!exist) toCreate.push({ gx: n.gx + d.dx, gy: n.gy + d.dy, dir: d });
+    }
+    if (toCreate.length === 0) {
+      return [];
+    }
+
+    // 收集周边已知地点作为 agent context（中心节点 + 已存在的对角邻居）
+    const parentContext: { name: string; loc_type: string; direction?: string }[] = [
+      { name: n.name, loc_type: n.loc_type, direction: '中心' },
+    ];
+    for (const d of DIRS) {
+      const m = await this.netRepo.findOneBy({ gx: n.gx + d.dx, gy: n.gy + d.dy });
+      if (m) parentContext.push({ name: m.name, loc_type: m.loc_type, direction: d.cn });
+    }
+    // 收集所有已有地名（避免 agent 重名）
+    const allNodes = await this.netRepo.find();
+    const existingNames = allNodes.map((x) => x.name);
+
+    // 并发生成（一次 Promise.all，总耗时 ≈ 单次 agent 调用）
+    const created = await Promise.all(
+      toCreate.map((slot) =>
+        this.generateNodeAt(slot.gx, slot.gy, parentContext, existingNames),
+      ),
+    );
+
+    await this.recomputeFrontierAround(nodeId);
+    return created;
+  }
+
+  /**
+   * 在指定网格点生成一个新节点。
+   * server 定 loc_type（保留分布），agent 生成名称/描述/文案；agent 失败走名称池 fallback。
+   * 新城市自动补 3 个默认场景。
+   *
+   * @param gx, gy         目标网格坐标
+   * @param parentContext  周边已知地点（供 agent 保持地理连贯），可空
+   * @param existingNames  已有地名（避免 agent 重名），可空
+   */
+  private async generateNodeAt(
+    gx: number,
+    gy: number,
+    parentContext?: { name: string; loc_type: string; direction?: string }[],
+    existingNames?: string[],
+  ): Promise<LocationNet> {
+    // 1. server 定类型（保留原分布）
+    const r = Math.random();
+    const loc_type = r < 0.6 ? 'wild' : r < 0.85 ? 'city' : r < 0.95 ? 'sect' : 'secret';
+
+    // 2. 调 agent 生成文案，失败走 fallback
+    let name: string;
+    let description: string | null;
+    let danger_level: number;
+    let qi_density: number;
+    let tags: string[] | null;
+
+    const agentResult = await this.agent.generateMapNode({
+      loc_type,
+      parent_context: parentContext,
+      existingNames: existingNames ?? [],
+    });
+
+    if (agentResult) {
+      name = agentResult.name;
+      description = agentResult.description || null;
+      danger_level = agentResult.danger_level ?? (loc_type === 'wild' ? randInt(1, 3) : 0);
+      qi_density = agentResult.qi_density ?? (loc_type === 'wild' ? Math.round(Math.pow(1.45, danger_level) * 100) : 0);
+      tags = agentResult.tags ?? (loc_type === 'wild' ? ['野外'] : null);
+      this.logger.log(`agent 生成节点 (${gx},${gy}) ${loc_type}: ${name}`);
+    } else {
+      // fallback 名称池
+      name = pick(NAME_POOL[loc_type] || NAME_POOL.wild);
+      description = pick(DESC_POOL);
+      danger_level = loc_type === 'wild' ? randInt(1, 3) : 0;
+      qi_density = loc_type === 'wild' ? Math.round(Math.pow(1.45, danger_level) * 100) : 0;
+      tags = loc_type === 'wild' ? ['野外'] : null;
+      this.logger.warn(`agent 不可用，fallback 生成节点 (${gx},${gy}) ${loc_type}: ${name}`);
+    }
+
+    const node = this.netRepo.create({
+      name,
+      loc_type,
+      description,
+      gx,
+      gy,
+      is_frontier: 1,
+      danger_level,
+      qi_density,
+      tags,
+    });
+    const saved = await this.netRepo.save(node);
+    if (loc_type === 'city') {
+      await this.ensureCityScenes(saved.id, saved.name);
+    }
+    return saved;
+  }
+
+  // ---------- 玩家位置：移动 ----------
+  /**
+   * 移动玩家到目标地图节点。需校验：当前位置与目标之间有对角邻接。
+   * 进入新地图自动退出原场景（scene_id 置空）。
+   */
+  async movePlayer(playerId: number, toNetId: number) {
+    const player = await this.playerRepo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    const target = await this.netRepo.findOneBy({ id: toNetId });
+    if (!target) throw Biz.notFound(`地图节点 ${toNetId} 不存在`);
+
+    // 若已在目标位置，直接成功
+    if (player.location_id === toNetId) {
+      return { ...this.playerPosView(player), moved: false };
+    }
+
+    // 校验对角邻接（从当前位置出发）
+    if (player.location_id != null) {
+      const cur = await this.netRepo.findOneBy({ id: player.location_id });
+      if (cur) {
+        const dx = target.gx - cur.gx;
+        const dy = target.gy - cur.gy;
+        const isDiag = Math.abs(dx) === 1 && Math.abs(dy) === 1;
+        if (!isDiag) {
+          throw Biz.conflict('两地不相邻（仅对角方向可达），无法直接移动');
+        }
+      }
+    }
+
+    player.location_id = toNetId;
+    player.scene_id = null; // 换地图自动退出场景
+    await this.playerRepo.save(player);
+
+    // 关键：玩家落地后，自动补齐该节点的 ring1（4 个对角邻居全部生成）
+    // 这样玩家所在位置永远没有迷雾，迷雾只出现在 ring2
+    const newlyCreated = await this.ensureRing1(toNetId);
+
+    return { ...this.playerPosView(player), moved: true, new_nodes: newlyCreated.map((n) => n.id) };
+  }
+
+  // ---------- 玩家位置：进入/退出场景 ----------
+  /** 进入场景：玩家必须在 net_id 这个地图上，且 scene 属于该地图 */
+  async enterScene(playerId: number, netId: number, sceneType: string) {
+    const player = await this.playerRepo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    if (player.location_id !== netId) {
+      throw Biz.conflict('必须先到达该地图才能进入其场景');
+    }
+    const scene = await this.sceneRepo.findOneBy({ net_id: netId, scene_type: sceneType });
+    if (!scene) throw Biz.notFound(`地图 ${netId} 没有类型 ${sceneType} 的场景`);
+
+    player.scene_id = scene.id;
+    await this.playerRepo.save(player);
+    return {
+      ...this.playerPosView(player),
+      scene: { id: scene.id, name: scene.name, scene_type: scene.scene_type, description: scene.description },
+    };
+  }
+
+  /** 退出场景：回到所在地图（scene_id 置空） */
+  async exitScene(playerId: number) {
+    const player = await this.playerRepo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    if (player.scene_id == null) throw Biz.conflict('当前不在任何场景中');
+    player.scene_id = null;
+    await this.playerRepo.save(player);
+    return this.playerPosView(player);
+  }
+
+  /** 查询玩家当前位置状态（地图+场景） */
+  async getPlayerPos(playerId: number) {
+    const player = await this.playerRepo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    const view = this.playerPosView(player);
+    if (player.scene_id != null) {
+      const scene = await this.sceneRepo.findOneBy({ id: player.scene_id });
+      if (scene) {
+        return {
+          ...view,
+          scene: { id: scene.id, name: scene.name, scene_type: scene.scene_type, description: scene.description },
+        };
+      }
+    }
+    return view;
+  }
+
+  private playerPosView(player: Player) {
+    return {
+      player_id: player.id,
+      name: player.name,
+      net_id: player.location_id,
+      scene_id: player.scene_id,
+    };
+  }
+
+  // ---------- demo 用：取/建测试玩家 ----------
+  /** 取 name='_mapdemo_test' 的测试玩家 */
+  async getDemoPlayer(): Promise<Player> {
+    const p = await this.playerRepo.findOneBy({ name: '_mapdemo_test' });
+    if (!p) throw Biz.notFound('测试玩家 _mapdemo_test 不存在，请先执行 migration');
+    return p;
+  }
+
+  /** 查乌坦城（起点 gx=0,gy=0）的 id，供玩家初始位置/兜底迁移用 */
+  async getStartNodeId(): Promise<number> {
+    const n = await this.netRepo.findOneBy({ gx: 0, gy: 0 });
+    if (!n) throw Biz.notFound('起点节点（乌坦城 gx=0,gy=0）不存在，请先执行 migration');
+    return n.id;
+  }
+}

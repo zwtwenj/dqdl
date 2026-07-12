@@ -19,6 +19,8 @@ import { BackpackModule } from './backpack/backpack.module';
 import { TrainingModule } from './training/training.module';
 import { NpcModule } from './npc/npc.module';
 import { ShopModule } from './shop/shop.module';
+import { MapDemoModule } from './mapdemo/mapdemo.module';
+import { LocationNetModule } from './location_net/location-net.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -56,6 +58,8 @@ import { AppController } from './app.controller';
     TrainingModule,
     NpcModule,
     ShopModule,
+    MapDemoModule,
+    LocationNetModule,
   ],
   controllers: [AppController],
 })

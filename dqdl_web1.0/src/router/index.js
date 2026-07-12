@@ -11,6 +11,11 @@ const routes = [
     name: 'game',
     component: () => import('../views/GameView.vue'),
   },
+  {
+    path: '/mapdemo',
+    name: 'mapdemo',
+    component: () => import('../views/MapDemoView.vue'),
+  },
   // 后续角色面板等路由在此追加
 ]
 

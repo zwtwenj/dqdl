@@ -4,7 +4,7 @@
 import random
 from flask import Blueprint, request, jsonify
 from config import ensure_rag
-from services.map_service import generate_locations, ensure_city_districts
+from services.map_service import generate_locations, ensure_city_districts, generate_map_node
 
 bp = Blueprint('map', __name__)
 
@@ -48,6 +48,26 @@ def generate_map():
             r['seed'] = str(random.randint(0, 10000))
 
     return jsonify(results)
+
+
+@bp.route('/generate/map-node', methods=['POST'])
+def generate_single_map_node():
+    """
+    为 location_net（网状地图）生成单个节点。
+    Body: {
+        loc_type: 'wild'|'city'|'sect'|'secret',   # server 已定的类型
+        parent_context?: [{name, loc_type, direction}],  # 周边已知地点（可选）
+        existingNames?: string[]                   # 已有地名（避免重名）
+    }
+    返回单个节点对象。
+    """
+    data = request.get_json(force=True)
+    loc_type = data.get('loc_type', 'wild')
+    parent_context = data.get('parent_context') or data.get('parentContext')
+    existing_names = data.get('existingNames', [])
+    node = generate_map_node(loc_type, parent_context, existing_names)
+    node['seed'] = str(random.randint(0, 10000))
+    return jsonify(node)
 
 
 @bp.route('/rag/search', methods=['POST'])

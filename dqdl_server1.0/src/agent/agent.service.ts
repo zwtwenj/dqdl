@@ -9,6 +9,8 @@ import type {
   AgentMapResult,
   AgentDialogBody,
   AgentDialogResult,
+  AgentMapNodeRequest,
+  AgentMapNodeResult,
 } from './agent.types';
 
 /**
@@ -73,6 +75,38 @@ export class AgentService {
       const err = e as AxiosError;
       this.logger.warn(
         `agent /generate/map 调用失败：${err.message}（code=${err.code}, status=${err.response?.status}）`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 生成网状地图单个节点：调 POST /generate/map-node（location_net 专用）。
+   * server 已定 loc_type，agent 只负责生成名称/描述/文案。
+   * @param req { loc_type, parent_context?, existingNames? }
+   * @returns 单节点结果；agent 不可用或超时返回 null（调用方走名称池 fallback）
+   *
+   * 注意：每次调用都会真实请求 DeepSeek。调用方应并发（Promise.all）+ 设超时。
+   * 这里给 http 请求设了 15s 超时，避免单个慢请求拖住整批。
+   */
+  async generateMapNode(req: AgentMapNodeRequest): Promise<AgentMapNodeResult | null> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<AgentMapNodeResult>(
+          `${this.baseUrl}/generate/map-node`,
+          req,
+          { timeout: 15000 },
+        ),
+      );
+      if (!data || typeof data !== 'object' || !data.name) {
+        this.logger.warn('agent /generate/map-node 返回无效数据，已忽略');
+        return null;
+      }
+      return data;
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/map-node 调用失败：${err.message}（code=${err.code}, status=${err.response?.status}）`,
       );
       return null;
     }

@@ -262,3 +262,122 @@ def ensure_city_districts(results, parent_info):
         existing_names.append(OPTIONAL['name'])
 
     return results
+
+
+# ========== 网状地图单节点生成（location_net 专用） ==========
+
+# 各 loc_type 的命名风格 + 文案约束（喂给 LLM 的 user prompt 模板）
+_NODE_STYLE = {
+    'wild': {
+        'naming': '野外地理名，如「迷雾森林」「毒雾沼泽」「血色荒原」「幽暗山谷」',
+        'desc_hint': '描写此地荒凉/危险的氛围、地形特征',
+    },
+    'city': {
+        'naming': '城市名，参考斗破苍穹世界观的城池命名，如「加玛城」「黑岩城」「出云城」',
+        'desc_hint': '描写城市的繁华、势力格局或商旅特色',
+    },
+    'sect': {
+        'naming': '宗派/势力名，如「云岚宗」「黑骷盟」「百花谷」「铁血门」',
+        'desc_hint': '描写宗派的性质（正道/魔道）、所在环境',
+    },
+    'secret': {
+        'naming': '秘境/遗迹名，如「古帝洞府」「天焚神塔」「异火秘境」',
+        'desc_hint': '描写秘境的神秘、危险与机缘',
+    },
+}
+
+
+def generate_map_node(loc_type, parent_context=None, existing_names=None):
+    """
+    为 location_net 生成单个地图节点（不依赖 location_gen_rule 表）。
+    入参：
+      loc_type        server 已定的类型 wild/city/sect/secret
+      parent_context  可选，周边已知地点 [{name, loc_type, direction}]，供 LLM 避免重复/保持连贯
+      existing_names  可选，已存在的地名列表
+    返回单个节点 dict：{name, loc_type, description, danger_level, qi_density, tags, available_actions, common_mobs}
+    失败时返回 fallback。
+    """
+    loc_type = loc_type or 'wild'
+    style = _NODE_STYLE.get(loc_type, _NODE_STYLE['wild'])
+    existing_names = existing_names or []
+    parent_context = parent_context or []
+
+    system_prompt = (
+        '你是斗气大陆的世界观设计师，负责设计地理和地点。'
+        '你必须严格遵循斗气大陆（斗破苍穹）的世界观。'
+        '只输出一个 JSON 对象，不要输出数组，不要输出其他内容。'
+    )
+
+    forbidden = f'禁止使用以下已有名称：{"、".join(existing_names)}。' if existing_names else ''
+    nearby = ''
+    if parent_context:
+        nearby = '周边已知地点：' + '、'.join(
+            f'{c.get("name")}（{c.get("loc_type")}，在{c.get("direction","附近")}）'
+            for c in parent_context
+        ) + '。新地点应与它们地理连贯。'
+
+    user_prompt = (
+        f'请在斗气大陆生成一个「{loc_type}」类型的地点。{forbidden}{nearby}\n'
+        f'命名要求：{style["naming"]}。\n'
+        f'描述要求：{style["desc_hint"]}，约30-60字。\n'
+        f'危险等级：{loc_type} 类型请给 1-3 之间的值（{ "野外越危险斗气越浓" if loc_type == "wild" else "非野外填0" }）。\n'
+        f'输出 JSON 字段：name, description, danger_level, tags(数组,可空), available_actions(数组,可空)。'
+    )
+
+    try:
+        content, _ = call_deepseek(system_prompt, user_prompt, call_type='map')
+        items = parse_json_response(content)
+        # LLM 可能返回数组或单对象，统一取第一个
+        if isinstance(items, list):
+            item = items[0] if items else {}
+        else:
+            item = items or {}
+        loc = {
+            'name': str(item.get('name', '')).strip() or _fallback_name(loc_type, existing_names),
+            'loc_type': loc_type,
+            'description': str(item.get('description', '')).strip() or style['desc_hint'],
+            'danger_level': int(item.get('danger_level', 0)) if loc_type == 'wild' else 0,
+            'tags': item.get('tags') or ([] if loc_type != 'wild' else ['野外']),
+            'available_actions': item.get('available_actions'),
+            'common_mobs': None,
+        }
+        # 野外统一危险度 1-3（防止 LLM 给 0 或 5）
+        if loc_type == 'wild':
+            loc['danger_level'] = max(1, min(3, loc['danger_level'] or random.randint(1, 3)))
+        loc = _enrich_qi_density(loc, {'loc_type': loc_type})
+        # 野外用 RAG 检索真实魔兽
+        if loc_type == 'wild':
+            loc['common_mobs'] = _fetch_real_mobs({'loc_type': loc_type}, loc, max_count=4)
+        return loc
+    except Exception as e:
+        logger.error(f'AI 单节点生成失败: {e}')
+        return _fallback_node(loc_type, existing_names)
+
+
+def _fallback_name(loc_type, existing_names):
+    """兜底名称池（避免和已有重名）"""
+    pool = {
+        'wild': ['迷雾森林', '荒芜戈壁', '幽暗山谷', '毒雾沼泽', '落日草原'],
+        'city': ['加玛城', '出云城', '黑岩城', '白石都', '紫晶城'],
+        'sect': ['云岚宗', '黑骷盟', '百花谷', '铁血门', '天蛇府'],
+        'secret': ['古帝洞府', '天焚神塔', '远古遗迹', '异火秘境'],
+    }.get(loc_type, ['迷雾森林'])
+    for n in pool:
+        if n not in existing_names:
+            return n
+    return pool[0]
+
+
+def _fallback_node(loc_type, existing_names):
+    """完整兜底节点（含字段）"""
+    name = _fallback_name(loc_type, existing_names)
+    danger = random.randint(1, 3) if loc_type == 'wild' else 0
+    return _enrich_qi_density({
+        'name': name,
+        'loc_type': loc_type,
+        'description': f'{name}是斗气大陆上的一处{loc_type}地点。',
+        'danger_level': danger,
+        'tags': ['野外'] if loc_type == 'wild' else [],
+        'available_actions': None,
+        'common_mobs': None,
+    }, {'loc_type': loc_type})

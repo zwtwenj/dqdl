@@ -29,6 +29,10 @@ export class Player {
   @Column({ type: 'int', nullable: true, comment: '当前位置 location_id' })
   location_id: number | null;
 
+  /** 当前所在场景 ID（location_scene.id，NULL=在地图上未进入任何场景） */
+  @Column({ type: 'int', nullable: true, comment: '当前场景 location_scene.id（NULL=不在场景，在地图上）' })
+  scene_id: number | null;
+
   // ===== 基础属性（创建时固定，不含等级成长） =====
   @Column({ type: 'int', default: 0, comment: '基础力量(创建固定，不含等级成长)' })
   base_power: number;

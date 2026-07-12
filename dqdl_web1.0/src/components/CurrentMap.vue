@@ -96,16 +96,6 @@ function onDropLeave() {
 
 <template>
   <div class="current-map">
-    <div
-      class="current-map-back"
-      @click="emit('back')"
-    >
-      <img
-        class="current-map-back-bg"
-        src="/ui/back.png"
-      >
-      <span class="current-map-back-text">返回上级地图</span>
-    </div>
     <div class="current-map-top">
       <div class="current-map-top-left">
         <div class="location-type-name">

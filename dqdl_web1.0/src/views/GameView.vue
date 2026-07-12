@@ -1,10 +1,12 @@
 <script setup>
 /**
  * 游戏主界面：左上角玩家信息 + 右下角功能图标栏 + 中央当前地图。
- * 进入页面时按 query.playerId 拉取玩家信息（含 final_attrs + location_id）。
- * 以 player.location_id 为数据源，拉取当前地点详情渲染 CurrentMap，
- * 邻近之地/可达之所抽屉各自按 locationId 拉同级/子级。
- * 点击卡片 → movePlayerLocation → 更新 currentLocationId → 三处同步刷新。
+ *
+ * 地图系统：location_net（网状平面地图，对角邻接）+ location_scene（城内场景）。
+ *  - 玩家位置由后端 player.location_id / scene_id 维护，进页面时由 loadPlayer 拉取。
+ *  - 「当前地图」= 视野 ring0（玩家所在节点），「邻近之地」= ring1 对角邻居。
+ *  - 移动到 ring1 邻居 = 探索（后端自动补齐新位置的 ring1）。
+ *  - 城市地点显示「场景」面板（坊市/佣兵工会/炼药师公会），可进/退场景。
  */
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -15,14 +17,11 @@ import PlayerPanel from '../components/PlayerPanel.vue'
 import SkillPanel from '../components/SkillPanel.vue'
 import BattlePanel from '../components/BattlePanel.vue'
 import CurrentMap from '../components/CurrentMap.vue'
-import NeighborMapDrawer from '../components/NeighborMapDrawer.vue'
-import ChildrenMapDrawer from '../components/ChildrenMapDrawer.vue'
+import MapDrawer from '../components/MapDrawer.vue'
 import AdventureLog from '../components/AdventureLog.vue'
 import CollectLog from '../components/CollectLog.vue'
 import {
   getPlayer,
-  getLocation,
-  movePlayerLocation,
   startTraining,
   stopTraining,
   getActiveTraining,
@@ -31,6 +30,13 @@ import {
   getBattleState,
   getNpcsByLocation,
 } from '../api'
+import {
+  getPlayerView,
+  moveToNet,
+  getMapScenes,
+  enterScene,
+  exitScene,
+} from '../api/mapdemo'
 import { bus, BusEvents } from '../utils/eventBus'
 import { useBackpackStore } from '../stores/backpack'
 
@@ -66,13 +72,20 @@ const bagPos = ref(null)
 const playerPos = ref(null)
 const skillPos = ref(null)
 
-// 地图探索中（AI 生成子节点时显示全屏遮罩，阻断玩家点击其他节点移动）
-const mapExploring = ref(false)
-
 // 历练日志数据 + 轮询定时器
 const trainingLogs = ref([])
 const lastSeenLogId = ref(0) // 上次轮询看到的最新日志 id（用于判断新日志有无掉落）
 let trainingPollTimer = null
+
+// ===== 地图系统状态（location_net） =====
+// 视野：ring0（当前节点）+ ring1（对角邻居）+ fog（迷雾，仅展示）
+const view = ref(null) // getPlayerView 返回 { ring0, ring1, nodes, edges, fog }
+// 当前节点的场景列表（仅城市有）
+const scenes = ref([])
+// 玩家是否在场景内（player.scene_id 非 null）
+const inScene = ref(null) // 当前所在场景对象 {id,name,scene_type} 或 null
+// 地图移动中（等后端生成节点/拉视野，期间显示遮罩阻断重复点击）
+const mapMoving = ref(false)
 
 /** 开始历练 */
 async function onStartTraining() {
@@ -181,13 +194,7 @@ watch(collectCollapsed, (v) => {
   if (!v) logCollapsed.value = true
 })
 
-// 当前地点（单一数据源：locationId 变化驱动三个组件刷新）
-const currentLocationId = ref(null)
-const currentLocation = ref(null)
-// 当前地点的 NPC 列表（「此地之人」渲染 + 点击触发对话）
-const currentNpcs = ref([])
-
-/** 拉取玩家完整信息，初始化当前地点 */
+/** 拉取玩家完整信息，初始化地图视野 */
 async function loadPlayer() {
   const playerId = Number(route.query.playerId)
   if (!playerId) {
@@ -198,12 +205,11 @@ async function loadPlayer() {
   try {
     const data = await getPlayer(playerId)
     player.value = data
-    // 初始化当前地点
-    currentLocationId.value = data.location_id
-    await loadLocation(data.location_id)
     // 预加载背包到内存（之后打开背包直接读 store，不请求）
     backpackStore.reset()
     await backpackStore.load(playerId)
+    // 拉取地图视野 + 场景
+    await loadView()
     // 检查是否在历练中（刷新恢复轮询）
     await checkActiveTraining()
     // 检查是否在战斗中（刷新恢复战斗界面 / 清理孤儿状态）
@@ -215,61 +221,100 @@ async function loadPlayer() {
   }
 }
 
-/** 拉取当前地点详情 + 该地点 NPC 列表 */
-async function loadLocation(locationId) {
-  if (!locationId) {
-    currentLocation.value = null
-    currentNpcs.value = []
+/** 拉取玩家地图视野（ring0 当前节点 + ring1 对角邻居） */
+async function loadView() {
+  try {
+    const data = await getPlayerView()
+    view.value = data
+    // 拉当前节点的场景列表
+    if (data.ring0) {
+      scenes.value = await getMapScenes(data.ring0.id)
+    }
+    // 同步 inScene 状态（从 player.scene_id 推导）
+    syncInScene()
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '加载地图失败' })
+  }
+}
+
+/** 根据 player.scene_id 同步当前场景对象 */
+function syncInScene() {
+  if (!player.value || player.value.scene_id == null) {
+    inScene.value = null
     return
   }
+  inScene.value = scenes.value.find((s) => s.id === player.value.scene_id) || null
+}
+
+/** 当前节点（ring0），作为 CurrentMap 的 location prop */
+const currentLocation = ref(null)
+// 当前地点的 NPC 列表（「此地之人」渲染 + 点击触发对话）
+const currentNpcs = ref([])
+async function loadNpcs(locId) {
   try {
-    currentLocation.value = await getLocation(locationId)
-  } catch (err) {
-    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '加载地点失败' })
-  }
-  // 拉取该地点 NPC（非野外地点才有，用于「此地之人」卡片渲染）
-  try {
-    currentNpcs.value = await getNpcsByLocation(locationId)
+    currentNpcs.value = await getNpcsByLocation(locId)
   } catch {
     currentNpcs.value = []
   }
 }
+watch(view, (v) => {
+  currentLocation.value = v?.ring0 ?? null
+  // 切换节点后刷新此地 NPC（「此地之人」）
+  if (v?.ring0?.id) loadNpcs(v.ring0.id)
+  else currentNpcs.value = []
+}, { immediate: true })
 
-/** 切换地点：调后端 move → 更新 currentLocationId → 重新拉详情 */
-async function moveTo(locationId) {
-  if (!player.value || locationId === currentLocationId.value) return
-  // 地图探索中（AI 正在生成子节点）禁止移动，避免请求错乱
-  if (mapExploring.value) return
+/** 移动到 ring1 对角邻居（探索 = 移动）。
+ *  后端会并发调 agent 生成新位置的 ring1，可能耗时数秒，期间显示地图遮罩。 */
+async function moveTo(netId) {
+  if (!player.value || mapMoving.value) return
+  if (netId === view.value?.ring0?.id) return
+  mapMoving.value = true
   try {
-    await movePlayerLocation(player.value.id, locationId)
-    currentLocationId.value = locationId
-    await loadLocation(locationId)
-    // 同步更新 player.location_id（供后续使用）
-    if (player.value) player.value.location_id = locationId
+    await moveToNet(netId)
+    // 移动后重拉视野（后端会自动补齐新位置的 ring1）
+    await loadView()
+    if (player.value) player.value.location_id = netId
   } catch (err) {
-    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '切换地点失败' })
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '移动失败' })
+  } finally {
+    mapMoving.value = false
   }
 }
 
-/** 地图探索状态变化（AI 生成子节点时显示全屏遮罩） */
-function onMapExploring(exploring) {
-  mapExploring.value = exploring
-}
-
-/** 邻近之地卡片点击 → 切换到同级地点 */
+/** 邻近之地（ring1）卡片点击 */
 function onNeighborSelect(item) {
   moveTo(item.id)
 }
 
-/** 子级地图卡片点击 → 进入子地点 */
-function onChildrenSelect(item) {
-  moveTo(item.id)
+/** 场景卡片点击 → 进入场景（已在该场景则忽略） */
+function onSceneSelect(item) {
+  if (inScene.value?.id === item.id) return
+  onEnterScene(item.scene_type)
 }
 
-/** 当前地图返回上级 → 用 parent_id 回退 */
-function onMapBack() {
-  if (currentLocation.value?.parent_id) {
-    moveTo(currentLocation.value.parent_id)
+/** 进入场景 */
+async function onEnterScene(sceneType) {
+  if (!view.value?.ring0) return
+  try {
+    const r = await enterScene(view.value.ring0.id, sceneType)
+    if (player.value) player.value.scene_id = r.scene_id
+    inScene.value = scenes.value.find((s) => s.scene_type === sceneType) || null
+    bus.emit(BusEvents.TOAST, { type: 'info', message: `进入${inScene.value?.name || '场景'}` })
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '进入场景失败' })
+  }
+}
+
+/** 退出场景 */
+async function onExitScene() {
+  try {
+    await exitScene()
+    if (player.value) player.value.scene_id = null
+    inScene.value = null
+    bus.emit(BusEvents.TOAST, { type: 'info', message: '退出场景，回到地图' })
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '退出场景失败' })
   }
 }
 
@@ -422,22 +467,32 @@ function backToStart() {
           :location="currentLocation"
           :npcs="currentNpcs"
           class="current-map"
-          @back="onMapBack"
           @npc-select="onNpcSelect"
         />
-        <!-- 左侧地图抽屉：邻近之地 + 可达之所 -->
+        <!-- 左侧地图抽屉：邻近之地（ring1 对角邻居）+ 场景（仅城市） -->
         <div class="map-drawers">
-          <NeighborMapDrawer
+          <MapDrawer
             class="drawer-item"
-            :location-id="currentLocationId"
+            title="邻近之地"
+            :items="view?.ring1 || []"
             @select="onNeighborSelect"
           />
-          <ChildrenMapDrawer
+          <MapDrawer
+            v-if="currentLocation?.loc_type === 'city' && scenes.length"
             class="drawer-item"
-            :location-id="currentLocationId"
-            @select="onChildrenSelect"
-            @exploring="onMapExploring"
+            title="城内场景"
+            :items="scenes"
+            @select="onSceneSelect"
           />
+          <!-- 退出场景按钮（玩家在场景内时显示） -->
+          <button
+            v-if="inScene"
+            type="button"
+            class="exit-scene-btn"
+            @click="onExitScene"
+          >
+            退出「{{ inScene.name }}」←
+          </button>
         </div>
       </div>
       <div class="game-logs">
@@ -493,15 +548,15 @@ function backToStart() {
       :player="player"
     />
 
-    <!-- 地图探索 loading 遮罩（AI 生成子节点时阻断所有点击） -->
+    <!-- 地图移动遮罩：等待后端生成节点/拉视野，阻断重复点击 -->
     <div
-      v-if="mapExploring"
-      class="exploring-overlay"
+      v-if="mapMoving"
+      class="map-moving-overlay"
     >
-      <div class="exploring-box">
-        <div class="exploring-spinner" />
-        <div class="exploring-text">
-          正在探索未知之地
+      <div class="map-moving-box">
+        <div class="map-moving-spinner" />
+        <div class="map-moving-text">
+          正在前往…
         </div>
       </div>
     </div>
@@ -639,52 +694,70 @@ function backToStart() {
   border-color: rgba(220, 190, 120, 0.8);
 }
 
-/* 地图探索 loading 遮罩：AI 生成子节点时阻断所有点击 */
-.exploring-overlay {
+/* 退出场景按钮：玩家在场景内时显示 */
+.exit-scene-btn {
+  width: 100%;
+  padding: 10px 0;
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #e8d5a0;
+  background: rgba(10, 8, 6, 0.55);
+  border: 1px solid rgba(180, 150, 90, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  transition: all 0.2s ease;
+}
+
+.exit-scene-btn:hover {
+  background: rgba(180, 150, 90, 0.2);
+  border-color: rgba(220, 190, 120, 0.7);
+}
+
+/* 地图移动遮罩：等待 agent 生成节点/拉视野，阻断重复点击 */
+.map-moving-overlay {
   position: absolute;
   inset: 0;
   z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(2px);
 }
 
-.exploring-box {
+.map-moving-box {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 18px;
 }
 
-/* 旋转加载圈（暖金光环） */
-.exploring-spinner {
+.map-moving-spinner {
   width: 44px;
   height: 44px;
   border-radius: 50%;
   border: 3px solid rgba(200, 168, 104, 0.2);
   border-top-color: #d4a868;
-  animation: exploring-spin 0.9s linear infinite;
+  animation: map-moving-spin 0.9s linear infinite;
 }
 
-@keyframes exploring-spin {
+@keyframes map-moving-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.exploring-text {
+.map-moving-text {
   font-size: 16px;
   color: #e8d5a0;
   letter-spacing: 4px;
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
-  /* 文字省略号呼吸动效 */
-  animation: exploring-fade 1.5s ease-in-out infinite;
+  animation: map-moving-fade 1.5s ease-in-out infinite;
 }
 
-@keyframes exploring-fade {
+@keyframes map-moving-fade {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
 }

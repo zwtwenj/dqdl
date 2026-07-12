@@ -74,3 +74,26 @@ export interface AgentDialogResult {
   call_id: number | null;
 }
 
+/** 网状地图单节点生成请求（location_net 专用，调 /generate/map-node） */
+export interface AgentMapNodeRequest {
+  /** server 已定的类型：wild/city/sect/secret */
+  loc_type: string;
+  /** 周边已知地点（供 LLM 保持地理连贯、避免重名） */
+  parent_context?: { name: string; loc_type: string; direction?: string }[];
+  /** 已有地名（避免重名） */
+  existingNames?: string[];
+}
+
+/** 网状地图单节点生成结果（字段对齐 LocationNet 实体） */
+export interface AgentMapNodeResult {
+  name: string;
+  loc_type: string;
+  description: string;
+  danger_level: number;
+  qi_density: number;
+  tags: string[] | null;
+  available_actions: string[] | null;
+  common_mobs: { mob_id: string; name: string }[] | null;
+  seed?: string;
+}
+

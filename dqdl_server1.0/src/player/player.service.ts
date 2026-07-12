@@ -155,19 +155,7 @@ export class PlayerService {
     const techniques = await this.aggregateTechniques(player.technique);
     const skills = await this.aggregateSkills(player.skill);
 
-    // 已装备功法的 base 属性加成之和（按当前修炼等级取 params）。
-    // base params 可能含五维（power/intelligence/quick/stamina/lucky）+ hp/energy。
-    const techBonus = {
-      power: 0, intelligence: 0, quick: 0, stamina: 0, lucky: 0,
-      hp: 0, energy: 0,
-    };
-    for (const t of techniques) {
-      if (t.equipped && t.base_params) {
-        for (const k of Object.keys(techBonus)) {
-          techBonus[k] += Number(t.base_params[k]) || 0;
-        }
-      }
-    }
+    const techBonus = await this.computeTechBonus(player.technique);
 
     // 对齐老版本语义：max_hp = 含功法加成的 stamina × 10 + 功法 hp 加成；
     // max_energy = level × 20 + 功法 energy 加成。
@@ -191,6 +179,42 @@ export class PlayerService {
       level_name: PlayerService.levelName(player.level),
       status_label: STATUS_LABEL[player.status] || '未知',
       cultivation_efficiency: 0, // 预留：宝物/功法修炼效率加成
+    };
+  }
+
+  /**
+   * 计算已装备功法的 base 属性加成之和（与 findOne / final_attrs 同源）。
+   * 丹药回血/回气需用此加成后的上限做 clamp，否则会把功法放大的血量错误截回基础值。
+   */
+  private async computeTechBonus(rawTechnique: string | null): Promise<{
+    power: number; intelligence: number; quick: number; stamina: number; lucky: number;
+    hp: number; energy: number;
+  }> {
+    const techniques = await this.aggregateTechniques(rawTechnique);
+    const bonus = {
+      power: 0, intelligence: 0, quick: 0, stamina: 0, lucky: 0,
+      hp: 0, energy: 0,
+    };
+    for (const t of techniques) {
+      if (t.equipped && t.base_params) {
+        for (const k of Object.keys(bonus)) {
+          bonus[k] += Number(t.base_params[k]) || 0;
+        }
+      }
+    }
+    return bonus;
+  }
+
+  /**
+   * 计算玩家当前的真实血/气上限（含已装备功法加成），供丹药等需要 clamp 的场景使用。
+   * 对齐 final_attrs.max_hp / max_energy 公式。
+   */
+  async computeMaxHpEnergy(player: Player): Promise<{ maxHp: number; maxEnergy: number }> {
+    const bonus = await this.computeTechBonus(player.technique);
+    const finalStamina = player.stamina + bonus.stamina;
+    return {
+      maxHp: finalStamina * 10 + bonus.hp,
+      maxEnergy: (player.level || 1) * 20 + bonus.energy,
     };
   }
 

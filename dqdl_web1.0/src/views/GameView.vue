@@ -331,8 +331,13 @@ onMounted(loadPlayer)
 const offBagOpen = bus.on(BusEvents.BAG_OPEN, () => {
   bagOpen.value = true
 })
+/** 监听 PLAYER_UPDATE：丹药使用等动作后，由发起方 emit 聚合后的 player，整体覆盖刷新 */
+const offPlayerUpdate = bus.on(BusEvents.PLAYER_UPDATE, ({ player: next }) => {
+  if (next) player.value = next
+})
 onUnmounted(() => {
   offBagOpen && offBagOpen()
+  offPlayerUpdate && offPlayerUpdate()
 })
 
 /** 功能图标点击：背包/角色/斗技/战斗切换弹窗，其余暂记录 */

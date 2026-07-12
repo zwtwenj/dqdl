@@ -21,6 +21,10 @@ export const BusEvents = {
   NPC_SHOP_OPEN: 'npc-shop-open',
   /** 打开/置顶玩家背包（跨组件：全局组件触发，GameView 监听打开 bagOpen） */
   BAG_OPEN: 'bag-open',
+  /** 玩家数据更新：{ player }
+   *  丹药使用等动作改了 player 后端聚合数据，由动作发起方 emit 整个 player，
+   *  GameView 监听后直接覆盖 player.value（无需重新拉接口）。 */
+  PLAYER_UPDATE: 'player-update',
 }
 
 const listeners = new Map()

@@ -19,7 +19,7 @@ import { useBackpackStore } from '../stores/backpack'
 import { bus, BusEvents } from '../utils/eventBus'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
-import { sellItem } from '../api'
+import { sellItem, usePill } from '../api'
 import FloatingTooltip from './FloatingTooltip.vue'
 
 const props = defineProps({
@@ -226,26 +226,56 @@ async function onSort() {
   }
 }
 
-/* ============ 交易态右键出售 ============
-   交易态（商店打开时 backpackStore.trading=true）：右键 slot 触发出售。
-   count==1 直接卖；count>1 弹数量输入框（带「最大」按钮=当前持有量）。
-   出售价/扣费由后端计算，前端只发 itemId+count，返回的 money 同步 store。 */
+/* ============ 右键：丹药使用 / 交易态出售 ============
+   - 丹药（item.type==='丹药' && usable）：右键直接使用 1 颗（始终 1 个，不弹框），
+     无论是否交易态。使用成功后刷新背包数量 + 通过 PLAYER_UPDATE 事件让 GameView 刷新属性。
+   - 交易态（商店打开时 backpackStore.trading=true）：右键非丹药触发出售。
+     count==1 直接卖；count>1 弹数量输入框（带「最大」按钮=当前持有量）。
+     出售价/扣费由后端计算，前端只发 itemId+count，返回的 money 同步 store。 */
 const sellModal = ref(null) // { item_id, name, max } 弹窗状态，null=关闭
 const sellCount = ref(1)
 const selling = ref(false)
+const usingPill = ref(false) // 丹药使用中（防抖）
 
-/** 右键 slot：交易态才响应 */
+/** 判断是否可使用丹药（type 为丹药且 usable） */
+function isUsablePill(item) {
+  return item && item.type === '丹药' && item.usable
+}
+
+/** 右键 slot：丹药优先使用，否则交易态出售 */
 function onSlotContextmenu(e, data) {
-  if (!backpackStore.trading || !data) return
+  if (!data) return
   e.preventDefault()
-  // count==1 直接卖，无需弹窗
+  // 丹药：始终可使用（无视交易态）
+  if (isUsablePill(data.item)) {
+    doUse(data.item_id, data.item?.name)
+    return
+  }
+  // 非丹药：仅交易态触发出售
+  if (!backpackStore.trading) return
   if (data.count <= 1) {
     doSell(data.item_id, 1)
     return
   }
-  // count>1 弹数量输入框
   sellModal.value = { item_id: data.item_id, name: data.item?.name || data.item_id, max: data.count }
   sellCount.value = 1
+}
+
+/** 执行使用丹药（调后端，刷新背包 + 通知 GameView 刷新 player） */
+async function doUse(itemId, name) {
+  if (usingPill.value || !props.playerId) return
+  usingPill.value = true
+  try {
+    const res = await usePill(props.playerId, itemId)
+    // 整体覆盖 player（后端返回聚合数据，含 final_attrs）
+    bus.emit(BusEvents.PLAYER_UPDATE, { player: res.player })
+    await backpackStore.reload(props.playerId) // 刷新背包（物品数量变了）
+    bus.emit(BusEvents.TOAST, { type: 'success', message: `使用了 ${name || itemId}` })
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '使用失败' })
+  } finally {
+    usingPill.value = false
+  }
 }
 
 /** 执行出售（调后端，同步 money + 刷新背包） */
@@ -400,6 +430,12 @@ function onSlotLeave() {
         class="tip-desc"
       >
         {{ hoveredData.item.description }}
+      </div>
+      <div
+        v-if="isUsablePill(hoveredData?.item)"
+        class="tip-use"
+      >
+        右键使用
       </div>
       <div
         v-if="hoveredData?.sell_price != null"
@@ -702,6 +738,11 @@ function onSlotLeave() {
   margin-top: 3px;
   font-size: 10px;
   color: #d4af6a;
+}
+.tip-use {
+  margin-top: 3px;
+  font-size: 10px;
+  color: #8fd17a;
 }
 
 /* 底部工具栏 */

@@ -11,6 +11,8 @@ import type {
   AgentDialogResult,
   AgentMapNodeRequest,
   AgentMapNodeResult,
+  AgentMapNodesRequest,
+  AgentMapNodesResultItem,
 } from './agent.types';
 
 /**
@@ -107,6 +109,35 @@ export class AgentService {
       const err = e as AxiosError;
       this.logger.warn(
         `agent /generate/map-node 调用失败：${err.message}（code=${err.code}, status=${err.response?.status}）`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 批量生成网状地图节点：调 POST /generate/map-nodes（一次 LLM 调用出多个节点）。
+   * 在同一 prompt 内生成，天然保证本批内部不重名，且能避开已存在地名。
+   * @param req { nodes: [{loc_type, gx, gy}], parent_context?, existingNames? }
+   * @returns 节点数组（含 gx,gy，与请求对齐）；agent 失败返回 null（调用方走 fallback）
+   */
+  async generateMapNodes(req: AgentMapNodesRequest): Promise<AgentMapNodesResultItem[] | null> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<AgentMapNodesResultItem[]>(
+          `${this.baseUrl}/generate/map-nodes`,
+          req,
+          { timeout: 30000 },
+        ),
+      );
+      if (!Array.isArray(data) || data.length === 0) {
+        this.logger.warn('agent /generate/map-nodes 返回非数组或空，已忽略');
+        return null;
+      }
+      return data;
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/map-nodes 调用失败：${err.message}（code=${err.code}, status=${err.response?.status}）`,
       );
       return null;
     }

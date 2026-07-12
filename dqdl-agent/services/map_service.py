@@ -388,3 +388,134 @@ def _fallback_node(loc_type, existing_names):
         'available_actions': None,
         'common_mobs': None,
     }, {'loc_type': loc_type})
+
+
+# ========== 批量生成（一次 LLM 调用生成多个节点，location_net 主用） ==========
+
+def generate_map_nodes(nodes_request, parent_context=None, existing_names=None):
+    """
+    批量生成多个地图节点（一次 LLM 调用）。
+    在同一 prompt 里让 LLM 一次性产出所有节点，天然保证本批内部不重名（LLM 自洽性）。
+
+    入参：
+      nodes_request   [{loc_type, gx, gy}] server 已定的每个空位的类型
+      parent_context  周边已知地点 [{name, loc_type, direction}]
+      existing_names  已有地名列表
+    返回：[{name, loc_type, description, danger_level, qi_density, tags, available_actions, common_mobs, gx, gy}]
+    数量与 nodes_request 对齐（不足则用 fallback 补）。
+    """
+    nodes_request = nodes_request or []
+    if not nodes_request:
+        return []
+    existing_names = existing_names or []
+    parent_context = parent_context or []
+
+    # 统计本批类型分布，给 LLM 一目了然的需求清单
+    type_counts = {}
+    for nr in nodes_request:
+        t = nr.get('loc_type', 'wild')
+        type_counts[t] = type_counts.get(t, 0) + 1
+    demand_desc = '、'.join(f'{c}个{t}' for t, c in type_counts.items())
+
+    system_prompt = (
+        '你是斗气大陆的世界观设计师，负责设计地理和地点。'
+        '你必须严格遵循斗气大陆（斗破苍穹）的世界观。'
+        '只输出一个 JSON 数组，不要输出其他内容。'
+    )
+
+    forbidden = ''
+    if existing_names:
+        forbidden = f'【硬性约束】以下名称已被占用，绝对不可重复：{"、".join(existing_names)}\n'
+    nearby = ''
+    if parent_context:
+        nearby = '周边已知地点：' + '、'.join(
+            f'{c.get("name")}（{c.get("loc_type")}，在{c.get("direction","附近")}）'
+            for c in parent_context
+        ) + '。新地点应与它们地理连贯、风格协调但名字完全不同。\n'
+
+    # 拼每种类型的命名要求
+    style_lines = []
+    for t in type_counts:
+        style = _NODE_STYLE.get(t, _NODE_STYLE['wild'])
+        style_lines.append(f'{t}（{style["naming"]}；{style["desc_hint"]}）')
+    style_block = '\n'.join(style_lines)
+
+    user_prompt = (
+        f'{forbidden}{nearby}'
+        f'请在斗气大陆一次性生成以下地点，共 {len(nodes_request)} 个：{demand_desc}。\n'
+        f'每个地点的要求：\n{style_block}\n'
+        f'所有地点的名字必须【彼此不同】，且不得与上述已占用名称重复，必须原创独特。\n'
+        f'危险等级：wild 给 1-3，其它填 0。\n'
+        f'输出 JSON 数组，每个元素字段：name, loc_type, description, danger_level, tags(数组,可空), available_actions(数组,可空)。'
+    )
+
+    try:
+        content, _ = call_deepseek(system_prompt, user_prompt, call_type='map')
+        items = parse_json_response(content)
+        if not isinstance(items, list):
+            items = [items] if items else []
+
+        # 按 loc_type 把 LLM 结果与请求对齐（LLM 顺序可能乱，按类型匹配）
+        result = []
+        used = set(existing_names)
+        # 按 nodes_request 的顺序填：每个空位找 LLM 输出里同类型的、未用过的
+        for nr in nodes_request:
+            want_type = nr.get('loc_type', 'wild')
+            picked = None
+            for it in items:
+                it_type = str(it.get('loc_type', '')).lower()
+                # 兼容 LLM 返回的类型大小写/中英文差异
+                type_match = (it_type == want_type) or (it.get('loc_type') == want_type)
+                it_name = str(it.get('name', '')).strip()
+                if type_match and it_name and it_name not in used:
+                    picked = it
+                    used.add(it_name)
+                    items.remove(it)
+                    break
+            if picked:
+                node = _build_node_from_llm(picked, want_type, existing_names)
+            else:
+                # LLM 没给到合适的，用 fallback
+                node = _fallback_node(want_type, list(used))
+                used.add(node['name'])
+            node['gx'] = nr['gx']
+            node['gy'] = nr['gy']
+            result.append(node)
+        logger.info(f'批量生成 {len(result)} 个节点: {[r["name"] for r in result]}')
+        return result
+    except Exception as e:
+        logger.error(f'AI 批量生成失败: {e}')
+        # 整批 fallback
+        used = set(existing_names)
+        result = []
+        for nr in nodes_request:
+            node = _fallback_node(nr.get('loc_type', 'wild'), list(used))
+            used.add(node['name'])
+            node['gx'] = nr['gx']
+            node['gy'] = nr['gy']
+            result.append(node)
+        return result
+
+
+def _build_node_from_llm(item, loc_type, existing_names):
+    """把 LLM 返回的单个 item 整理成标准 node dict"""
+    style = _NODE_STYLE.get(loc_type, _NODE_STYLE['wild'])
+    name = str(item.get('name', '')).strip() or _fallback_name(loc_type, existing_names)
+    danger = 0
+    if loc_type == 'wild':
+        try:
+            danger = max(1, min(3, int(item.get('danger_level', random.randint(1, 3)))))
+        except (ValueError, TypeError):
+            danger = random.randint(1, 3)
+    loc = _enrich_qi_density({
+        'name': name,
+        'loc_type': loc_type,
+        'description': str(item.get('description', '')).strip() or style['desc_hint'],
+        'danger_level': danger,
+        'tags': item.get('tags') or (['野外'] if loc_type == 'wild' else []),
+        'available_actions': item.get('available_actions'),
+        'common_mobs': None,
+    }, {'loc_type': loc_type})
+    if loc_type == 'wild':
+        loc['common_mobs'] = _fetch_real_mobs({'loc_type': loc_type}, loc, max_count=4)
+    return loc

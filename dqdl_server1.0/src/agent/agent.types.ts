@@ -97,3 +97,19 @@ export interface AgentMapNodeResult {
   seed?: string;
 }
 
+/** 网状地图批量生成请求（一次 LLM 调用生成多个节点） */
+export interface AgentMapNodesRequest {
+  /** server 已定的每个空位类型 + 坐标 */
+  nodes: { loc_type: string; gx: number; gy: number }[];
+  /** 周边已知地点 */
+  parent_context?: { name: string; loc_type: string; direction?: string }[];
+  /** 已有地名 */
+  existingNames?: string[];
+}
+
+/** 批量生成结果（每个含 gx,gy，与请求对齐） */
+export interface AgentMapNodesResultItem extends AgentMapNodeResult {
+  gx: number;
+  gy: number;
+}
+

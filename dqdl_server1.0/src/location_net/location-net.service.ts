@@ -441,21 +441,34 @@ export class LocationNetService {
    * 性能：多个新节点用 Promise.all 并发调 agent（避免串行卡顿）。
    * agent context：把中心节点 + 已有邻居作为周边信息传给 LLM，避免重名、保持地理连贯。
    */
+  /**
+   * Ring1 自动生成：保证某节点的 4 个对角邻居全部存在。
+   * 玩家走到某节点后，该节点的 ring1 永远可见、无迷雾。
+   *
+   * 实现：算出所有空位 + server 给每个定 loc_type → 一次 agent 批量调用
+   * （同一 prompt 生成全部，天然不内部重名）→ 直接填空入库。
+   * 一次 LLM 调用就够，不存在并发/串行之争。
+   */
   async ensureRing1(nodeId: number): Promise<LocationNet[]> {
     const n = await this.netRepo.findOneBy({ id: nodeId });
     if (!n) throw Biz.notFound(`地图节点 ${nodeId} 不存在`);
 
-    // 收集需要生成的空位
-    const toCreate: Array<{ gx: number; gy: number; dir: typeof DIRS[number] }> = [];
+    // 1. 收集空位（待生成的对角邻居）
+    const slots: { gx: number; gy: number }[] = [];
     for (const d of DIRS) {
       const exist = await this.netRepo.findOneBy({ gx: n.gx + d.dx, gy: n.gy + d.dy });
-      if (!exist) toCreate.push({ gx: n.gx + d.dx, gy: n.gy + d.dy, dir: d });
+      if (!exist) slots.push({ gx: n.gx + d.dx, gy: n.gy + d.dy });
     }
-    if (toCreate.length === 0) {
-      return [];
-    }
+    if (slots.length === 0) return [];
 
-    // 收集周边已知地点作为 agent context（中心节点 + 已存在的对角邻居）
+    // 2. server 给每个空位定 loc_type（保留分布）
+    const nodesRequest = slots.map((s) => ({
+      loc_type: this.rollLocType(),
+      gx: s.gx,
+      gy: s.gy,
+    }));
+
+    // 3. 收集 agent context：中心节点 + 已存在的对角邻居
     const parentContext: { name: string; loc_type: string; direction?: string }[] = [
       { name: n.name, loc_type: n.loc_type, direction: '中心' },
     ];
@@ -463,34 +476,121 @@ export class LocationNetService {
       const m = await this.netRepo.findOneBy({ gx: n.gx + d.dx, gy: n.gy + d.dy });
       if (m) parentContext.push({ name: m.name, loc_type: m.loc_type, direction: d.cn });
     }
-    // 收集所有已有地名（避免 agent 重名）
-    const allNodes = await this.netRepo.find();
-    const existingNames = allNodes.map((x) => x.name);
+    const existingNames = (await this.netRepo.find()).map((x) => x.name);
 
-    // 阶段1：并发生成候选（只调 agent，不入库），总耗时 ≈ 单次 agent 调用
-    const candidates = await Promise.all(
-      toCreate.map((slot) => this.proposeNodeAt(slot.gx, slot.gy, parentContext, existingNames)),
-    );
+    // 4. 一次 agent 批量调用（同 prompt 生成全部节点，天然不内部重名）
+    let items = await this.agent.generateMapNodes({
+      nodes: nodesRequest,
+      parent_context: parentContext,
+      existingNames,
+    });
 
-    // 阶段2：串行入库，做"已存在 + 本批已入库"双重去重，重名则加序号后缀
+    // 5. 兜底：agent 失败，用 fallback 名称池补齐
+    if (!items) {
+      this.logger.warn('agent 批量生成不可用，fallback 名称池');
+      items = nodesRequest.map((nr) => this.fallbackNodeItem(nr, existingNames));
+    }
+
+    // 6. 填空入库（按坐标对齐，重名再加 ② 后缀做最终保险）
     const usedNames = new Set(existingNames);
     const created: LocationNet[] = [];
-    for (const c of candidates) {
-      let finalName = c.name;
+    for (const nr of nodesRequest) {
+      // 找到与该坐标匹配的 agent 结果
+      let item = items.find((it) => it.gx === nr.gx && it.gy === nr.gy);
+      if (!item) {
+        // 兜底：agent 漏了某个坐标
+        item = this.fallbackNodeItem(nr, [...usedNames]);
+      }
+      let finalName = item.name;
       if (usedNames.has(finalName)) {
-        // 重名：加数字后缀直到唯一（赤焰城 → 赤焰城②）
         let i = 2;
         while (usedNames.has(`${finalName}${cnOrdinal(i)}`)) i++;
         finalName = `${finalName}${cnOrdinal(i)}`;
-        this.logger.warn(`节点 (${c.gx},${c.gy}) 与已有/本批重名，改名为 ${finalName}`);
+        this.logger.warn(`节点 (${nr.gx},${nr.gy}) 仍重名，改名 ${finalName}`);
       }
       usedNames.add(finalName);
-      const node = await this.commitNode({ ...c, name: finalName });
+      const node = await this.commitNodeFromItem(item, finalName);
       created.push(node);
+      this.logger.log(`填空 (${nr.gx},${nr.gy}) ${item.loc_type}: ${finalName}`);
     }
 
     await this.recomputeFrontierAround(nodeId);
     return created;
+  }
+
+  /** server 定 loc_type 的分布（60% wild / 25% city / 10% sect / 5% secret） */
+  private rollLocType(): string {
+    const r = Math.random();
+    return r < 0.6 ? 'wild' : r < 0.85 ? 'city' : r < 0.95 ? 'sect' : 'secret';
+  }
+
+  /** fallback：用名称池构造一个节点 item（不入库） */
+  private fallbackNodeItem(
+    nr: { loc_type: string; gx: number; gy: number },
+    existingNames: string[],
+  ): {
+    name: string;
+    loc_type: string;
+    description: string;
+    danger_level: number;
+    qi_density: number;
+    tags: string[] | null;
+    available_actions: string[] | null;
+    common_mobs: null;
+    gx: number;
+    gy: number;
+  } {
+    const pool = NAME_POOL[nr.loc_type] || NAME_POOL.wild;
+    let name = pick(pool);
+    let i = 2;
+    while (existingNames.includes(name)) {
+      name = `${pool[Math.floor(Math.random() * pool.length)]}${cnOrdinal(i++)}`;
+    }
+    const danger = nr.loc_type === 'wild' ? randInt(1, 3) : 0;
+    return {
+      name,
+      loc_type: nr.loc_type,
+      description: pick(DESC_POOL),
+      danger_level: danger,
+      qi_density: nr.loc_type === 'wild' ? Math.round(Math.pow(1.45, danger) * 100) : 0,
+      tags: nr.loc_type === 'wild' ? ['野外'] : null,
+      available_actions: null,
+      common_mobs: null,
+      gx: nr.gx,
+      gy: nr.gy,
+    };
+  }
+
+  /** 把 agent item 入库（含城市补场景） */
+  private async commitNodeFromItem(
+    item: {
+      name: string;
+      loc_type: string;
+      description?: string | null;
+      danger_level?: number;
+      qi_density?: number;
+      tags?: string[] | null;
+      gx: number;
+      gy: number;
+    },
+    finalName: string,
+  ): Promise<LocationNet> {
+    const node = this.netRepo.create({
+      name: finalName,
+      loc_type: item.loc_type,
+      description: item.description || null,
+      gx: item.gx,
+      gy: item.gy,
+      is_frontier: 1,
+      danger_level: item.danger_level ?? 0,
+      qi_density: item.qi_density ?? 0,
+      tags: item.tags ?? null,
+    });
+    const saved = await this.netRepo.save(node);
+    if (item.loc_type === 'city') {
+      await this.ensureCityScenes(saved.id, saved.name);
+    }
+    return saved;
   }
 
   /**

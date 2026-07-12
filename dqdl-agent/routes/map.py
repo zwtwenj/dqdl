@@ -4,7 +4,7 @@
 import random
 from flask import Blueprint, request, jsonify
 from config import ensure_rag
-from services.map_service import generate_locations, ensure_city_districts, generate_map_node
+from services.map_service import generate_locations, ensure_city_districts, generate_map_node, generate_map_nodes
 
 bp = Blueprint('map', __name__)
 
@@ -68,6 +68,27 @@ def generate_single_map_node():
     node = generate_map_node(loc_type, parent_context, existing_names)
     node['seed'] = str(random.randint(0, 10000))
     return jsonify(node)
+
+
+@bp.route('/generate/map-nodes', methods=['POST'])
+def generate_batch_map_nodes():
+    """
+    批量生成多个地图节点（一次 LLM 调用）。
+    Body: {
+        nodes: [{loc_type, gx, gy}],                # server 已定的每个空位类型
+        parent_context?: [{name, loc_type, direction}],
+        existingNames?: string[]
+    }
+    返回节点数组，每个含 gx,gy（与请求对齐）。
+    """
+    data = request.get_json(force=True)
+    nodes_request = data.get('nodes') or []
+    parent_context = data.get('parent_context') or data.get('parentContext')
+    existing_names = data.get('existingNames', [])
+    results = generate_map_nodes(nodes_request, parent_context, existing_names)
+    for i, r in enumerate(results):
+        r['seed'] = f'batch-{random.randint(0, 10000)}-{i}'
+    return jsonify(results)
 
 
 @bp.route('/rag/search', methods=['POST'])

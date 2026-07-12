@@ -104,6 +104,16 @@ function cnOrdinal(n: number): string {
   const symbols = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
   return symbols[n - 1] ?? `(${n})`;
 }
+/** 安全 parse JSON 字符串（TEXT 列存的），失败/空返回 null */
+function safeParseJson(s: string | null): any[] | null {
+  if (!s) return null;
+  try {
+    const v = JSON.parse(s);
+    return Array.isArray(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
 
 // ---------- 返回类型 ----------
 export interface NetNodeView {
@@ -117,6 +127,8 @@ export interface NetNodeView {
   danger_level: number;
   qi_density: number;
   tags: string[] | null;
+  common_mobs: any[] | null;
+  common_herbs: any[] | null;
 }
 export interface NetEdgeView {
   from_id: number;
@@ -160,6 +172,8 @@ export class LocationNetService {
       danger_level: n.danger_level,
       qi_density: n.qi_density,
       tags: n.tags,
+      common_mobs: safeParseJson(n.common_mobs),
+      common_herbs: safeParseJson(n.common_herbs),
     };
   }
 
@@ -570,6 +584,8 @@ export class LocationNetService {
       danger_level?: number;
       qi_density?: number;
       tags?: string[] | null;
+      common_mobs?: { mob_id: string; name: string; rank?: string }[] | null;
+      common_herbs?: { item_id: string; name: string }[] | null;
       gx: number;
       gy: number;
     },
@@ -585,6 +601,8 @@ export class LocationNetService {
       danger_level: item.danger_level ?? 0,
       qi_density: item.qi_density ?? 0,
       tags: item.tags ?? null,
+      common_mobs: item.common_mobs ? JSON.stringify(item.common_mobs) : null,
+      common_herbs: item.common_herbs ? JSON.stringify(item.common_herbs) : null,
     });
     const saved = await this.netRepo.save(node);
     if (item.loc_type === 'city') {

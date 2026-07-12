@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS `location_net` (
   `danger_level` TINYINT NOT NULL DEFAULT 0 COMMENT '危险等级（野外1-3，其它0）',
   `qi_density` INT NOT NULL DEFAULT 0 COMMENT '斗气浓郁度（野外用）',
   `tags` JSON DEFAULT NULL COMMENT '特色标签',
+  `common_mobs` TEXT DEFAULT NULL COMMENT '常见魔兽 JSON：[{mob_id,name,rank}]',
+  `common_herbs` TEXT DEFAULT NULL COMMENT '常见药草 JSON：[{item_id,name}]',
   `created_at` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_grid` (`gx`, `gy`),

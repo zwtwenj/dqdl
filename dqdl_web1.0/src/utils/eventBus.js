@@ -29,6 +29,10 @@ export const BusEvents = {
   ADVENTURE_OPEN: 'adventure-open',
   /** 发现奇遇通知（历练轮询拉到奇遇日志时触发）：{ title } 用于 Toast 提示 */
   ADVENTURE_FOUND: 'adventure-found',
+  /** 打开秘境面板：{ encounterId? } 由奇遇详情「进入」触发，无 encounterId 则恢复/直接进入 */
+  DUNGEON_OPEN: 'dungeon-open',
+  /** 玩家状态变更（秘境进入/撤退等改变 status 时）：前端可监听刷新 player */
+  PLAYER_STATUS_CHANGE: 'player-status-change',
 }
 
 const listeners = new Map()

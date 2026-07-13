@@ -221,6 +221,41 @@ export class AgentService {
   }
 
   /**
+   * 生成秘境五幕蓝图：调 POST /generate/dungeon。
+   * agent 只生成叙事骨架（标题/intro/五幕 type+title+narrative），具体魔兽/奖励由 server enrich。
+   * @returns 蓝图 {title, scene_type, intro, acts:[{index,type,title,narrative}]}；失败返回 null（走 fallback）
+   */
+  async generateDungeon(req: {
+    scene_type: string;
+    player_level?: number;
+    difficulty?: number;
+  }): Promise<{
+    title: string;
+    scene_type: string;
+    intro: string;
+    acts: { index: number; type: string; title: string; narrative: string }[];
+  } | null> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<{
+          title: string;
+          scene_type: string;
+          intro: string;
+          acts: { index: number; type: string; title: string; narrative: string }[];
+        }>(`${this.baseUrl}/generate/dungeon`, req),
+      );
+      if (!data || !Array.isArray(data.acts)) return null;
+      return data;
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/dungeon 调用失败：${err.message}（code=${err.code}）`,
+      );
+      return null;
+    }
+  }
+
+  /**
    * 生成 NPC 对话：调 POST /generate/dialog。
    * 上下文（npc/player/location/history）由 NpcService 后端组装，
    * session_id/call_index 透传给 agent，agent 据此落 agent_dialog_call。

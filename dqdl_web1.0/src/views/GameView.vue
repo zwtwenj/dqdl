@@ -353,7 +353,12 @@ const offBagOpen = bus.on(BusEvents.BAG_OPEN, () => {
 const offPlayerUpdate = bus.on(BusEvents.PLAYER_UPDATE, ({ player: next }) => {
   if (next) player.value = next
 })
+/** 监听 PLAYER_STATUS_CHANGE：秘境进入/撤退等改变 status 的动作后，重新拉取最新 player */
+const offStatusChange = bus.on(BusEvents.PLAYER_STATUS_CHANGE, () => {
+  if (player.value?.id) loadPlayer()
+})
 onUnmounted(() => {
+  offStatusChange && offStatusChange()
   offBagOpen && offBagOpen()
   offPlayerUpdate && offPlayerUpdate()
 })

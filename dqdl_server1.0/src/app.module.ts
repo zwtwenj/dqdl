@@ -21,6 +21,7 @@ import { NpcModule } from './npc/npc.module';
 import { ShopModule } from './shop/shop.module';
 import { PillModule } from './pill/pill.module';
 import { EncounterModule } from './encounter/encounter.module';
+import { DungeonModule } from './dungeon/dungeon.module';
 import { MapDemoModule } from './mapdemo/mapdemo.module';
 import { LocationNetModule } from './location_net/location-net.module';
 import { AppController } from './app.controller';
@@ -62,6 +63,7 @@ import { AppController } from './app.controller';
     ShopModule,
     PillModule,
     EncounterModule,
+    DungeonModule,
     MapDemoModule,
     LocationNetModule,
   ],

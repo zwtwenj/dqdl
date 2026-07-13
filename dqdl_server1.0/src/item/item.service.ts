@@ -25,6 +25,18 @@ export class ItemService {
     return this.repo.find({ where: { item_id: In(itemIds) } });
   }
 
+  /**
+   * 按类别 + 名称关键词查物品（用于秘境按难度选魔核奖励）。
+   * 例：type='魔核', keyword='一阶' → 命中所有名称含"一阶"的魔核。
+   */
+  async findByTypeAndNameKeyword(type: string, keyword: string): Promise<Item[]> {
+    return this.repo
+      .createQueryBuilder('i')
+      .where('i.type = :type', { type })
+      .andWhere('i.name LIKE :kw', { kw: `%${keyword}%` })
+      .getMany();
+  }
+
   /** 按 id 查 */
   findOne(id: number): Promise<Item | null> {
     return this.repo.findOneBy({ id });

@@ -90,9 +90,17 @@ async function onAbandon() {
   }
 }
 
-/** 进入奇遇（玩法开发中） */
+/** 进入奇遇：dungeon 类型 → 打开秘境面板；cultivate（洞天）暂未实现 */
 function onEnter() {
-  bus.emit(BusEvents.TOAST, { type: 'info', message: '奇遇玩法开发中，敬请期待' })
+  if (!selected.value) return
+  if (selected.value.kind === 'dungeon') {
+    // 打开秘境面板（带 encounterId，由秘境面板负责生成/恢复）
+    bus.emit(BusEvents.DUNGEON_OPEN, { encounterId: selected.value.id })
+    selected.value = null // 关闭详情子弹层
+    open.value = false    // 收起奇遇列表
+    return
+  }
+  bus.emit(BusEvents.TOAST, { type: 'info', message: '洞天福地玩法开发中' })
 }
 
 let offOpen = null

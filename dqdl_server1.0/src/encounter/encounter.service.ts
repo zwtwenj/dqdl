@@ -130,4 +130,27 @@ export class EncounterService {
       { status: 'abandoned' },
     );
   }
+
+  /**
+   * 进入奇遇：校验属主+pending，标记为已进入并返回奇遇数据。
+   * 供秘境（dungeon）enter 调用，取其 scene_type 作为秘境场景。
+   */
+  async consume(id: number, playerId: number): Promise<Encounter | null> {
+    const enc = await this.repo.findOne({
+      where: { id, player_id: playerId, status: 'pending' },
+    });
+    if (!enc) return null;
+    enc.status = 'entered';
+    await this.repo.save(enc);
+    return enc;
+  }
+
+  /** 秘境/洞天结束时把对应奇遇标记为已完成（从可见列表移除） */
+  async markDone(encounterId: number | null, playerId: number): Promise<any> {
+    if (!encounterId) return null;
+    return this.repo.update(
+      { id: encounterId, player_id: playerId },
+      { status: 'done' },
+    );
+  }
 }

@@ -90,12 +90,20 @@ async function onAbandon() {
   }
 }
 
-/** 进入奇遇：dungeon 类型 → 打开秘境面板；cultivate（洞天）暂未实现 */
+/**
+ * 进入奇遇：
+ * - dungeon 类型：
+ *   · pending（未进入）→ 带 encounterId，DungeonPanel 会生成新秘境
+ *   · entered（探索中）→ 不带 encounterId，DungeonPanel 走 getCurrent 恢复进行中的秘境
+ * - cultivate（洞天）暂未实现
+ */
 function onEnter() {
   if (!selected.value) return
   if (selected.value.kind === 'dungeon') {
-    // 打开秘境面板（带 encounterId，由秘境面板负责生成/恢复）
-    bus.emit(BusEvents.DUNGEON_OPEN, { encounterId: selected.value.id })
+    const payload = selected.value.status === 'entered'
+      ? {} // entered：恢复进行中的秘境，不重新生成
+      : { encounterId: selected.value.id } // pending：生成新秘境
+    bus.emit(BusEvents.DUNGEON_OPEN, payload)
     selected.value = null // 关闭详情子弹层
     open.value = false    // 收起奇遇列表
     return
@@ -161,10 +169,15 @@ onUnmounted(() => {
             v-for="enc in list"
             :key="enc.id"
             class="adv-card"
+            :class="{ 'is-entered': enc.status === 'entered' }"
             @click="onCardClick(enc)"
           >
             <div class="adv-card-top">
               <span class="adv-card-title">{{ enc.title }}</span>
+              <span
+                v-if="enc.status === 'entered'"
+                class="adv-card-status"
+              >探索中</span>
               <span
                 class="adv-card-badge"
                 :class="{ cultivate: enc.kind === 'cultivate' }"
@@ -211,6 +224,10 @@ onUnmounted(() => {
                 >场景：{{ selected.scene_type }}</span>
               </div>
               <div class="detail-desc">{{ selected.description }}</div>
+              <div
+                v-if="selected.status === 'entered'"
+                class="detail-status"
+              >⏳ 探索中 — 可继续推进或放弃（放弃将结束该秘境）</div>
               <div class="detail-time">发现于 {{ new Date(selected.created_at).toLocaleString() }}</div>
             </div>
             <div class="detail-actions">
@@ -229,7 +246,7 @@ onUnmounted(() => {
                 class="detail-btn detail-enter"
                 type="button"
                 @click="onEnter"
-              >进入</button>
+              >{{ selected.status === 'entered' ? '继续探索' : '进入' }}</button>
             </div>
           </div>
         </div>
@@ -351,6 +368,21 @@ onUnmounted(() => {
   color: #a0d8a0;
   border-color: rgba(120, 180, 120, 0.5);
 }
+/* 探索中（entered）卡片：金色描边高亮，提示有进行中的秘境 */
+.adv-card.is-entered {
+  border-color: rgba(240, 216, 144, 0.7);
+  box-shadow: 0 0 12px rgba(240, 216, 144, 0.2);
+  background: linear-gradient(180deg, rgba(60, 48, 28, 0.7), rgba(38, 28, 18, 0.7));
+}
+.adv-card-status {
+  padding: 1px 8px;
+  font-size: 0.68rem;
+  color: #f0d890;
+  background: rgba(240, 216, 144, 0.12);
+  border: 1px solid rgba(240, 216, 144, 0.5);
+  border-radius: 3px;
+  letter-spacing: 1px;
+}
 .adv-card-desc {
   font-size: 0.82rem;
   color: rgba(220, 210, 180, 0.8);
@@ -432,6 +464,14 @@ onUnmounted(() => {
   font-size: 0.75rem;
   color: rgba(200, 170, 110, 0.5);
   text-align: right;
+}
+.detail-status {
+  margin-top: 10px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  color: #f0d890;
+  background: rgba(240, 216, 144, 0.08);
+  border-radius: 3px;
 }
 .detail-actions {
   display: flex;

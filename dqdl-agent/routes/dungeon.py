@@ -2,11 +2,13 @@
 箱庭副本生成路由：POST /generate/dungeon
 """
 import random
+import logging
 from flask import Blueprint, request, jsonify
 from llm_client import call_deepseek
 from utils import _parse_json_object
 from services.dungeon_service import DUNGEON_SCENES, _normalize_dungeon, _fallback_dungeon
 
+logger = logging.getLogger('dqdl-agent.dungeon')
 bp = Blueprint('dungeon', __name__)
 
 
@@ -60,12 +62,12 @@ def generate_dungeon():
         '}'
     )
 
-    bp.logger.info(f'副本生成请求: scene={scene_type}, level={player_level}, difficulty={difficulty}')
+    logger.info(f'副本生成请求: scene={scene_type}, level={player_level}, difficulty={difficulty}')
     try:
         content, _ = call_deepseek(system_prompt, user_prompt, temperature=0.95, max_tokens=1200, call_type='dungeon')
         blueprint = _normalize_dungeon(_parse_json_object(content), scene_type)
-        bp.logger.info(f'副本生成成功: {blueprint["title"]} ({scene_type})')
+        logger.info(f'副本生成成功: {blueprint["title"]} ({scene_type})')
         return jsonify(blueprint)
     except Exception as e:
-        bp.logger.error(f'副本生成失败: {e}，使用降级方案')
+        logger.error(f'副本生成失败: {e}，使用降级方案')
         return jsonify(_fallback_dungeon(scene_type)), 200

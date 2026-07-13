@@ -1,12 +1,14 @@
 """
 场景事件编排路由：POST /generate/event
 """
+import logging
 from flask import Blueprint, request, jsonify
 from llm_client import call_deepseek
 from config import ensure_rag
 from utils import _parse_json_object
 from services.event_service import EVENT_EFFECT_KEYS, _normalize_event, _fallback_event
 
+logger = logging.getLogger('dqdl-agent.event')
 bp = Blueprint('event', __name__)
 
 
@@ -51,7 +53,7 @@ def generate_event():
             query = '奇遇 修真界 斗气大陆'
         world_lore = get_context(query, top_k=5, max_chars=2000)
     except Exception as e:
-        bp.logger.warning(f'RAG 不可用，事件生成不注入世界观: {e}')
+        logger.warning(f'RAG 不可用，事件生成不注入世界观: {e}')
 
     effects_hint = ', '.join(allowed)
     system_prompt = (
@@ -115,12 +117,12 @@ def generate_event():
         '}'
     )
 
-    bp.logger.info(f'事件编排请求: type={trig_type}, player={pname}, level={plevel}')
+    logger.info(f'事件编排请求: type={trig_type}, player={pname}, level={plevel}')
     try:
         content, _ = call_deepseek(system_prompt, user_prompt, temperature=0.9, max_tokens=1600, call_type='event')
         spec = _normalize_event(_parse_json_object(content))
-        bp.logger.info(f'事件编排成功: {spec["event_id"]} ({spec["title"]})')
+        logger.info(f'事件编排成功: {spec["event_id"]} ({spec["title"]})')
         return jsonify(spec)
     except Exception as e:
-        bp.logger.error(f'事件编排失败: {e}，使用降级事件')
+        logger.error(f'事件编排失败: {e}，使用降级事件')
         return jsonify(_fallback_event()), 200

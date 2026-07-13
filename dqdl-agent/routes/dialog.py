@@ -18,10 +18,12 @@ agent 完全主导 deepseek 调用（messages 组装在本路由，未来抽成�
 响应：{ reply: string, call_id: int|null }
 """
 import time
+import logging
 from flask import Blueprint, request, jsonify
 from llm_client import _chat_with_logging
 from db import log_dialog_call
 
+logger = logging.getLogger('dqdl-agent.dialog')
 bp = Blueprint('dialog', __name__)
 
 
@@ -94,7 +96,7 @@ def generate_dialog():
         )
         return jsonify({'reply': reply, 'call_id': call_id})
     except Exception as e:
-        bp.logger.error(f'对话生成失败: {e}')
+        logger.error(f'对话生成失败: {e}')
         duration_ms = int((time.time() - start) * 1000)
         reply = '......（对方似乎没有听懂你在说什么）'
         call_id = log_dialog_call(

@@ -120,12 +120,28 @@ export class EncounterService {
     });
   }
 
-  /** 放弃奇遇（仅 pending 可放弃） */
-  async abandon(id: number, playerId: number): Promise<void> {
-    await this.repo.update(
-      { id, player_id: playerId, status: 'pending' },
-      { status: 'abandoned' },
-    );
+  /**
+   * 放弃奇遇（pending 未进入 / entered 已进入但未完成 都可放弃）。
+   * 返回受影响行数：>0 表示成功放弃，0 表示该奇遇不存在/不属于该玩家/状态已是终态。
+   * 调用方（controller）应据此判断是否需要联动复位玩家状态/清理秘境实例。
+   */
+  async abandon(id: number, playerId: number): Promise<number> {
+    const result = await this.repo
+      .createQueryBuilder()
+      .update()
+      .set({ status: 'abandoned' })
+      .where('id = :id AND player_id = :pid AND status IN (:...statuses)', {
+        id,
+        pid: playerId,
+        statuses: ['pending', 'entered'],
+      })
+      .execute();
+    return result.affected || 0;
+  }
+
+  /** 查单个奇遇（controller 判断是否 entered 态用于联动） */
+  async findOne(id: number, playerId: number): Promise<Encounter | null> {
+    return this.repo.findOneBy({ id, player_id: playerId });
   }
 
   /**

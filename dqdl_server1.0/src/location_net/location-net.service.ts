@@ -6,6 +6,22 @@ import { LocationScene } from './location-scene.entity';
 import { Player } from '../player/player.entity';
 import { Biz } from '../common/biz.exception';
 import { AgentService } from '../agent/agent.service';
+import { MAP } from '../config/game.config';
+
+/**
+ * 按 loc_type 概率分布掷骰。分布来自 game.config（原硬编码散落两处，已合并）。
+ */
+function rollLocTypeFromDist(dist: Record<string, number> = MAP.locTypeDist): string {
+  const r = Math.random();
+  let acc = 0;
+  for (const [type, p] of Object.entries(dist)) {
+    acc += p;
+    if (r < acc) return type;
+  }
+  // 兜底（分布未归一或舍入误差）：取最后一项
+  const keys = Object.keys(dist);
+  return keys[keys.length - 1] ?? 'wild';
+}
 
 /**
  * 网状地图 + 场景 服务（地图生成走 agent/DeepSeek，失败降级到名称池）。
@@ -532,10 +548,9 @@ export class LocationNetService {
     return created;
   }
 
-  /** server 定 loc_type 的分布（60% wild / 25% city / 10% sect / 5% secret） */
+  /** server 定 loc_type 的分布（配置于 game.config，rollLocTypeFromDist 掷骰） */
   private rollLocType(): string {
-    const r = Math.random();
-    return r < 0.6 ? 'wild' : r < 0.85 ? 'city' : r < 0.95 ? 'sect' : 'secret';
+    return rollLocTypeFromDist();
   }
 
   /** fallback：用名称池构造一个节点 item（不入库） */
@@ -658,9 +673,8 @@ export class LocationNetService {
     qi_density: number;
     tags: string[] | null;
   }> {
-    // 1. server 定类型（保留原分布）
-    const r = Math.random();
-    const loc_type = r < 0.6 ? 'wild' : r < 0.85 ? 'city' : r < 0.95 ? 'sect' : 'secret';
+    // 1. server 定类型（分布配置于 game.config）
+    const loc_type = rollLocTypeFromDist();
 
     // 2. 调 agent 生成文案，失败走 fallback
     let name: string;

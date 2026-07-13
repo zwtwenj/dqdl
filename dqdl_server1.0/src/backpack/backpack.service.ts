@@ -5,6 +5,7 @@ import { Backpack } from './backpack.entity';
 import { BackpackLog } from './backpack-log.entity';
 import { Item } from '../item/item.entity';
 import { Biz } from '../common/biz.exception';
+import { CAPACITY } from '../config/game.config';
 
 /** 掉落/发放物品入参（对齐 mob.drops 的结构） */
 export interface GrantEntry {
@@ -25,8 +26,8 @@ export interface BackpackSlot {
   item: Item | null;
 }
 
-/** 背包总容量（5列×7行×10页 = 350） */
-export const BACKPACK_CAPACITY = 350;
+/** 背包总容量（5列×7行×10页 = 350）。集中配置于 game.config，此处 re-export 保持外部 import 兼容 */
+export const BACKPACK_CAPACITY = CAPACITY.backpack;
 
 /**
  * 背包服务：管理玩家对物品的持有态 + 格位（slot 1-350）。

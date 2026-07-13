@@ -2,16 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Encounter } from './encounter.entity';
+import { ENCOUNTER } from '../config/game.config';
 
 /**
  * 奇遇服务：历练中概率发现副本入口/洞天福地，入玩家奇遇列表。
  * 复刻老版 dqdl-server/encounter 的核心逻辑（10% 触发、50/50 dungeon/cultivate）。
+ * 触发率/上限/分流比例集中配置于 game.config。
  */
-
-/** 历练中触发奇遇的概率 */
-const TRIGGER_RATE = 0.1;
-/** 未进入（pending）奇遇的最大累计数，满后不再触发 */
-const MAX_PENDING = 10;
 
 const SCENE_TITLES: Record<string, string> = {
   '山洞': '幽冥石洞',
@@ -71,9 +68,9 @@ export class EncounterService {
     private readonly repo: Repository<Encounter>,
   ) {}
 
-  /** 历练中尝试触发奇遇：10% 概率，且 pending 未满。返回生成的奇遇或 null */
+  /** 历练中尝试触发奇遇：按配置概率，且 pending 未满。返回生成的奇遇或 null */
   async tryGenerate(playerId: number): Promise<Encounter | null> {
-    if (Math.random() > TRIGGER_RATE) return null;
+    if (Math.random() > ENCOUNTER.triggerRate) return null;
     return this.generateForced(playerId);
   }
 
@@ -85,9 +82,9 @@ export class EncounterService {
     const pendingCount = await this.repo.count({
       where: { player_id: playerId, status: 'pending' },
     });
-    if (pendingCount >= MAX_PENDING) return null;
+    if (pendingCount >= ENCOUNTER.maxPending) return null;
 
-    if (Math.random() < 0.5) {
+    if (Math.random() < ENCOUNTER.dungeonRatio) {
       const sceneType = pick(SCENE_TYPES);
       return this.repo.save(
         this.repo.create({

@@ -6,6 +6,7 @@ import { Item } from '../item/item.entity';
 import { StaticNpc } from '../npc/static-npc.entity';
 import { Player } from '../player/player.entity';
 import { Backpack } from '../backpack/backpack.entity';
+import { BACKPACK_CAPACITY } from '../backpack/backpack.service';
 import { Biz } from '../common/biz.exception';
 
 /**
@@ -199,7 +200,7 @@ export class ShopService {
     });
   }
 
-  /** 事务内查最小空槽（1..350 中首个未被占用） */
+  /** 事务内查最小空槽（1..BACKPACK_CAPACITY 中首个未被占用） */
   private async findMinEmptySlotInTx(
     em: any,
     playerId: number,
@@ -209,7 +210,7 @@ export class ShopService {
       select: ['slot'],
     });
     const used = new Set(rows.map((r: any) => r.slot));
-    for (let i = 1; i <= 350; i++) {
+    for (let i = 1; i <= BACKPACK_CAPACITY; i++) {
       if (!used.has(i)) return i;
     }
     throw Biz.conflict('背包已满');

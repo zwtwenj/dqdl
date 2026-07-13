@@ -4,9 +4,10 @@ import { Repository } from 'typeorm';
 import { Character } from './character.entity';
 import { BizException, Biz } from '../common/biz.exception';
 import { ResponseCode } from '../common/response-code';
+import { CAPACITY } from '../config/game.config';
 
-/** 每个账号最多角色数 */
-export const MAX_CHARACTERS = 3;
+/** 每个账号最多角色数。集中配置于 game.config，此处 re-export 保持外部 import 兼容 */
+export const MAX_CHARACTERS = CAPACITY.maxCharacters;
 
 /**
  * 角色服务（网游模式）：管理账号下的角色（最多 3 个）。

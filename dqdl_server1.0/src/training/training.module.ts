@@ -11,6 +11,8 @@ import { MobModule } from '../mob/mob.module';
 import { BackpackModule } from '../backpack/backpack.module';
 import { ItemModule } from '../item/item.module';
 import { EncounterModule } from '../encounter/encounter.module';
+import { TechniqueModule } from '../technique/technique.module';
+import { SkillModule } from '../skill/skill.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -23,6 +25,8 @@ import { AuthModule } from '../auth/auth.module';
     BackpackModule,
     ItemModule,
     EncounterModule,
+    TechniqueModule,
+    SkillModule,
     AuthModule,
   ],
   providers: [TrainingService],

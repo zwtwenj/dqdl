@@ -10,8 +10,11 @@ import { MobService } from '../mob/mob.service';
 import { ItemService } from '../item/item.service';
 import { BackpackService, GrantEntry } from '../backpack/backpack.service';
 import { EncounterService } from '../encounter/encounter.service';
+import { TechniqueService } from '../technique/technique.service';
+import { SkillService } from '../skill/skill.service';
 import { Biz } from '../common/biz.exception';
 import { Player } from '../player/player.entity';
+import { TRAINING } from '../config/game.config';
 
 /** 单条掉落物定义（mob.drops JSON 解析后的结构） */
 interface DropEntry {
@@ -23,14 +26,25 @@ interface DropEntry {
   type: string;
 }
 
-/** 历练时长（毫秒），暂定 1 分钟 */
-const TRAINING_DURATION_MS = 60_000;
-/** 日志生成间隔（毫秒），测试用 10 秒 */
-const TRAINING_LOG_INTERVAL_MS = 10_000;
+/** 历练时长（毫秒）。优先读 .env TRAINING_MAX_DURATION，缺省用 game.config 默认值 */
+const TRAINING_DURATION_MS = Number(process.env.TRAINING_MAX_DURATION) || TRAINING.durationMs;
+/** 日志生成间隔（毫秒）。优先读 .env TRAINING_INTERVAL，缺省用 game.config 默认值 */
+const TRAINING_LOG_INTERVAL_MS = Number(process.env.TRAINING_INTERVAL) || TRAINING.logIntervalMs;
 /** 野外地点类型集合 */
 const WILD_TYPES = ['wild', 'wild2', 'wild3'];
-/** 胜率 */
-const WIN_RATE = 0.7;
+/** 胜率（game.config 集中配置） */
+const WIN_RATE = TRAINING.winRate;
+
+/** 解析 JSON 字符串为数组，失败/空返回 [] */
+function parseJsonArr(raw: string | null | undefined): any[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * 历练服务：玩家在野外地点发起历练，后端定时器每 10s 生成一条叙事日志。
@@ -54,6 +68,8 @@ export class TrainingService {
     private readonly backpackService: BackpackService,
     private readonly itemService: ItemService,
     private readonly encounterService: EncounterService,
+    private readonly techniqueService: TechniqueService,
+    private readonly skillService: SkillService,
   ) {}
 
   /**
@@ -202,9 +218,9 @@ export class TrainingService {
     // 查魔兽详情（给 agent 用）
     const mobDetail = await this.mobService.findByMobId(mobEntry.mob_id);
 
-    // 解析玩家功法/斗技名（空数组/解析失败则无）
-    const techniqueNames = this.parseTechniqueNames(player.technique);
-    const skillNames = this.parseSkillNames(player.skill);
+    // 解析玩家功法/斗技名（按 id 反查，空数组/解析失败则无）
+    const techniqueNames = await this.parseTechniqueNames(player.technique);
+    const skillNames = await this.parseSkillNames(player.skill);
 
     // 调 agent 生成叙事
     let result: { text: string; keywords: { text: string; type: string }[] } | null = null;
@@ -302,7 +318,7 @@ export class TrainingService {
     location: NetNodeView,
     encounter: { kind: string; title: string; scene_type: string; star: number | null; description: string },
   ) {
-    const techniqueNames = this.parseTechniqueNames(player.technique);
+    const techniqueNames = await this.parseTechniqueNames(player.technique);
     const text =
       (await this.agentService.generateEncounter(
         { name: player.name, technique_name: techniqueNames.join('、') },
@@ -416,31 +432,41 @@ export class TrainingService {
     return itemId;
   }
 
-  /** 解析 player.technique JSON → 功法名数组（字段名兼容 name/skill_name） */
-  private parseTechniqueNames(technique: string | null): string[] {
-    if (!technique) return [];
-    try {
-      const arr = JSON.parse(technique);
-      if (!Array.isArray(arr)) return [];
-      return arr
-        .map((t: any) => t?.name || t?.skill_name || null)
-        .filter((n: any): n is string => typeof n === 'string' && n.trim() !== '');
-    } catch {
-      return [];
-    }
+  /**
+   * 解析 player.technique JSON → 已装备功法名数组。
+   * player.technique 存的是 [{id, level, cultivation, equipped}]（只有 id，无 name），
+   * 需按 id 反查功法表拿真实名字。仅取 equipped 的功法。
+   */
+  private async parseTechniqueNames(technique: string | null): Promise<string[]> {
+    const arr = parseJsonArr(technique);
+    const equipped = arr.filter((t) => t?.equipped && Number(t.id) > 0);
+    if (!equipped.length) return [];
+    const defs = await this.techniqueService.findByIds(
+      equipped.map((t) => Number(t.id)),
+    );
+    const nameMap = new Map(defs.map((d) => [d.id, d.name]));
+    return equipped
+      .map((t) => nameMap.get(Number(t.id)))
+      .filter((n): n is string => typeof n === 'string' && n.trim() !== '');
   }
 
-  /** 解析 player.skill JSON → 斗技名数组（字段名兼容 name/skill_name） */
-  private parseSkillNames(skill: string | null): string[] {
-    if (!skill) return [];
-    try {
-      const arr = JSON.parse(skill);
-      if (!Array.isArray(arr)) return [];
-      return arr
-        .map((s: any) => s?.name || s?.skill_name || null)
-        .filter((n: any): n is string => typeof n === 'string' && n.trim() !== '');
-    } catch {
-      return [];
-    }
+  /**
+   * 解析 player.skill JSON → 已装备斗技名数组。
+   * player.skill 存的是 [{id, level, cultivation, carry}]（carry=1~5 表装备槽位），
+   * 按 id 反查斗技表拿真实名字。仅取已装备（carry 有效）的斗技。
+   */
+  private async parseSkillNames(skill: string | null): Promise<string[]> {
+    const arr = parseJsonArr(skill);
+    const carried = arr.filter(
+      (s) => Number(s?.carry) >= 1 && Number(s?.carry) <= 5 && Number(s.id) > 0,
+    );
+    if (!carried.length) return [];
+    const defs = await this.skillService.findByIds(
+      carried.map((s) => Number(s.id)),
+    );
+    const nameMap = new Map(defs.map((d) => [d.id, d.name]));
+    return carried
+      .map((s) => nameMap.get(Number(s.id)))
+      .filter((n): n is string => typeof n === 'string' && n.trim() !== '');
   }
 }

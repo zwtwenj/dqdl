@@ -9,6 +9,7 @@ import { AgentService } from '../agent/agent.service';
 import { MobService } from '../mob/mob.service';
 import { ItemService } from '../item/item.service';
 import { BackpackService, GrantEntry } from '../backpack/backpack.service';
+import { EncounterService } from '../encounter/encounter.service';
 import { Biz } from '../common/biz.exception';
 import { Player } from '../player/player.entity';
 
@@ -52,6 +53,7 @@ export class TrainingService {
     private readonly mobService: MobService,
     private readonly backpackService: BackpackService,
     private readonly itemService: ItemService,
+    private readonly encounterService: EncounterService,
   ) {}
 
   /**
@@ -180,6 +182,19 @@ export class TrainingService {
       return;
     }
 
+    // 奇遇判定：10% 概率发现副本入口/洞天福地（不遇怪物，本次 tick 走奇遇分支）
+    const encounter = await this.encounterService.tryGenerate(playerId);
+    if (encounter) {
+      await this.generateEncounterLog(
+        playerId,
+        trainingId,
+        player,
+        location,
+        encounter,
+      );
+      return;
+    }
+
     // 随机选魔兽
     const mobEntry = mobs[Math.floor(Math.random() * mobs.length)];
     const won = Math.random() < WIN_RATE ? 1 : 0;
@@ -273,6 +288,43 @@ export class TrainingService {
       }),
     );
     this.logger.log(`📝 历练 #${trainingId} 生成日志：${mobEntry.name} ${won ? '胜' : '逃'}${dropsResult ? ` (+${dropsResult.length}件掉落)` : ''}`);
+  }
+
+  /**
+   * 生成一条奇遇发现日志（命中奇遇时调用，本次 tick 不遇怪物）。
+   * 调 agent /generate/encounter 生成"发现"叙事；失败用 encounter.description 兜底。
+   * 日志 mob_id 填 'encounter' 占位，keywords 标记 type='encounter' 供前端识别弹 Toast。
+   */
+  private async generateEncounterLog(
+    playerId: number,
+    trainingId: number,
+    player: Player,
+    location: NetNodeView,
+    encounter: { kind: string; title: string; scene_type: string; star: number | null; description: string },
+  ) {
+    const techniqueNames = this.parseTechniqueNames(player.technique);
+    const text =
+      (await this.agentService.generateEncounter(
+        { name: player.name, technique_name: techniqueNames.join('、') },
+        { name: location.name, description: location.description || '' },
+        encounter,
+      )) || encounter.description;
+
+    await this.logRepo.save(
+      this.logRepo.create({
+        training_id: trainingId,
+        content: text,
+        keywords: JSON.stringify([
+          { text: player.name, type: 'player' },
+          { text: location.name, type: 'location' },
+          { text: encounter.title, type: 'encounter' },
+        ]),
+        mob_id: 'encounter',
+        won: 1,
+        drops: null,
+      }),
+    );
+    this.logger.log(`✨ 历练 #${trainingId} 触发奇遇：${encounter.title}（${encounter.kind}）`);
   }
 
   /** 结束历练：置 status=1 + 清定时器 + 恢复玩家空闲 */

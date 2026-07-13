@@ -2,9 +2,13 @@
 /**
  * 右下角功能图标栏：背包 / 角色 / 斗技 / 宝物 / 炼丹 / 任务 / 奇遇。
  * 图标来自 /icon/btn/。暂时只做 UI 占位，点击 emit 一个 select 事件并附带 key。
+ * badges: { [key]: true } 用于在图标右上角显示红点（如奇遇有新内容）。
  */
 import { ref } from 'vue'
 
+defineProps({
+  badges: { type: Object, default: () => ({}) },
+})
 defineEmits(['select'])
 
 const items = [
@@ -32,10 +36,16 @@ const active = ref(null)
       :title="item.label"
       @click="active = item.key; $emit('select', item.key)"
     >
-      <img
-        :src="item.icon"
-        :alt="item.label"
-      >
+      <span class="icon-wrap">
+        <img
+          :src="item.icon"
+          :alt="item.label"
+        >
+        <span
+          v-if="badges[item.key]"
+          class="icon-badge"
+        />
+      </span>
       <span class="icon-label">{{ item.label }}</span>
     </button>
   </div>
@@ -78,6 +88,22 @@ const active = ref(null)
   height: 34px;
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+}
+
+.icon-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.icon-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff6a4a;
+  box-shadow: 0 0 6px rgba(255, 106, 74, 0.8);
 }
 
 .icon-label {

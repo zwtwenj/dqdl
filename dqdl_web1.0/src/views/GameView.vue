@@ -64,6 +64,9 @@ const skillPanelOpen = ref(false)
 
 // 战斗界面
 const battleOpen = ref(false)
+
+// 奇遇红点（发现新奇遇时亮起，打开列表时清除）
+const encounterBadge = ref(false)
 const battleSnapshot = ref(null)
 const battleBusy = ref(false)
 
@@ -125,6 +128,21 @@ async function pollTrainingLogs() {
           (l) => l.drops && l.drops !== 'null' && l.id > (lastSeenLogId.value || 0)
         )
         if (hasNewDrops) backpackStore.markDirty()
+      }
+      // 检测新奇遇日志（mob_id='encounter'），弹 Toast + 亮红点
+      const newEncounter = newLogs.find(
+        (l) => l.mob_id === 'encounter' && l.id > (lastSeenLogId.value || 0)
+      )
+      if (newEncounter) {
+        encounterBadge.value = true
+        // 从 keywords 解析奇遇标题
+        let encTitle = '一处机缘'
+        try {
+          const kws = typeof newEncounter.keywords === 'string' ? JSON.parse(newEncounter.keywords) : newEncounter.keywords
+          const encKw = (kws || []).find((k) => k.type === 'encounter')
+          if (encKw) encTitle = encKw.text
+        } catch { /* ignore */ }
+        bus.emit(BusEvents.TOAST, { type: 'info', message: `✨ 发现奇遇：${encTitle}` })
       }
       if (newLogs.length) lastSeenLogId.value = newLogs[0].id // logs 按 id DESC，第一个是最新
       trainingLogs.value = newLogs
@@ -358,6 +376,11 @@ function onIconSelect(key) {
     onBattleStart()
     return
   }
+  if (key === 'encounter') {
+    encounterBadge.value = false // 打开即清红点
+    bus.emit(BusEvents.ADVENTURE_OPEN)
+    return
+  }
   console.log('选中功能：', key)
 }
 
@@ -530,7 +553,10 @@ function backToStart() {
     </button>
 
     <!-- 右下角功能图标栏 -->
-    <IconToolbar @select="onIconSelect" />
+    <IconToolbar
+      :badges="{ encounter: encounterBadge }"
+      @select="onIconSelect"
+    />
 
     <!-- 背包弹窗（功能栏上方，可拖拽，动态层级） -->
     <BagPanel

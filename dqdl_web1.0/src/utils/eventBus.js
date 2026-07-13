@@ -25,6 +25,10 @@ export const BusEvents = {
    *  丹药使用等动作改了 player 后端聚合数据，由动作发起方 emit 整个 player，
    *  GameView 监听后直接覆盖 player.value（无需重新拉接口）。 */
   PLAYER_UPDATE: 'player-update',
+  /** 打开奇遇列表弹窗：无载荷（playerId 由弹窗自身从路由/全局拿） */
+  ADVENTURE_OPEN: 'adventure-open',
+  /** 发现奇遇通知（历练轮询拉到奇遇日志时触发）：{ title } 用于 Toast 提示 */
+  ADVENTURE_FOUND: 'adventure-found',
 }
 
 const listeners = new Map()

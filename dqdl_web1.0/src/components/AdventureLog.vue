@@ -137,7 +137,7 @@ function onStop() {
             v-html="highlight(log.content, log.keywords)"
           />
           <div class="log-footer">
-            <span class="log-time">{{ log.won ? '胜利' : '逃跑' }}</span>
+            <span class="log-time">{{ log.mob_id === 'encounter' ? '奇遇' : (log.won ? '胜利' : '逃跑') }}</span>
             <span
               v-if="log.drops"
               class="log-drops"

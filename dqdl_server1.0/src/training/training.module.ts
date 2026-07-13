@@ -10,6 +10,7 @@ import { AgentModule } from '../agent/agent.module';
 import { MobModule } from '../mob/mob.module';
 import { BackpackModule } from '../backpack/backpack.module';
 import { ItemModule } from '../item/item.module';
+import { EncounterModule } from '../encounter/encounter.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -21,6 +22,7 @@ import { AuthModule } from '../auth/auth.module';
     MobModule,
     BackpackModule,
     ItemModule,
+    EncounterModule,
     AuthModule,
   ],
   providers: [TrainingService],

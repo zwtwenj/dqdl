@@ -185,6 +185,42 @@ export class AgentService {
   }
 
   /**
+   * 生成奇遇发现叙事：调 POST /generate/encounter。
+   * 只描述"发现"这处奇遇（秘境入口/洞天福地），不写进入或战斗。
+   * @param player     玩家信息 { name, technique_name }
+   * @param location   地点信息 { name, description }
+   * @param encounter  奇遇信息 { kind, title, scene_type, star, description }
+   * @returns 叙事文本；agent 不可用或出错时返回 null（调用方用 encounter.description 兜底）
+   */
+  async generateEncounter(
+    player: { name: string; technique_name?: string },
+    location: { name: string; description?: string },
+    encounter: {
+      kind: string;
+      title: string;
+      scene_type?: string;
+      star?: number | null;
+      description: string;
+    },
+  ): Promise<string | null> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<{ text: string }>(
+          `${this.baseUrl}/generate/encounter`,
+          { player, location, encounter },
+        ),
+      );
+      return data?.text || null;
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/encounter 调用失败：${err.message}（code=${err.code}）`,
+      );
+      return null;
+    }
+  }
+
+  /**
    * 生成 NPC 对话：调 POST /generate/dialog。
    * 上下文（npc/player/location/history）由 NpcService 后端组装，
    * session_id/call_index 透传给 agent，agent 据此落 agent_dialog_call。

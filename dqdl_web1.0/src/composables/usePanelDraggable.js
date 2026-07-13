@@ -72,20 +72,34 @@ export function usePanelDraggable({ elRef, pos, onStart }) {
     const el = elRef.value
     if (!el) return
 
-    // 首次拖拽：把 CSS 默认定位（right/bottom）解析成显式 left/top
     const rect = el.getBoundingClientRect()
     const parent = el.offsetParent
-    if (!parent) return
-    parentRect = parent.getBoundingClientRect()
+    if (parent) {
+      // absolute 元素：offsetParent 是定位祖先（如 game-view），边界按祖先矩形
+      parentRect = parent.getBoundingClientRect()
+    } else {
+      // fixed 元素（offsetParent 为 null，如 Teleport to body 的浮窗）：边界按 viewport
+      parentRect = {
+        left: 0,
+        top: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }
+    }
 
     let curX, curY
     if (pos.value) {
       curX = pos.value.x
       curY = pos.value.y
-    } else {
-      // 用当前渲染位置作为起点（相对于 offsetParent）
+    } else if (parent) {
+      // absolute：用 offsetLeft/Top（相对 offsetParent）
       curX = el.offsetLeft
       curY = el.offsetTop
+      pos.value = { x: curX, y: curY }
+    } else {
+      // fixed：offsetLeft/Top 不可靠，用 getBoundingClientRect（相对 viewport）
+      curX = rect.left
+      curY = rect.top
       pos.value = { x: curX, y: curY }
     }
 

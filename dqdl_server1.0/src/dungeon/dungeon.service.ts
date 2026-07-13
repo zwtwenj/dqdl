@@ -12,6 +12,17 @@ import { Biz } from '../common/biz.exception';
 
 const SCENE_POOL = ['山洞', '密林', '山谷', '浅滩'];
 
+/** 解析 JSON 字符串为数组，失败/空返回 [] */
+function parseJsonArr(raw: string | null | undefined): any[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
 /** loc_type → 难度（地图等阶）：wild=一阶, wild2=二阶, wild3=三阶，其它默认一阶 */
 const LOC_TYPE_TO_TIER: Record<string, number> = {
   wild: 1,
@@ -127,11 +138,21 @@ export class DungeonService {
     });
   }
 
-  /** 推进下一幕；若已在最后一幕则通关 */
+  /** 推进下一幕；若已在最后一幕则通关。combat/boss 幕必须已击败才能推进。 */
   async next(playerId: number): Promise<DungeonInstance> {
     const inst = await this.getCurrent(playerId);
     if (!inst) throw Biz.notFound('没有进行中的秘境');
-    const total = Array.isArray(inst.acts) ? inst.acts.length : 5;
+    const acts = Array.isArray(inst.acts) ? inst.acts : [];
+    const act = acts[inst.current_act - 1];
+    // 当前是战斗幕且未击败 → 不允许推进（必须先打赢）
+    if (
+      act &&
+      (act.type === 'combat' || act.type === 'boss') &&
+      !act.cleared
+    ) {
+      throw Biz.conflict('须先击败当前魔兽才能继续');
+    }
+    const total = acts.length || 5;
     if (inst.current_act >= total) {
       // 通关：本次第一期暂不结算临时背包（temp_items 留空）
       inst.status = 'completed';
@@ -155,6 +176,85 @@ export class DungeonService {
     await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
     this.logger.log(`🏃 玩家 ${playerId} 撤退秘境：${inst.title}`);
     return inst;
+  }
+
+  /**
+   * 战斗胜利：标记当前 combat/boss 幕已击败，按 mob.drops 掷骰掉落进临时背包。
+   * 幂等（act.cleared 已 true 则跳过）。由前端 BattlePanel 战斗胜利后调用。
+   */
+  async winAct(playerId: number): Promise<DungeonInstance> {
+    const inst = await this.getCurrent(playerId);
+    if (!inst) throw Biz.notFound('没有进行中的秘境');
+    const acts = Array.isArray(inst.acts) ? inst.acts : [];
+    const act = acts[inst.current_act - 1];
+    if (!act || (act.type !== 'combat' && act.type !== 'boss') || act.cleared) {
+      return inst;
+    }
+    // 掷骰掉落进临时背包
+    const mobId = act.mob?.mob_id;
+    const mob = mobId ? await this.mobService.findByMobId(mobId) : null;
+    const drops = mob ? this.rollDrops(mob.drops) : [];
+    if (drops.length) {
+      const items = await this.itemService.findByItemIds(drops.map((d) => d.item_id));
+      const nameMap = new Map(items.map((it) => [it.item_id, it.name]));
+      const temp = parseJsonArr(inst.temp_items);
+      const lootNames: string[] = [];
+      for (const d of drops) {
+        const name = nameMap.get(d.item_id);
+        if (!name) continue;
+        const ex = temp.find((t) => t.name === name);
+        if (ex) ex.count += d.count;
+        else temp.push({ name, count: d.count });
+        lootNames.push(`${name} ×${d.count}`);
+      }
+      inst.temp_items = JSON.stringify(temp);
+      act.lootNames = lootNames;
+    }
+    act.cleared = true;
+    inst.acts = acts;
+    this.logger.log(`⚔️ 玩家 ${playerId} 秘境击败 ${act.mob?.name || '魔兽'}（第${inst.current_act}幕）`);
+    return this.repo.save(inst);
+  }
+
+  /** 战斗失败：整个秘境失败，临时背包丢失 */
+  async fail(playerId: number): Promise<DungeonInstance> {
+    const inst = await this.getCurrent(playerId);
+    if (!inst) throw Biz.notFound('没有进行中的秘境');
+    inst.status = 'failed';
+    inst.temp_items = '[]'; // 失败清空临时背包
+    await this.repo.save(inst);
+    if (inst.encounter_id) {
+      await this.encounterService.markDone(inst.encounter_id, playerId);
+    }
+    await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
+    this.logger.log(`💀 玩家 ${playerId} 秘境战斗失败，秘境结束：${inst.title}`);
+    return inst;
+  }
+
+  /**
+   * 简版掉落掷骰（复用 training 的规则，但不做占位符 item_id 解析）。
+   * drops JSON: [{item_id, rate, min, max}]
+   */
+  private rollDrops(rawDrops: string | null): { item_id: string; count: number }[] {
+    let drops: any[] = [];
+    if (rawDrops) {
+      try {
+        const parsed = JSON.parse(rawDrops);
+        if (Array.isArray(parsed)) drops = parsed;
+      } catch {
+        return [];
+      }
+    }
+    const result: { item_id: string; count: number }[] = [];
+    for (const d of drops) {
+      if (!d || !d.item_id || typeof d.rate !== 'number') continue;
+      if (Math.random() > d.rate) continue;
+      const lo = Math.max(1, d.min ?? 1);
+      const hi = Math.max(lo, d.max ?? 1);
+      const count = Math.floor(Math.random() * (hi - lo + 1)) + lo;
+      if (count > 0) result.push({ item_id: d.item_id, count });
+    }
+    return result;
   }
 
   // ============ 蓝图生成 + 装配 ============

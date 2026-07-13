@@ -50,4 +50,18 @@ export class DungeonController {
     const player = await this.playerService.verifyOwnershipByUser(req.user.id);
     return this.dungeonService.escape(player.id);
   }
+
+  /** 战斗胜利：标记当前幕已击败 + 掉落进临时背包 POST /api/dungeon/win */
+  @Post('win')
+  async win(@Req() req: any) {
+    const player = await this.playerService.verifyOwnershipByUser(req.user.id);
+    return this.dungeonService.winAct(player.id);
+  }
+
+  /** 战斗失败：整个秘境失败 POST /api/dungeon/fail */
+  @Post('fail')
+  async fail(@Req() req: any) {
+    const player = await this.playerService.verifyOwnershipByUser(req.user.id);
+    return this.dungeonService.fail(player.id);
+  }
 }

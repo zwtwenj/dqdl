@@ -53,7 +53,7 @@ export interface BattleSnapshot {
 @Injectable()
 export class BattleService implements OnModuleInit {
   private readonly logger = new Logger(BattleService.name);
-  private readonly sessions = new Map<number, { state: BattleState; startedAt: Date; rounds: number; mobId: string }>();
+  private readonly sessions = new Map<number, { state: BattleState; startedAt: Date; rounds: number; mobId: string; fromStatus: number }>();
 
   constructor(
     private readonly buffService: BuffService,
@@ -76,7 +76,8 @@ export class BattleService implements OnModuleInit {
 
   /**
    * 开战：查 player.findOne 拿 final_attrs+skills，查 mob，createCombatant，建会话。
-   * 要求玩家空闲（status=1），开战后置 status=BATTLE(7)。
+   * 要求玩家空闲（status=1）或秘境中（status=3，供秘境战斗复用），开战后置 status=BATTLE(7)。
+   * 记录来源 status，finish 时回到来源（秘境战斗结束回 DUNGEON，普通战斗回 IDLE）。
    */
   async start(playerId: number, mobId: string): Promise<BattleSnapshot> {
     // 同一玩家已有进行中战斗 → 直接返回当前快照（防重复开战）
@@ -85,7 +86,12 @@ export class BattleService implements OnModuleInit {
 
     const playerEntity = await this.playerService.getEntity(playerId);
     if (!playerEntity) throw Biz.notFound(`玩家 ${playerId} 不存在`);
-    if (playerEntity.status !== PLAYER_STATUS.IDLE) {
+    // 仅允许空闲或秘境中开战（秘境战斗复用本服务）
+    const fromStatus =
+      playerEntity.status === PLAYER_STATUS.DUNGEON
+        ? PLAYER_STATUS.DUNGEON
+        : PLAYER_STATUS.IDLE;
+    if (playerEntity.status !== PLAYER_STATUS.IDLE && playerEntity.status !== PLAYER_STATUS.DUNGEON) {
       throw Biz.conflict('当前状态无法开战，请先结束其它活动');
     }
 
@@ -122,7 +128,7 @@ export class BattleService implements OnModuleInit {
     const state = newState(player, mob, skills);
 
     await this.playerService.setStatus(playerId, PLAYER_STATUS.BATTLE);
-    this.sessions.set(playerId, { state, startedAt: new Date(), rounds: 0, mobId });
+    this.sessions.set(playerId, { state, startedAt: new Date(), rounds: 0, mobId, fromStatus });
     return this.snapshot(this.sessions.get(playerId)!);
   }
 
@@ -208,12 +214,13 @@ export class BattleService implements OnModuleInit {
     return null;
   }
 
-  /** 战斗结束：恢复玩家 IDLE 状态 + 写 battle_log + 清会话 */
+  /** 战斗结束：恢复玩家来源状态（秘境战斗回 DUNGEON，普通战斗回 IDLE）+ 写 battle_log + 清会话 */
   private async finish(playerId: number, result: 'win' | 'lose' | 'flee') {
     const session = this.sessions.get(playerId);
     if (!session) return;
     session.state.over = true;
-    await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
+    // 回到来源状态：秘境战斗→DUNGEON，普通战斗→IDLE
+    await this.playerService.setStatus(playerId, session.fromStatus || PLAYER_STATUS.IDLE);
 
     await this.battleLogRepo.save({
       player_id: playerId,

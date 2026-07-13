@@ -15,9 +15,14 @@
  */
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { bus, BusEvents } from '../utils/eventBus'
-import { enterDungeon, getCurrentDungeon, nextDungeonAct, escapeDungeon } from '../api'
+import {
+  enterDungeon, getCurrentDungeon, nextDungeonAct, escapeDungeon,
+  winDungeonAct, failDungeon,
+} from '../api'
+import { startBattle, battleAction, fleeBattle } from '../api'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
+import BattlePanel from './BattlePanel.vue'
 
 const { z, focus, mount, unmount } = usePanelStack('dungeon')
 
@@ -26,6 +31,11 @@ const loading = ref(false)
 const acting = ref(false) // 推进/撤退中（防抖）
 const instance = ref(null) // 秘境实例
 const errorMsg = ref('')
+
+/* ============ 战斗（复用全局 BattlePanel） ============ */
+const battleOpen = ref(false)
+const battleSnapshot = ref(null)
+const battleBusy = ref(false)
 
 /* ============ 拖拽（标题栏作手柄） ============ */
 const panelRef = ref(null)
@@ -64,18 +74,35 @@ async function handleOpen({ encounterId } = {}) {
   await loadOrEnter(encounterId)
 }
 
-/** 先尝试恢复进行中的秘境，无则生成新的 */
+/**
+ * 加载或生成秘境。
+ * - 带 encounterId（从奇遇列表点「进入」）：直接生成新秘境（后端 enter 会把旧 active 标记为 escaped）
+ * - 不带 encounterId（恢复/重复打开）：有记录则展示（不重复生成），无记录才生成新的
+ */
 async function loadOrEnter(encounterId) {
   loading.value = true
   try {
-    const cur = await getCurrentDungeon()
-    if (cur && cur.status === 'active') {
-      // 有进行中的秘境 → 续上（刷新恢复场景）
-      instance.value = cur
+    if (encounterId) {
+      // 明确指定进入某个奇遇 → 生成新秘境
+      const inst = await enterDungeon(encounterId)
+      instance.value = inst
+      bus.emit(BusEvents.PLAYER_STATUS_CHANGE)
       return
     }
-    // 无进行中 → 生成新的
-    const inst = await enterDungeon(encounterId)
+    // 无指定 → 恢复现有或新建
+    const cur = await getCurrentDungeon()
+    if (cur) {
+      instance.value = cur
+      if (cur.status !== 'active') {
+        bus.emit(BusEvents.TOAST, {
+          type: 'info',
+          message: cur.status === 'completed' ? '该秘境已通关' : '该秘境已结束',
+        })
+      }
+      return
+    }
+    // 无任何记录 → 直接生成（无奇遇来源，随机场景）
+    const inst = await enterDungeon(undefined)
     instance.value = inst
     bus.emit(BusEvents.PLAYER_STATUS_CHANGE)
   } catch (e) {
@@ -86,9 +113,15 @@ async function loadOrEnter(encounterId) {
   }
 }
 
-/** 推进下一幕 / 通关结算 */
+/** 推进下一幕 / 通关结算（combat/boss 幕须先击败才能推进） */
 async function onNext() {
   if (acting.value || !instance.value) return
+  // 前置校验：当前是战斗幕且未击败 → 拦截
+  const act = currentAct.value
+  if (act && (act.type === 'combat' || act.type === 'boss') && !act.cleared) {
+    bus.emit(BusEvents.TOAST, { type: 'info', message: '须先击败当前魔兽才能继续' })
+    return
+  }
   acting.value = true
   try {
     const inst = await nextDungeonAct()
@@ -120,9 +153,74 @@ async function onEscape() {
   }
 }
 
-/** 战斗/拾取（开发中桩位） */
-function onUnimplemented(label) {
-  bus.emit(BusEvents.TOAST, { type: 'info', message: `${label}（开发中）` })
+/** 点「战斗」：开战（combat/boss 幕），打开战斗弹窗 */
+async function onBattle() {
+  if (acting.value || battleOpen.value) return
+  const mobId = currentAct.value?.mob?.mob_id
+  if (!mobId) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: '该幕无魔兽配置' })
+    return
+  }
+  battleBusy.value = true
+  battleOpen.value = true
+  try {
+    battleSnapshot.value = await startBattle(mobId)
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '开战失败' })
+    battleOpen.value = false
+  } finally {
+    battleBusy.value = false
+  }
+}
+
+/** 战斗内行动（普攻/斗技/逃跑） */
+async function onBattleAction(action) {
+  if (battleBusy.value || battleSnapshot.value?.over) return
+  battleBusy.value = true
+  try {
+    if (action.type === 'flee') {
+      battleSnapshot.value = await fleeBattle()
+    } else {
+      battleSnapshot.value = await battleAction(action.type, action.slot)
+    }
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '行动失败' })
+  } finally {
+    battleBusy.value = false
+  }
+}
+
+/**
+ * 战斗结束关闭弹窗：按结果处理秘境进度。
+ * win  → winDungeonAct（标记幕已击败 + 掉落进临时背包）
+ * lose → failDungeon（整个秘境失败）
+ * flee → 逃跑不算秘境失败，玩家可再次挑战或撤退
+ */
+async function onBattleClose() {
+  const result = battleSnapshot.value?.winner
+  const over = battleSnapshot.value?.over
+  battleOpen.value = false
+  battleSnapshot.value = null
+  if (!over) return // 异常关闭，不动秘境
+
+  acting.value = true
+  try {
+    if (result === 'player') {
+      instance.value = await winDungeonAct()
+      bus.emit(BusEvents.PLAYER_STATUS_CHANGE)
+      bus.emit(BusEvents.TOAST, { type: 'success', message: '击败魔兽！' })
+    } else if (result === 'mob') {
+      // 战败 → 整个秘境失败
+      instance.value = await failDungeon()
+      bus.emit(BusEvents.PLAYER_STATUS_CHANGE)
+      bus.emit(BusEvents.TOAST, { type: 'error', message: '战斗失败，秘境结束' })
+    }
+    // flee：不调 win/fail，玩家留在当前幕可再次挑战
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '结算失败' })
+  } finally {
+    acting.value = false
+  }
 }
 
 /** 幕类型标签文案 */
@@ -234,22 +332,23 @@ onUnmounted(() => {
         <!-- 操作按钮 -->
         <div class="dun-actions">
           <template v-if="!isFinished">
+            <!-- combat/boss 幕：未击败→战斗按钮，已击败→显示掉落 -->
             <button
-              v-if="currentAct && (currentAct.type === 'combat' || currentAct.type === 'boss')"
+              v-if="currentAct && (currentAct.type === 'combat' || currentAct.type === 'boss') && !currentAct.cleared"
               class="dun-btn dun-btn-warn"
               type="button"
-              @click="onUnimplemented('战斗')"
+              :disabled="acting"
+              @click="onBattle"
             >战斗</button>
-            <button
-              v-if="currentAct && currentAct.type === 'item' && !currentAct.picked"
-              class="dun-btn dun-btn-warn"
-              type="button"
-              @click="onUnimplemented('拾取')"
-            >拾取</button>
+            <div
+              v-else-if="currentAct && currentAct.cleared && currentAct.lootNames?.length"
+              class="act-looted"
+            >战利品：{{ currentAct.lootNames.join('、') }}</div>
             <button
               class="dun-btn dun-btn-primary"
               type="button"
-              :disabled="acting"
+              :disabled="acting || (currentAct && (currentAct.type === 'combat' || currentAct.type === 'boss') && !currentAct.cleared)"
+              :title="(currentAct && (currentAct.type === 'combat' || currentAct.type === 'boss') && !currentAct.cleared) ? '须先击败当前魔兽' : ''"
               @click="onNext"
             >{{ isLastAct ? '通关结算' : '前进' }}</button>
             <button
@@ -272,6 +371,15 @@ onUnmounted(() => {
         </div>
       </template>
     </div>
+
+    <!-- 秘境内战斗弹窗（复用全局 BattlePanel，全屏覆盖层） -->
+    <BattlePanel
+      v-if="battleOpen"
+      :snapshot="battleSnapshot"
+      :busy="battleBusy"
+      @action="onBattleAction"
+      @close="onBattleClose"
+    />
   </Teleport>
 </template>
 
@@ -281,8 +389,8 @@ onUnmounted(() => {
   position: fixed;
   left: 40px;
   top: 40px;
-  width: 440px;
-  max-height: 80vh;
+  width: 560px;
+  max-height: 86vh;
   display: flex;
   flex-direction: column;
   background: linear-gradient(160deg, rgba(28, 22, 16, 0.97), rgba(14, 11, 8, 0.98));
@@ -307,7 +415,7 @@ onUnmounted(() => {
 .dun-title {
   color: #f0d890;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.15rem;
   letter-spacing: 2px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
@@ -337,10 +445,10 @@ onUnmounted(() => {
 }
 
 .dun-intro {
-  padding: 14px 16px;
-  font-size: 0.85rem;
+  padding: 16px 20px;
+  font-size: 0.95rem;
   color: rgba(220, 210, 180, 0.85);
-  line-height: 1.7;
+  line-height: 1.8;
   border-bottom: 1px solid rgba(180, 150, 90, 0.2);
   background: rgba(0, 0, 0, 0.2);
 }
@@ -350,8 +458,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 8px;
-  gap: 4px;
+  padding: 18px 24px 10px;
+  gap: 6px;
 }
 .prog-node {
   flex: 1;
@@ -398,8 +506,8 @@ onUnmounted(() => {
 
 /* 当前幕叙事 */
 .dun-act {
-  padding: 12px 16px;
-  margin: 0 16px 12px;
+  padding: 16px 20px;
+  margin: 0 20px 14px;
   background: linear-gradient(180deg, rgba(40, 30, 20, 0.6), rgba(24, 18, 12, 0.6));
   border: 1px solid rgba(180, 150, 90, 0.3);
   border-radius: 6px;
@@ -407,12 +515,12 @@ onUnmounted(() => {
 .act-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 .act-badge {
-  padding: 1px 8px;
-  font-size: 0.7rem;
+  padding: 2px 10px;
+  font-size: 0.75rem;
   color: #d4af6a;
   border: 1px solid rgba(180, 150, 90, 0.5);
   border-radius: 3px;
@@ -424,44 +532,44 @@ onUnmounted(() => {
 .act-title {
   color: #e8d5a0;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   letter-spacing: 1px;
 }
 .act-narrative {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: rgba(230, 222, 208, 0.9);
-  line-height: 1.8;
+  line-height: 1.85;
 }
 .act-reveal {
-  margin-top: 8px;
-  padding: 6px 10px;
-  font-size: 0.82rem;
+  margin-top: 10px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
   color: #f0d890;
   background: rgba(240, 216, 144, 0.08);
   border-left: 2px solid rgba(240, 216, 144, 0.5);
   border-radius: 2px;
 }
 .act-mob {
-  margin-top: 8px;
-  font-size: 0.8rem;
+  margin-top: 10px;
+  font-size: 0.85rem;
   color: rgba(255, 160, 140, 0.85);
 }
 
 /* 操作按钮 */
 .dun-actions {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 14px 20px;
   border-top: 1px solid rgba(180, 150, 90, 0.2);
 }
 .dun-btn {
   flex: 1;
-  padding: 9px 0;
+  padding: 11px 0;
   background: linear-gradient(180deg, rgba(55, 42, 24, 0.85), rgba(38, 28, 18, 0.85));
   border: 1px solid rgba(180, 150, 90, 0.4);
   border-radius: 4px;
   color: #e8d5a0;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   letter-spacing: 2px;
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
   cursor: pointer;
@@ -476,6 +584,14 @@ onUnmounted(() => {
 .dun-btn-primary { color: #f0d890; border-color: rgba(220, 190, 120, 0.6); }
 .dun-btn-warn { color: rgba(255, 160, 140, 0.85); border-color: rgba(180, 100, 80, 0.4); }
 .dun-btn-ghost { color: rgba(200, 170, 110, 0.7); }
+
+.act-looted {
+  flex: 1;
+  align-self: center;
+  font-size: 0.78rem;
+  color: #d4af6a;
+  letter-spacing: 0.5px;
+}
 
 .dun-finished {
   flex: 1;

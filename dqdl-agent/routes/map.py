@@ -4,7 +4,7 @@
 import random
 from flask import Blueprint, request, jsonify
 from config import ensure_rag
-from services.map_service import generate_locations, ensure_city_districts, generate_map_node, generate_map_nodes
+from services.map_service import generate_locations, ensure_city_districts, generate_map_node, generate_map_nodes, fetch_real_mobs
 
 bp = Blueprint('map', __name__)
 
@@ -89,6 +89,32 @@ def generate_batch_map_nodes():
     for i, r in enumerate(results):
         r['seed'] = f'batch-{random.randint(0, 10000)}-{i}'
     return jsonify(results)
+
+
+@bp.route('/generate/wild-mobs', methods=['POST'])
+def generate_wild_mobs():
+    """
+    为已有野外节点补填 common_mobs（不重新生成节点本身）。
+    复用 RAG 按 danger_level 检索真实魔兽：1→一阶, 2→二阶, 3→三阶。
+    Body: {
+        name: string,                 # 节点名（喂 RAG 提高贴合度）
+        danger_level: number,         # 1/2/3
+        description?: string,         # 节点描述（可选，喂 RAG）
+        tags?: string[],              # 节点标签（可选，喂 RAG）
+        max_count?: number            # 期望数量，默认 4
+    }
+    返回：{ mobs: [{mob_id, name, rank?}] | null }
+    """
+    data = request.get_json(force=True)
+    loc_info = {
+        'danger_level': int(data.get('danger_level', 0)),
+        'description': data.get('description', ''),
+        'tags': data.get('tags') or [],
+    }
+    parent_info = {'name': data.get('name', '')}
+    max_count = int(data.get('max_count', 4))
+    mobs = fetch_real_mobs(parent_info, loc_info, max_count=max_count)
+    return jsonify({'mobs': mobs})
 
 
 @bp.route('/rag/search', methods=['POST'])

@@ -15,6 +15,8 @@ import type {
   AgentMapNodesResultItem,
   AgentNpcRequest,
   AgentNpcResult,
+  AgentWildMobsRequest,
+  AgentWildMobsResult,
 } from './agent.types';
 
 /**
@@ -142,6 +144,33 @@ export class AgentService {
         `agent /generate/map-nodes 调用失败：${err.message}（code=${err.code}, status=${err.response?.status}）`,
       );
       return null;
+    }
+  }
+
+  /**
+   * 为已有野外节点补填 common_mobs：调 POST /generate/wild-mobs。
+   * 不重新生成节点本身，只按 danger_level 用 RAG 检索真实魔兽。
+   * agent 不可用或 RAG 无命中时返回 { mobs: null }（调用方自行降级）。
+   */
+  async generateWildMobs(req: AgentWildMobsRequest): Promise<AgentWildMobsResult> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<AgentWildMobsResult>(
+          `${this.baseUrl}/generate/wild-mobs`,
+          req,
+          { timeout: 15000 },
+        ),
+      );
+      if (!data || !Array.isArray(data.mobs)) {
+        return { mobs: null };
+      }
+      return data;
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/wild-mobs 调用失败：${err.message}（code=${err.code}, status=${err.response?.status}）`,
+      );
+      return { mobs: null };
     }
   }
 

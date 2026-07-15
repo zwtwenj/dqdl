@@ -115,6 +115,26 @@ export interface AgentMapNodesResultItem extends AgentMapNodeResult {
   gy: number;
 }
 
+/** 野外节点补填 common_mobs 请求（调 /generate/wild-mobs）
+ *  不重新生成节点本身，只按 danger_level 用 RAG 检索真实魔兽补 mobs。 */
+export interface AgentWildMobsRequest {
+  /** 节点名（喂 RAG 提高贴合度） */
+  name: string;
+  /** 危险度 1/2/3 → 一阶/二阶/三阶魔兽 */
+  danger_level: number;
+  /** 节点描述（可选，喂 RAG） */
+  description?: string;
+  /** 节点标签（可选，喂 RAG） */
+  tags?: string[];
+  /** 期望数量，默认 4 */
+  max_count?: number;
+}
+
+/** 野外补填结果：mob 列表或 null（agent 不可用 / RAG 无命中） */
+export interface AgentWildMobsResult {
+  mobs: { mob_id: string; name: string; rank?: string }[] | null;
+}
+
 /** NPC 生成请求（调 /generate/npc）：按场景+职能生成一个 NPC 的基础设定 */
 export interface AgentNpcRequest {
   scene_name: string;

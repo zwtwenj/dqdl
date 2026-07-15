@@ -92,6 +92,10 @@ def _fetch_real_mobs(parent_info, loc_info, max_count=4):
         return None
 
 
+# 公开别名：供 routes 直接调用（为已有野外节点补填 common_mobs，不重新生成节点）
+fetch_real_mobs = _fetch_real_mobs
+
+
 def _build_rank(tier, power_ref):
     """组合品阶 + 战力编码 → 如 一阶三段 / 二阶三星 / 三阶五星
     战力编码规则: 1-9=斗之气1-9段, 11-19=斗者1-9星, 21-29=斗师1-9星"""

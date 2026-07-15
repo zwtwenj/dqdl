@@ -635,6 +635,43 @@ export class LocationNetService implements OnApplicationBootstrap {
   }
 
   /**
+   * 为已有野外节点补填 common_mobs（不重新生成节点本身）。
+   * 场景：节点生成时 agent 没返回 mobs（或走了名称池 fallback），导致 common_mobs 为空，
+   * 佣兵任务等依赖 mobs 的功能用不了。此处惰性补填：调 agent 的 /generate/wild-mobs
+   * 按 danger_level 用 RAG 检索真实魔兽，写回 common_mobs 列。
+   *
+   * @param netId  野外节点 id
+   * @param maxCount 期望 mob 数量，默认 4
+   * @returns 补填成功返回更新后的节点视图（含 common_mobs）；agent 不可用 / RAG 无命中返回 null
+   */
+  async fillWildMobs(netId: number, maxCount = 4): Promise<NetNodeView | null> {
+    const node = await this.netRepo.findOneBy({ id: netId });
+    if (!node) return null;
+    // 已有 mobs 则不重复补填（幂等）
+    const existing = safeParseJson(node.common_mobs);
+    if (Array.isArray(existing) && existing.length > 0) {
+      return this.toView(node);
+    }
+
+    const { mobs } = await this.agent.generateWildMobs({
+      name: node.name,
+      danger_level: node.danger_level,
+      description: node.description || undefined,
+      tags: Array.isArray(node.tags) ? node.tags : undefined,
+      max_count: maxCount,
+    });
+    if (!mobs || mobs.length === 0) {
+      this.logger.warn(`补填 wild mobs 失败：节点 ${node.name}(${netId}) RAG 无命中`);
+      return null;
+    }
+
+    node.common_mobs = JSON.stringify(mobs);
+    await this.netRepo.save(node);
+    this.logger.log(`补填 wild mobs：${node.name}(${netId}) ← ${mobs.map((m) => m.name).join('、')}`);
+    return this.toView(node);
+  }
+
+  /**
    * 在某节点 maxDist 格内定向生成野外地图（佣兵任务候选不足时补齐）。
    *
    * 连通性保证（不产生孤儿图）：采用 BFS 扩散——

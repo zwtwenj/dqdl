@@ -115,11 +115,22 @@ export class TaskService {
       candidates = await this.locationNet.findWildsWithin(netId, TASK_MAX_DIST);
     }
 
-    // 4. 过滤掉 common_mobs 为空的候选（无法派发击杀目标）
-    const usable = candidates.filter((w) => {
+    // 4. 过滤可用候选：common_mobs 非空才能派发击杀目标。
+    //    对 mobs 为空的野外节点惰性补填（调 agent 按 danger_level 用 RAG 检索真实魔兽，
+    //    补好就持久化，后续不再重复），补填失败的才剔除。
+    const usable: any[] = [];
+    for (const w of candidates) {
       const mobs = this.parseMobs(w.common_mobs);
-      return mobs.length > 0;
-    });
+      if (mobs.length > 0) {
+        usable.push(w);
+        continue;
+      }
+      // 空 mobs → 惰性补填（仅野外节点，且已确保是 wild）
+      const filled = await this.locationNet.fillWildMobs(w.id);
+      if (filled && this.parseMobs(filled.common_mobs).length > 0) {
+        usable.push(filled);
+      }
+    }
 
     if (usable.length === 0) {
       return {

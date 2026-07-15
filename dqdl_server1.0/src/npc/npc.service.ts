@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { StaticNpc } from './static-npc.entity';
 import { Nature } from './nature.entity';
 import { NpcRole } from './npc-role.entity';
@@ -45,12 +45,17 @@ export class NpcService {
     private readonly playerService: PlayerService,
     private readonly locationService: LocationService,
     private readonly agent: AgentService,
+    private readonly dataSource: DataSource,
   ) {}
 
-  /** 查某地点的全部 NPC（附带 nature_name/role_name/hint，供前端渲染） */
-  async findByLocation(locationId: number): Promise<any[]> {
+  /** 查某地点的 NPC（"此地之人"），附带 nature_name/role_name/hint 供前端渲染。
+   *  type='node'  → locationId 视为 location_net 节点 id，查 location_id
+   *  type='scene' → locationId 视为 location_scene 场景 id，查 location_scene_id
+   *  显式区分节点/场景，不再靠探测表猜（节点28和场景28会撞号）。
+   */
+  async findByLocation(locationId: number, type: 'node' | 'scene' = 'node'): Promise<any[]> {
     const npcs = await this.npcRepo.find({
-      where: { location_id: locationId },
+      where: type === 'scene' ? { location_scene_id: locationId } : { location_id: locationId },
       order: { id: 'ASC' },
     });
     const result: any[] = [];
@@ -111,7 +116,9 @@ export class NpcService {
     const session = this.sessionRepo.create({
       player_id: playerId,
       npc_id: npcId,
-      location_id: npc.location_id,
+      // 记 NPC 所在地（节点或场景的 id，互斥只有一个有值）；
+      // dialog_session.location_id 仅作快照，读取方不依赖它区分类型。
+      location_id: npc.location_id ?? npc.location_scene_id ?? null,
       title,
       messages: [],
       status: 1,
@@ -119,6 +126,38 @@ export class NpcService {
     });
     const saved = await this.sessionRepo.save(session);
     return { sessionId: saved.id, npc };
+  }
+
+  /**
+   * 解析 NPC 所在地信息（供对话上下文用）。
+   *   绑节点（location_id）→ 查 location_net 节点
+   *   绑场景（location_scene_id）→ 查 location_scene 场景
+   *   都没有 → 返回 null（不阻断对话）
+   * 返回统一结构 { name, loc_type, description, tags }。
+   */
+  private async resolveNpcLocation(npc: StaticNpc): Promise<any> {
+    try {
+      if (npc.location_scene_id != null) {
+        const scene = await this.dataSource
+          .getRepository('location_scene')
+          .findOneBy({ id: npc.location_scene_id });
+        if (scene) {
+          return {
+            name: scene.name,
+            loc_type: scene.scene_type,
+            description: scene.description || '',
+            tags: scene.available_actions || [],
+          };
+        }
+      }
+      if (npc.location_id != null) {
+        // 节点绑定：走老的 locationService（兼容旧体系）
+        return await this.locationService.findOne(npc.location_id);
+      }
+    } catch {
+      // 降级
+    }
+    return null;
   }
 
   /**
@@ -148,13 +187,8 @@ export class NpcService {
       player = null;
     }
 
-    // 地点信息（不存在则降级为空对象，不阻断对话）
-    let location: any = null;
-    try {
-      location = await this.locationService.findOne(npc.location_id);
-    } catch {
-      location = null;
-    }
+    // 地点信息：NPC 绑节点则取节点，绑场景则取场景（不存在则降级空对象）
+    const location = await this.resolveNpcLocation(npc);
 
     // 从 session.messages 提取 history（记忆由 server 塞入上下文）
     const history = this.extractHistory(session.messages);
@@ -220,10 +254,10 @@ export class NpcService {
    *   market  → 坊市管理员
    *   alchemy → 炼药师
    *   ...
-   * 对每个该场景类型要求的职能：若该场景（location_id=scene.id）下还没有这个职能的 NPC，
+   * 对每个该场景类型要求的职能：若该场景（location_scene_id=scene.id）下还没有这个职能的 NPC，
    * 就调 agent 起一个名字/性格补上。已存在则跳过（幂等）。
    *
-   * @param sceneId    location_scene.id（NPC 的 location_id 指向它）
+   * @param sceneId    location_scene.id（NPC 的 location_scene_id 指向它）
    * @param sceneType  场景类型（guild/market/alchemy/...）
    * @param sceneName  场景名（喂 agent 增加贴合度）
    * @param cityName   所属城市名（可选，喂 agent）
@@ -244,7 +278,7 @@ export class NpcService {
     if (matched.length === 0) return [];
 
     // 预载该场景已有 NPC 的 role_id，避免每个职能都查一次
-    const existing = await this.npcRepo.find({ where: { location_id: sceneId } });
+    const existing = await this.npcRepo.find({ where: { location_scene_id: sceneId } });
     const existingRoleIds = new Set(existing.map((n) => n.role_id));
 
     const createdIds: number[] = [];
@@ -309,7 +343,8 @@ export class NpcService {
         age,
         nature_id: nature?.id ?? 1,
         role_id: role.id,
-        location_id: sceneId,
+        location_scene_id: sceneId, // 场景绑定写 location_scene_id
+        location_id: null,
         greeting: null,
       }),
     );

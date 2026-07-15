@@ -275,10 +275,10 @@ export class LocationNetService implements OnApplicationBootstrap {
       order: { id: 'ASC' },
     });
     // 附带每个场景的 NPC 列表（前端进场景后直接渲染对话入口）
-    // 复用 NpcService.findByLocation（location_id = location_scene.id）
+    // 复用 NpcService.findByLocation：这里是场景 id，显式传 type='scene'
     const result: Array<Record<string, unknown>> = [];
     for (const s of scenes) {
-      const npcs = await this.npcService.findByLocation(s.id);
+      const npcs = await this.npcService.findByLocation(s.id, 'scene');
       result.push({
         id: s.id,
         net_id: s.net_id,

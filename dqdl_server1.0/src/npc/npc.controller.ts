@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Param,
+  Query,
   ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
@@ -19,10 +20,16 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class NpcController {
   constructor(private readonly npcService: NpcService) {}
 
-  /** 某地点 NPC 列表 GET /api/npc/location/:locationId */
+  /** 某地点 NPC 列表 GET /api/npc/location/:locationId?type=node|scene
+   *  type=node（默认）→ 玩家站在地图节点上，查 location_id
+   *  type=scene       → 玩家进了场景，查 location_scene_id
+   *  显式区分避免节点/场景 id 撞号。 */
   @Get('location/:locationId')
-  listByLocation(@Param('locationId', ParseIntPipe) locationId: number) {
-    return this.npcService.findByLocation(locationId);
+  listByLocation(
+    @Param('locationId', ParseIntPipe) locationId: number,
+    @Query('type') type?: string,
+  ) {
+    return this.npcService.findByLocation(locationId, type === 'scene' ? 'scene' : 'node');
   }
 
   /** 单 NPC 详情 GET /api/npc/:id */

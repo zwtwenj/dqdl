@@ -10,6 +10,7 @@ import { PlayerService } from '../player/player.service';
 import { LocationService } from '../location/location.service';
 import { AgentService } from '../agent/agent.service';
 import { Biz } from '../common/biz.exception';
+import { evalVisibleRule } from './dialog-visible-rules';
 
 /** 单次会话最大对话轮次（风险控制：避免上下文无限膨胀导致 token 失控） */
 const MAX_DIALOG_ROUNDS = 30;
@@ -75,8 +76,10 @@ export class NpcService {
     return result;
   }
 
-  /** 单 NPC 详情（含 nature/role 文案 + dialog_events 快捷按钮） */
-  async findOne(id: number): Promise<any> {
+  /** 单 NPC 详情（含 nature/role 文案 + dialog_events 快捷按钮）。
+   *  playerId 可选：传入时按 dialog_event.visible_rule 过滤事件按钮
+   *  （如「交付任务」仅在玩家有可交付任务时返回）；不传则不过滤（兼容旧调用）。 */
+  async findOne(id: number, playerId?: number): Promise<any> {
     const npc = await this.npcRepo.findOneBy({ id });
     if (!npc) throw Biz.notFound(`NPC ${id} 不存在`);
     const [nature, role, events] = await Promise.all([
@@ -88,6 +91,20 @@ export class NpcService {
         order: { sort: 'ASC', id: 'ASC' },
       }),
     ]);
+
+    // 按 visible_rule 过滤事件：有 playerId 才判定（无 playerId 降级为全部返回）
+    const ctx = playerId != null ? { playerId, dataSource: this.dataSource } : null;
+    const visibleEvents: DialogEvent[] = [];
+    for (const e of events) {
+      if (!e.visible_rule || !ctx) {
+        visibleEvents.push(e);
+        continue;
+      }
+      if (await evalVisibleRule(e.visible_rule, ctx)) {
+        visibleEvents.push(e);
+      }
+    }
+
     return {
       ...npc,
       nature_name: nature?.name || '',
@@ -95,7 +112,7 @@ export class NpcService {
       role_name: role?.name || '',
       role_hint: role?.prompt_hint || '',
       role_id: role?.id ?? null,
-      dialog_events: events.map((e) => ({
+      dialog_events: visibleEvents.map((e) => ({
         id: e.id,
         text: e.text,
         event: e.event,
@@ -108,7 +125,7 @@ export class NpcService {
    * @returns { sessionId, npc } npc 含详情供前端 header 渲染
    */
   async createSession(playerId: number, npcId: number): Promise<{ sessionId: number; npc: any }> {
-    const npc = await this.findOne(npcId);
+    const npc = await this.findOne(npcId, playerId);
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     const title = `${npc.name} · ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;

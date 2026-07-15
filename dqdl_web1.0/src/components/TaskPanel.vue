@@ -11,7 +11,8 @@
  *   └──────┴────────────────────────────┘
  *
  * 数据：打开时调 getMyTasks 拉玩家进行中任务（pending）。
- * 列表项点击 → 右侧详情联动。交付按钮调 claimTask。
+ * 列表项点击 → 右侧详情联动。
+ * 任务交付不在此面板内进行——回佣兵公会与接待员对话交付。
  *
  * 暗金风格：深褐半透渐变 + 金边，与 CurrentMap/PlayerPanel 一致。
  */
@@ -19,7 +20,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
 import { bus, BusEvents } from '../utils/eventBus'
-import { getMyTasks, claimTask } from '../api/task'
+import { getMyTasks } from '../api/task'
 
 const props = defineProps({
   modelValue: Boolean,
@@ -42,10 +43,20 @@ watch(
     }
   },
 )
-onMounted(() => props.modelValue && mount())
-onUnmounted(unmount)
+onMounted(() => {
+  props.modelValue && mount()
+  // 在 NPC 对话交付任务后自动刷新（面板若打开着）
+  offClaimUpdate = bus.on(BusEvents.TASK_CLAIM_UPDATE, () => {
+    if (props.modelValue) loadTasks()
+  })
+})
+onUnmounted(() => {
+  unmount()
+  offClaimUpdate?.()
+})
 
 const panelRef = ref(null)
+let offClaimUpdate = null
 const posModel = computed({
   get: () => props.pos,
   set: (v) => emit('update:pos', v),
@@ -60,7 +71,6 @@ const { dragging, onHandlePointerDown } = usePanelDraggable({
 const tasks = ref([])
 const loading = ref(false)
 const selectedId = ref(null)
-const claiming = ref(false)
 
 const selected = computed(
   () => tasks.value.find((t) => t.id === selectedId.value) || null,
@@ -92,25 +102,10 @@ function onSelect(task) {
   focus()
 }
 
-/** 判断任务是否可交付（所有目标达标） */
+/** 判断任务是否可交付（所有目标达标）——仅用于展示提示，交付走公会接待员对话 */
 function canClaim(task) {
   if (!task?.target?.length) return false
   return task.target.every((t) => (t.current || 0) >= (t.required || 0))
-}
-
-/** 交付任务 */
-async function onClaim(task) {
-  if (claiming.value || !canClaim(task)) return
-  claiming.value = true
-  try {
-    const res = await claimTask(task.id, props.playerId)
-    bus.emit(BusEvents.TOAST, { type: 'success', message: `交付成功，获得 ${res.money} 金币` })
-    await loadTasks()
-  } catch (err) {
-    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '交付失败' })
-  } finally {
-    claiming.value = false
-  }
 }
 
 /** 星级渲染 */
@@ -224,18 +219,16 @@ function close() {
             </div>
           </div>
 
-          <!-- 下：奖励 + 交付按钮 -->
+          <!-- 下：奖励（交付走公会接待员对话，不在面板内交付） -->
           <div class="detail-lower">
             <div class="reward-label">任务奖励</div>
             <div class="reward-val">{{ rewardText(selected.reward) }}</div>
-            <button
-              class="claim-btn"
-              type="button"
-              :disabled="!canClaim(selected) || claiming"
-              @click="onClaim(selected)"
+            <div
+              v-if="canClaim(selected)"
+              class="reward-tip"
             >
-              {{ claiming ? '交付中...' : (canClaim(selected) ? '交付任务' : '未完成') }}
-            </button>
+              目标已完成，可回公会交付
+            </div>
           </div>
         </template>
         <div
@@ -474,26 +467,11 @@ function close() {
   letter-spacing: 1px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
 }
-.claim-btn {
-  margin-top: 4px;
-  padding: 6px 22px;
-  font-size: 13px;
-  letter-spacing: 2px;
-  color: #c8f0d4;
-  background: linear-gradient(180deg, rgba(55, 100, 60, 0.85), rgba(38, 70, 42, 0.85));
-  border: 1px solid rgba(127, 208, 154, 0.5);
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
-  transition: all 0.15s ease;
-  &:hover:not(:disabled) {
-    border-color: rgba(127, 208, 154, 0.9);
-    box-shadow: 0 0 10px rgba(127, 208, 154, 0.25);
-  }
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+.reward-tip {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #8fd17a;
+  letter-spacing: 1px;
 }
 
 .empty-tip {

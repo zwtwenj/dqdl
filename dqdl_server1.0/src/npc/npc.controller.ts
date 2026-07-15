@@ -32,10 +32,15 @@ export class NpcController {
     return this.npcService.findByLocation(locationId, type === 'scene' ? 'scene' : 'node');
   }
 
-  /** 单 NPC 详情 GET /api/npc/:id */
+  /** 单 NPC 详情 GET /api/npc/:id?playerId=xx
+   *  playerId 可选：传入时按 visible_rule 过滤对话事件（如「交付任务」按玩家任务状态显示） */
   @Get(':id')
-  one(@Param('id', ParseIntPipe) id: number) {
-    return this.npcService.findOne(id);
+  one(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('playerId') playerId?: string,
+  ) {
+    const pid = playerId ? Number(playerId) : undefined;
+    return this.npcService.findOne(id, Number.isFinite(pid) ? pid : undefined);
   }
 
   /** 创建对话会话 POST /api/npc/:npcId/session { playerId } → { sessionId, npc } */

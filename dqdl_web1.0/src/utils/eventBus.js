@@ -37,6 +37,10 @@ export const BusEvents = {
    *  由公会接待员对话「我想要接取一些任务」触发；
    *  面板展示一个候选任务，玩家「接受/拒绝/换一个」，接受才入库。 */
   TASK_ACCEPT_OPEN: 'task-accept-open',
+  /** 任务交付成功：{ taskId }
+   *  由公会接待员对话「我完成了任务，来交付」交付后触发，
+   *  TaskPanel 若打开着则刷新列表。 */
+  TASK_CLAIM_UPDATE: 'task-claim-update',
 }
 
 const listeners = new Map()

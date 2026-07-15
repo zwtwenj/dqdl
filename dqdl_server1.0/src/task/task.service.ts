@@ -216,7 +216,7 @@ export class TaskService {
     ];
     return {
       name: `猎杀·${mob.name}`,
-      description: `前往${wild.name}，击杀${mob.name}${killCount}只`,
+      description: `前往${wild.name}，击杀${mob.name}${killCount}只（完成后回佣兵公会与接待员交谈交付）`,
       target,
       reward,
       star,

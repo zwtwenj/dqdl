@@ -29,7 +29,7 @@ function rollLocTypeFromDist(dist: Record<string, number> = MAP.locTypeDist): st
  *
  * 数据模型（见 docs/map-graph-redesign.md 和 migrations/add_location_net_scene.sql）：
  *   location_net   平面地图节点，整数网格 (gx,gy)，4 对角邻接（X 形交叉网）
- *   location_scene 地图内部场景（城市：坊市/佣兵工会/炼药师公会），不显示在地图上
+ *   location_scene 地图内部场景（城市：坊市/佣兵公会/炼药师公会），不显示在地图上
  *
  * 玩家位置双状态：
  *   player.location_id = 当前所在地图节点（location_net.id）
@@ -62,9 +62,9 @@ interface SceneTemplate {
 }
 const CITY_SCENES: SceneTemplate[] = [
   {
-    name: '佣兵工会',
+    name: '佣兵公会',
     scene_type: 'guild',
-    description: (c) => `${c}的佣兵工会分部，发布和接取各类任务，佣兵们的聚集之地。`,
+    description: (c) => `${c}的佣兵公会分部，发布和接取各类任务，佣兵们的聚集之地。`,
     available_actions: ['quest', 'rest'],
   },
   {
@@ -426,7 +426,7 @@ export class LocationNetService implements OnApplicationBootstrap {
   /**
    * 在某节点的某对角方向（相邻空位）生成一个新地图节点。
    * 网格模型：新节点一落到网格上，它与所有已有对角邻居的边自动产生。
-   * 新城市自动补 3 个默认场景（佣兵工会/坊市/炼药师公会）。
+   * 新城市自动补 3 个默认场景（佣兵公会/坊市/炼药师公会）。
    */
   async expandFrontier(nodeId: number, direction?: string) {
     const n = await this.netRepo.findOneBy({ id: nodeId });
@@ -495,7 +495,7 @@ export class LocationNetService implements OnApplicationBootstrap {
         }),
       );
       created.push(s);
-      // 新场景 → 按 npc_role.required_in_loc_type 补齐必生 NPC（佣兵工会→公会接待员 等）
+      // 新场景 → 按 npc_role.required_in_loc_type 补齐必生 NPC（佣兵公会→公会接待员 等）
       // 失败不阻断场景创建；agent 不可用时 NpcService 内部会随机兜底
       try {
         await this.npcService.ensureSceneNpcs(s.id, s.scene_type, s.name, cityName);

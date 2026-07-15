@@ -18,6 +18,7 @@
  */
 
 import { bus, BusEvents } from './eventBus'
+import { getMyTasks, claimTask } from '../api/task'
 
 /**
  * trade 事件：打开 NPC 商店 + 联动打开/置顶玩家背包。
@@ -41,6 +42,47 @@ function handleCreateAdventurerTask({ playerId, closeDialog }) {
   closeDialog?.()
 }
 
+/** 任务全部目标达标即可交付（与后端 claimTask 的 every 判定一致） */
+function canClaim(task) {
+  if (!task?.target?.length) return false
+  return task.target.every((t) => (t.current || 0) >= (t.required || 0))
+}
+
+/**
+ * completeTask 事件：交付任务领奖（点对话按钮直接交付）。
+ * 拉玩家进行中任务，过滤出可交付的（canClaim），逐个调 claimTask。
+ * 该按钮仅在玩家有可交付任务时显示（后端 visible_rule=hasClaimableTask 过滤），
+ * 故正常情况这里必能查到至少一个；查不到则 Toast 提示。
+ */
+async function handleCompleteTask({ playerId, closeDialog }) {
+  if (!playerId) return
+  try {
+    const tasks = await getMyTasks(playerId)
+    const claimable = (tasks || []).filter(canClaim)
+    if (claimable.length === 0) {
+      bus.emit(BusEvents.TOAST, { type: 'info', message: '当前没有可交付的任务' })
+      return
+    }
+    // 逐个交付，累计奖励
+    let totalMoney = 0
+    let ok = 0
+    for (const t of claimable) {
+      const res = await claimTask(t.id, playerId)
+      totalMoney += res.money || 0
+      ok++
+    }
+    bus.emit(BusEvents.TOAST, {
+      type: 'success',
+      message: ok > 1 ? `交付 ${ok} 个任务，获得 ${totalMoney} 金币` : `交付成功，获得 ${totalMoney} 金币`,
+    })
+    // 通知 TaskPanel 刷新（若打开着）
+    bus.emit(BusEvents.TASK_CLAIM_UPDATE, {})
+    closeDialog?.()
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '交付失败' })
+  }
+}
+
 /**
  * dialog_event 回调注册表。
  * key = dialog_event.event 字符串，value = handler 函数。
@@ -49,7 +91,7 @@ function handleCreateAdventurerTask({ playerId, closeDialog }) {
 export const dialogEventHandlers = {
   trade: handleTrade,
   createAdventurerTask: handleCreateAdventurerTask,
-  // completeTask: handleCompleteTask,  // 交付任务事件后续接驳
+  completeTask: handleCompleteTask,
 }
 
 /**

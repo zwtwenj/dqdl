@@ -112,9 +112,10 @@ function enterGameView(character, player) {
   })
 }
 
-/** 退出登录 */
+/** 退出登录（清 token + 关闭角色选择弹窗，回到登录面板） */
 function onLogout() {
   auth.logout()
+  charDialogVisible.value = false
 }
 </script>
 
@@ -164,6 +165,7 @@ function onLogout() {
       @select="onCharacterSelect"
       @create="onCharacterCreate"
       @delete="onCharacterDelete"
+      @logout="onLogout"
     />
 
     <!-- 角色命名弹窗 -->

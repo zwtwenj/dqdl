@@ -5,6 +5,7 @@ import { computed } from 'vue'
  * 角色选择弹窗（网游模式）。
  * 登录后弹出：空槽位显示"+ 创建角色"，已有角色显示角色信息+进入。
  * 已有角色右上角有删除按钮（不影响 slot 位置）。
+ * 右上角有"退出登录"按钮，清除 token 回到登录面板。
  *
  * Props:
  *   modelValue (boolean) - 是否显示
@@ -14,12 +15,13 @@ import { computed } from 'vue'
  *   select (slot)     - 选已有角色进入游戏
  *   create (slot)     - 选空位创建新角色
  *   delete (character)- 删除角色
+ *   logout            - 退出登录（父组件清 token）
  */
 const props = defineProps({
   modelValue: Boolean,
   characters: { type: Array, default: () => [] },
 })
-const emit = defineEmits(['update:modelValue', 'select', 'create', 'delete'])
+const emit = defineEmits(['update:modelValue', 'select', 'create', 'delete', 'logout'])
 
 /** 三个固定槽位，合并角色数据 */
 const slots = computed(() => {
@@ -57,6 +59,16 @@ function fmtTime(ts) {
       class="overlay"
     >
       <div class="modal">
+        <!-- 退出登录按钮（标题区右上角） -->
+        <button
+          class="logout-btn"
+          type="button"
+          title="退出登录"
+          @click="emit('logout')"
+        >
+          退出登录
+        </button>
+
         <h2 class="title">
           选择角色
         </h2>
@@ -142,8 +154,33 @@ function fmtTime(ts) {
   padding: 28px 32px 24px;
 }
 
+/* 退出登录按钮（标题区右上角） */
+.logout-btn {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 2;
+  padding: 6px 16px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #d8a8a0;
+  background: rgba(40, 24, 22, 0.7);
+  border: 1px solid rgba(170, 100, 90, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  color: #ff9080;
+  border-color: rgba(220, 110, 95, 0.8);
+  background: rgba(60, 28, 24, 0.85);
+}
+
 .title {
   text-align: center;
+  position: relative;
   font-size: 26px;
   letter-spacing: 6px;
   margin: 0 0 28px;

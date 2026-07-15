@@ -13,6 +13,8 @@
 import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
+import { bus, BusEvents } from '../utils/eventBus'
+import { breakthrough } from '../api'
 import TechniqueTooltip from './TechniqueTooltip.vue'
 import FloatingTooltip from './FloatingTooltip.vue'
 
@@ -158,6 +160,33 @@ function onSkillLeave() {
   skillTipOpen.value = false
 }
 
+/* ============ 突破 ============ */
+const breaking = ref(false)
+/** 修为是否已满（可突破） */
+const canBreakthrough = computed(
+  () => (props.player?.cultivation ?? 0) >= (props.player?.level_cultivation ?? 1),
+)
+
+/** 突破：调后端判定成功/失败，Toast 结果 + 通知 GameView 刷新玩家数据 */
+async function onBreakthrough() {
+  if (breaking.value || !canBreakthrough.value || !props.player?.id) return
+  breaking.value = true
+  try {
+    const res = await breakthrough(props.player.id)
+    if (res.breakthrough_success) {
+      bus.emit(BusEvents.TOAST, { type: 'success', message: '突破成功！实力大增' })
+    } else {
+      bus.emit(BusEvents.TOAST, { type: 'error', message: '突破失败，修为倒退一半' })
+    }
+    // 通知 GameView 重新拉取玩家数据（突破会改 level/属性/cultivation）
+    bus.emit(BusEvents.PLAYER_STATUS_CHANGE)
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '突破失败' })
+  } finally {
+    breaking.value = false
+  }
+}
+
 function close() {
   emit('update:modelValue', false)
 }
@@ -216,9 +245,6 @@ function close() {
           <div class="char-name">
             {{ player.name }}
           </div>
-          <div class="char-title">
-            {{ player.level_name || ('Lv.' + player.level) }}
-          </div>
         </div>
       </div>
 
@@ -227,6 +253,19 @@ function close() {
         v-if="player"
         class="stats-col"
       >
+        <!-- 等阶名 + 突破按钮（flex 两侧布局） -->
+        <div class="level-row">
+          <span class="char-title">{{ player.level_name || ('Lv.' + player.level) }}</span>
+          <button
+            class="breakthrough-btn"
+            type="button"
+            :disabled="!canBreakthrough || breaking"
+            @click="onBreakthrough"
+          >
+            {{ breaking ? '突破中...' : (canBreakthrough ? '突破' : '修为未满') }}
+          </button>
+        </div>
+
         <!-- 生命/斗气/修为 -->
         <section class="card">
           <div class="vital-row">
@@ -471,7 +510,7 @@ function close() {
 .panel-inner {
   position: absolute;
   /* 留出 player.png 边框装饰的留白 */
-  inset: 60px 55px 45px 55px;
+  inset: 70px 55px 35px 55px;
   z-index: 2;
   display: flex;
   gap: 14px;
@@ -515,13 +554,44 @@ function close() {
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
-.char-title {
-  margin-top: 2px;
-  font-size: 11px;
+
+/* ---------- 等阶名 + 突破按钮行（右侧顶部，flex 两侧布局） ---------- */
+.level-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 6px;
+  border-bottom: 1px solid rgba(140, 110, 60, 0.2);
+}
+.level-row .char-title {
+  font-size: 13px;
   letter-spacing: 2px;
   color: #9fc880;
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.breakthrough-btn {
+  flex: 0 0 auto;
+  padding: 4px 16px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #f0d896;
+  background: linear-gradient(180deg, rgba(80, 60, 28, 0.85), rgba(48, 36, 16, 0.85));
+  border: 1px solid rgba(200, 168, 96, 0.5);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+  transition: all 0.15s ease;
+}
+.breakthrough-btn:hover:not(:disabled) {
+  border-color: rgba(240, 216, 150, 0.9);
+  box-shadow: 0 0 8px rgba(240, 216, 150, 0.3);
+  color: #fff0c8;
+}
+.breakthrough-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ---------- 右：属性列（纵向卡片流） ---------- */

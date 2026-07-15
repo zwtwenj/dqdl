@@ -12,6 +12,7 @@ import { BackpackService, GrantEntry } from '../backpack/backpack.service';
 import { EncounterService } from '../encounter/encounter.service';
 import { TechniqueService } from '../technique/technique.service';
 import { SkillService } from '../skill/skill.service';
+import { TaskService } from '../task/task.service';
 import { Biz } from '../common/biz.exception';
 import { Player } from '../player/player.entity';
 import { TRAINING } from '../config/game.config';
@@ -70,6 +71,7 @@ export class TrainingService {
     private readonly encounterService: EncounterService,
     private readonly techniqueService: TechniqueService,
     private readonly skillService: SkillService,
+    private readonly taskService: TaskService,
   ) {}
 
   /**
@@ -289,6 +291,19 @@ export class TrainingService {
         } catch (e) {
           this.logger.error(`掉落发放失败 #${trainingId}: ${e}`);
         }
+      }
+    }
+
+    // 胜利击杀 → 推进佣兵任务进度（按 地图+怪物 双条件匹配 pending 任务）
+    if (won === 1) {
+      try {
+        const hit = await this.taskService.checkKillProgress(playerId, location.id, mobEntry.mob_id);
+        if (hit) {
+          this.logger.log(`⚔️ 玩家 ${playerId} 击杀 ${mobEntry.name}(${mobEntry.mob_id}) @ ${location.name}，推进佣兵任务进度`);
+        }
+      } catch (e) {
+        // 任务进度更新失败不阻断历练（掉落/日志照常）
+        this.logger.error(`任务进度更新失败 #${trainingId}: ${e}`);
       }
     }
 

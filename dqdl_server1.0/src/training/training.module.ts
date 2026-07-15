@@ -13,6 +13,7 @@ import { ItemModule } from '../item/item.module';
 import { EncounterModule } from '../encounter/encounter.module';
 import { TechniqueModule } from '../technique/technique.module';
 import { SkillModule } from '../skill/skill.module';
+import { TaskModule } from '../task/task.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { AuthModule } from '../auth/auth.module';
     EncounterModule,
     TechniqueModule,
     SkillModule,
+    TaskModule,
     AuthModule,
   ],
   providers: [TrainingService],

@@ -2,7 +2,7 @@
 -- 依赖：player 表（init.sql 已建）
 -- 这是与旧 location 树并行的平面网状地图系统：
 --   location_net   平面地图节点（整数网格 gx,gy，4 对角 X 形邻接）
---   location_scene 地图内部场景（不显示在地图上，如城市的坊市/佣兵工会/炼药师公会）
+--   location_scene 地图内部场景（不显示在地图上，如城市的坊市/佣兵公会/炼药师公会）
 -- 不动现有 location 等表；仅给 player 加一列 scene_id；用独立测试玩家验证。
 
 -- ---------- 平面地图节点表 ----------
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `location_net` (
 CREATE TABLE IF NOT EXISTS `location_scene` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `net_id` INT NOT NULL COMMENT '所属地图节点ID → location_net.id',
-  `name` VARCHAR(64) NOT NULL COMMENT '场景名（坊市/佣兵工会/炼药师公会 等）',
+  `name` VARCHAR(64) NOT NULL COMMENT '场景名（坊市/佣兵公会/炼药师公会 等）',
   `scene_type` VARCHAR(32) NOT NULL COMMENT 'market/guild/alchemy/auction/cultivation',
   `description` TEXT DEFAULT NULL COMMENT '场景描述',
   `available_actions` JSON DEFAULT NULL COMMENT '可用动作',
@@ -52,7 +52,7 @@ WHERE NOT EXISTS (SELECT 1 FROM `location_net` WHERE `gx` = 0 AND `gy` = 0);
 SET @utan_id = (SELECT `id` FROM `location_net` WHERE `gx` = 0 AND `gy` = 0 LIMIT 1);
 
 INSERT INTO `location_scene` (`net_id`, `name`, `scene_type`, `description`, `available_actions`)
-SELECT @utan_id, '佣兵工会', 'guild', '乌坦城的佣兵工会分部，发布和接取各类任务，佣兵们的聚集之地。', JSON_ARRAY('quest','rest')
+SELECT @utan_id, '佣兵公会', 'guild', '乌坦城的佣兵公会分部，发布和接取各类任务，佣兵们的聚集之地。', JSON_ARRAY('quest','rest')
 WHERE NOT EXISTS (SELECT 1 FROM `location_scene` WHERE `net_id` = @utan_id AND `scene_type` = 'guild');
 
 INSERT INTO `location_scene` (`net_id`, `name`, `scene_type`, `description`, `available_actions`)

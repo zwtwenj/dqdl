@@ -52,7 +52,7 @@
 - **平面网格坐标**：每个节点有 `gx/gy` 整数网格坐标，4 对角（X 形）邻接，可成环、可多路径。
 - **显式出口桩拓展**：边缘节点（`is_frontier`）预声明未知方向出口，玩家点了未知出口才触发 `expandFrontier` 调 Agent 生成新节点（带方向/距离），无限向外生长。
 - **loc_type 分布**：server 按 `game.config` 的概率分布（60% wild / 25% city / 10% sect / 5% secret）掷骰定类型，Agent 只生成名称/描述/文案。
-- **场景层**：城市节点内部有 `location_scene`（佣兵工会/坊市/炼药师公会等），进入场景才能与 NPC 交互。
+- **场景层**：城市节点内部有 `location_scene`（佣兵公会/坊市/炼药师公会等），进入场景才能与 NPC 交互。
 - 玩家位置双状态：`player.location_id`（地图节点）+ `player.scene_id`（场景，可空）。
 
 ### 3. 属性与状态由后端权威管理

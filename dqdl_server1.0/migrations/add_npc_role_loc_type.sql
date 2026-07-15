@@ -1,6 +1,6 @@
 -- ========== npc_role 补充 required_in_loc_type 列（场景类型→职能 的可配置映射） ==========
 -- 幂等。用途：城市新场景创建时，按场景类型查"必生 NPC 职能"。
---   guild(佣兵工会) → 公会接待员
+--   guild(佣兵公会) → 公会接待员
 --   market(坊市)    → 坊市管理员
 --   alchemy(炼药师公会) → 炼药师
 -- 列存 JSON 数组（一个职能可能出现在多个场景类型），与 Python seed_npc.py 的 required_in_loc_type 对齐。

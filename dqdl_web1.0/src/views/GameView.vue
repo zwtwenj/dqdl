@@ -6,7 +6,7 @@
  *  - 玩家位置由后端 player.location_id / scene_id 维护，进页面时由 loadPlayer 拉取。
  *  - 「当前地图」= 视野 ring0（玩家所在节点），「邻近之地」= ring1 对角邻居。
  *  - 移动到 ring1 邻居 = 探索（后端自动补齐新位置的 ring1）。
- *  - 城市地点显示「场景」面板（坊市/佣兵工会/炼药师公会），可进/退场景。
+ *  - 城市地点显示「场景」面板（坊市/佣兵公会/炼药师公会），可进/退场景。
  */
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

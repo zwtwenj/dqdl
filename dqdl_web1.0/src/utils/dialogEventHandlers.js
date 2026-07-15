@@ -31,13 +31,25 @@ function handleTrade({ npc, playerId, closeDialog }) {
 }
 
 /**
+ * createAdventurerTask 事件：打开「任务接取预览」面板。
+ * 不直接接任务——面板里展示一个候选任务，玩家「接受/拒绝/换一个」。
+ * 实际 DB 生成（preview 候选 / accept 入库）由 TaskAcceptPanel 自治处理。
+ */
+function handleCreateAdventurerTask({ playerId, closeDialog }) {
+  if (!playerId) return
+  bus.emit(BusEvents.TASK_ACCEPT_OPEN, { playerId })
+  closeDialog?.()
+}
+
+/**
  * dialog_event 回调注册表。
  * key = dialog_event.event 字符串，value = handler 函数。
  * 新增事件类型时在此注册，保持与后端 dialog_event.event 一对一。
  */
 export const dialogEventHandlers = {
   trade: handleTrade,
-  // acceptQuest: handleAcceptQuest,  // 后续任务事件在此注册
+  createAdventurerTask: handleCreateAdventurerTask,
+  // completeTask: handleCompleteTask,  // 交付任务事件后续接驳
 }
 
 /**

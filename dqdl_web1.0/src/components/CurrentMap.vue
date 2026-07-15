@@ -375,7 +375,8 @@ function onDropLeave() {
 
 .current-map-bottom{
   display: flex;
-  gap: 28px;
+  flex-direction: column;
+  gap: 12px;
   padding: 10px 4px 2px;
   border-top: 1px solid rgba(180, 150, 90, 0.18);
   .drops-row{
@@ -413,10 +414,9 @@ function onDropLeave() {
       }
     }
   }
-  /* 「此地之人」NPC 卡片行：独占一整行（与上方魔兽/药草横向区隔开） */
+  /* 「此地之人」NPC 卡片行：独占一整行（与上方魔兽/药草区隔开） */
   .npcs-row{
     width: 100%;
-    margin-top: 8px;
     padding-top: 10px;
     border-top: 1px solid rgba(180, 150, 90, 0.18);
     display: flex;

@@ -15,6 +15,7 @@ import IconToolbar from '../components/IconToolbar.vue'
 import BagPanel from '../components/BagPanel.vue'
 import PlayerPanel from '../components/PlayerPanel.vue'
 import SkillPanel from '../components/SkillPanel.vue'
+import TaskPanel from '../components/TaskPanel.vue'
 import BattlePanel from '../components/BattlePanel.vue'
 import CurrentMap from '../components/CurrentMap.vue'
 import MapDrawer from '../components/MapDrawer.vue'
@@ -62,6 +63,9 @@ const playerPanelOpen = ref(false)
 // 斗技弹窗显隐
 const skillPanelOpen = ref(false)
 
+// 任务弹窗显隐
+const taskPanelOpen = ref(false)
+
 // 战斗界面
 const battleOpen = ref(false)
 
@@ -74,6 +78,7 @@ const battleBusy = ref(false)
 const bagPos = ref(null)
 const playerPos = ref(null)
 const skillPos = ref(null)
+const taskPos = ref(null)
 
 // 历练日志数据 + 轮询定时器
 const trainingLogs = ref([])
@@ -438,6 +443,10 @@ function onIconSelect(key) {
     skillPanelOpen.value = !skillPanelOpen.value
     return
   }
+  if (key === 'task') {
+    taskPanelOpen.value = !taskPanelOpen.value
+    return
+  }
   if (key === 'battle') {
     onBattleStart()
     return
@@ -645,6 +654,13 @@ function backToStart() {
       v-model="skillPanelOpen"
       v-model:pos="skillPos"
       :player="player"
+    />
+
+    <!-- 任务弹窗（功能栏上方，可拖拽，动态层级） -->
+    <TaskPanel
+      v-model="taskPanelOpen"
+      v-model:pos="taskPos"
+      :player-id="player?.id"
     />
 
     <!-- 地图移动遮罩：等待后端生成节点/拉视野，阻断重复点击 -->

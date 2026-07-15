@@ -24,6 +24,7 @@ import { EncounterModule } from './encounter/encounter.module';
 import { DungeonModule } from './dungeon/dungeon.module';
 import { MapDemoModule } from './mapdemo/mapdemo.module';
 import { LocationNetModule } from './location_net/location-net.module';
+import { TaskModule } from './task/task.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -66,6 +67,7 @@ import { AppController } from './app.controller';
     DungeonModule,
     MapDemoModule,
     LocationNetModule,
+    TaskModule,
   ],
   controllers: [AppController],
 })

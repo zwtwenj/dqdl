@@ -611,6 +611,129 @@ export class LocationNetService implements OnApplicationBootstrap {
     return created;
   }
 
+  /* ============ 佣兵任务用：三格内野外查询 + 定向生成 ============ */
+
+  /**
+   * 查某节点 maxDist 格内（切比雪夫距离 max(|dx|,|dy|) ≤ maxDist）的野外地图。
+   * 用于佣兵任务找候选击杀地点。返回的节点已 parse common_mobs。
+   * 不要求 common_mobs 非空（由调用方过滤），便于复用。
+   * @returns LocationNet 视图数组（含 id/name/loc_type/danger_level/common_mobs 等）
+   */
+  async findWildsWithin(
+    netId: number,
+    maxDist = 3,
+  ): Promise<NetNodeView[]> {
+    const center = await this.netRepo.findOneBy({ id: netId });
+    if (!center) throw Biz.notFound(`地图节点 ${netId} 不存在`);
+    const all = await this.netRepo.find();
+    const wilds = all.filter((n) => {
+      if (n.loc_type !== 'wild') return false;
+      const dist = Math.max(Math.abs(n.gx - center.gx), Math.abs(n.gy - center.gy));
+      return dist > 0 && dist <= maxDist;
+    });
+    return wilds.map((n) => this.toView(n));
+  }
+
+  /**
+   * 在某节点 maxDist 格内定向生成野外地图（佣兵任务候选不足时补齐）。
+   *
+   * 连通性保证（不产生孤儿图）：采用 BFS 扩散——
+   *   只在"与已存在节点对角相邻"的空位中选候选位生成。每生成一个立即入库成为
+   *   "已存在节点"，下一轮就能作为新锚点继续扩散，所以新节点必然连进已有网。
+   *
+   * 强制 loc_type='wild'（不走随机分布），复用 agent 批量生成 + commitNodeFromItem
+   * （wild 会自动触发 RAG 填 common_mobs）。
+   *
+   * @param netId   中心节点
+   * @param need    期望生成数量
+   * @param maxDist 三格内限制
+   * @returns 实际生成的节点数组（可能少于 need，即三格内空位已用尽）
+   */
+  async ensureWildsWithin(
+    netId: number,
+    need: number,
+    maxDist = 3,
+  ): Promise<LocationNet[]> {
+    if (need <= 0) return [];
+    const center = await this.netRepo.findOneBy({ id: netId });
+    if (!center) throw Biz.notFound(`地图节点 ${netId} 不存在`);
+
+    const created: LocationNet[] = [];
+    const existingNames = (await this.netRepo.find()).map((n) => n.name);
+    const usedNames = new Set(existingNames);
+
+    // 反复扫描"与已有节点对角相邻的空位"，每轮生成一批 wild，直到凑够 need 或无空位
+    // 安全上限避免极端情况下死循环
+    for (let round = 0; round < maxDist + 2 && created.length < need; round++) {
+      // 重新拉已存在节点（上轮可能新增了）
+      const existNodes = await this.netRepo.find();
+      const existSet = new Map(existNodes.map((n) => [`${n.gx},${n.gy}`, n]));
+
+      // 收集"与已有节点对角相邻 + 三格内 + 空位"的候选坐标
+      const candidateSlots: { gx: number; gy: number }[] = [];
+      const seen = new Set<string>();
+      for (const n of existNodes) {
+        for (const d of DIRS) {
+          const gx = n.gx + d.dx;
+          const gy = n.gy + d.dy;
+          const key = `${gx},${gy}`;
+          if (seen.has(key)) continue;
+          // 必须是空位（尚未存在节点）
+          if (existSet.has(key)) continue;
+          // 必须在三格内
+          const dist = Math.max(Math.abs(gx - center.gx), Math.abs(gy - center.gy));
+          if (dist > maxDist) continue;
+          seen.add(key);
+          candidateSlots.push({ gx, gy });
+        }
+      }
+      if (candidateSlots.length === 0) break; // 三格内无更多可连通空位
+
+      // 本轮要生成多少个（不超过剩余 need、不超过候选数）
+      const batch = Math.min(need - created.length, candidateSlots.length);
+      const slots = candidateSlots.slice(0, batch);
+
+      // 构造 agent 批量请求：全部强制 wild
+      const nodesRequest = slots.map((s) => ({ loc_type: 'wild', gx: s.gx, gy: s.gy }));
+      const parentContext = [
+        { name: center.name, loc_type: center.loc_type, direction: '中心' },
+      ];
+      let items = await this.agent.generateMapNodes({
+        nodes: nodesRequest,
+        parent_context: parentContext,
+        existingNames: [...usedNames],
+      });
+      // 兜底：agent 失败用名称池（但 wild 的 common_mobs 会为 null，任务生成时会被过滤）
+      if (!items) {
+        this.logger.warn('定向生成 wild：agent 不可用，fallback 名称池');
+        items = nodesRequest.map((nr) => this.fallbackNodeItem(nr, [...usedNames]));
+      }
+
+      // 入库（按坐标对齐，重名加序号）
+      for (const nr of nodesRequest) {
+        let item = items.find((it) => it.gx === nr.gx && it.gy === nr.gy);
+        if (!item) item = this.fallbackNodeItem(nr, [...usedNames]);
+        let finalName = item.name;
+        if (usedNames.has(finalName)) {
+          let i = 2;
+          while (usedNames.has(`${finalName}${cnOrdinal(i)}`)) i++;
+          finalName = `${finalName}${cnOrdinal(i)}`;
+        }
+        usedNames.add(finalName);
+        const node = await this.commitNodeFromItem(item, finalName);
+        created.push(node);
+        this.logger.log(`定向生成 wild (${nr.gx},${nr.gy}): ${finalName}`);
+        if (created.length >= need) break;
+      }
+    }
+
+    // 重算相关节点 frontier 标记
+    if (created.length > 0) {
+      await this.recomputeFrontierAround(netId);
+    }
+    return created;
+  }
+
   /** server 定 loc_type 的分布（配置于 game.config，rollLocTypeFromDist 掷骰） */
   private rollLocType(): string {
     return rollLocTypeFromDist();

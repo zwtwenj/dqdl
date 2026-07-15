@@ -33,6 +33,10 @@ export const BusEvents = {
   DUNGEON_OPEN: 'dungeon-open',
   /** 玩家状态变更（秘境进入/撤退等改变 status 时）：前端可监听刷新 player */
   PLAYER_STATUS_CHANGE: 'player-status-change',
+  /** 打开「任务接取」预览面板：{ playerId }
+   *  由公会接待员对话「我想要接取一些任务」触发；
+   *  面板展示一个候选任务，玩家「接受/拒绝/换一个」，接受才入库。 */
+  TASK_ACCEPT_OPEN: 'task-accept-open',
 }
 
 const listeners = new Map()

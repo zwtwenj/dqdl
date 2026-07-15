@@ -15,16 +15,18 @@ cur = conn.cursor()
 # 清空
 cur.execute('TRUNCATE TABLE dialog_event')
 
-# (role_name, text, event)  event 暂时全为空字符串
+# (role_name, text, event)
+# event 约定：裸字符串事件名（如 'createAdventurerTask'），与前端 dialogEventHandlers
+# 注册表的 key 一对一匹配。空串 = 纯对话氛围按钮，点击无副作用。
 events = [
     # 公会接待员 (role_id=1)
-    ('公会接待员', '我想要接取一些任务', '{"type":"createAdventurerTask"}'),
-    ('公会接待员', '我完成了任务，来交付', '{"type":"completeTask"}'),
+    ('公会接待员', '我想要接取一些任务', 'createAdventurerTask'),
+    ('公会接待员', '我完成了任务，来交付', 'completeTask'),
     ('公会接待员', '这里有什么难度的任务？', ''),
     ('公会接待员', '最近有什么特别的悬赏吗？', ''),
 
     # 坊市管理员 (role_id=2)
-    ('坊市管理员', '我想交易一些东西', '{"type":"trade"}'),
+    ('坊市管理员', '我想交易一些东西', 'trade'),
     ('坊市管理员', '最近有什么稀罕的货物？', ''),
     ('坊市管理员', '有人在这卖假货，我要举报', ''),
     ('坊市管理员', '有没有什么捡漏的好东西？', ''),
@@ -65,7 +67,7 @@ events = [
     ('修炼场教官', '能指点我一些修炼技巧吗？', ''),
 
     # 修炼室管理员 (role_id=11)
-    ('修炼室管理员', '我想要进行修炼', '{"type":"cultivationRoom"}'),
+    ('修炼室管理员', '我想要进行修炼', 'cultivationRoom'),
     ('修炼室管理员', '修炼室怎么收费？', ''),
     ('修炼室管理员', '有没有更高阶的修炼席位？', ''),
 

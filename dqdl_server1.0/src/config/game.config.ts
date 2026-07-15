@@ -23,7 +23,7 @@ export const TRAINING = {
 // ============ 奇遇 ============
 export const ENCOUNTER = {
   /** 历练中触发奇遇的概率（0~1） */
-  triggerRate: 1,
+  triggerRate: 0.1,
   /** 未进入（pending）奇遇的最大累计数，满后不再触发 */
   maxPending: 10,
   /** 奇遇分流：dungeon 占比（余下为 cultivate 洞天福地） */
@@ -42,6 +42,24 @@ export const MAP = {
     sect: 0.1,
     secret: 0.05,
   } as Record<string, number>,
+};
+
+// ============ 佣兵任务 ============
+// 所有项均可被 .env 同名前缀 TASK_ 覆盖（运行时可调、不打包）。
+// 改 .env → 重启进程即生效，无需重新 build。见 task.service.ts 顶部读取逻辑。
+export const TASK = {
+  /** 单玩家进行中佣兵任务上限。.env: TASK_MAX_PENDING */
+  maxPending: 3,
+  /** 击杀数量下限。.env: TASK_KILL_MIN */
+  killMin: 6,
+  /** 击杀数量上限。.env: TASK_KILL_MAX */
+  killMax: 10,
+  /** 搜图范围内候选地图下限（不足则定向生成补齐）。.env: TASK_MIN_CANDIDATES */
+  minCandidates: 3,
+  /** 搜图范围：当前地点切比雪夫距离 N 格内。.env: TASK_MAX_DIST */
+  maxDist: 3,
+  /** 危险度(1/2/3阶) → 奖励金币基数。.env: TASK_REWARD_BASE（逗号分隔，如 3000,6000,10000） */
+  rewardBase: { 1: 3000, 2: 6000, 3: 10000 } as Record<number, number>,
 };
 
 // ============ 容量上限 ============

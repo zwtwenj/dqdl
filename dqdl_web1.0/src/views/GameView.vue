@@ -16,6 +16,7 @@ import BagPanel from '../components/BagPanel.vue'
 import PlayerPanel from '../components/PlayerPanel.vue'
 import SkillPanel from '../components/SkillPanel.vue'
 import TaskPanel from '../components/TaskPanel.vue'
+import MiniMap from '../components/MiniMap.vue'
 import BattlePanel from '../components/BattlePanel.vue'
 import CurrentMap from '../components/CurrentMap.vue'
 import MapDrawer from '../components/MapDrawer.vue'
@@ -66,6 +67,9 @@ const skillPanelOpen = ref(false)
 // 任务弹窗显隐
 const taskPanelOpen = ref(false)
 
+// 小地图弹窗显隐
+const miniMapOpen = ref(false)
+
 // 战斗界面
 const battleOpen = ref(false)
 
@@ -79,6 +83,7 @@ const bagPos = ref(null)
 const playerPos = ref(null)
 const skillPos = ref(null)
 const taskPos = ref(null)
+const miniMapPos = ref(null)
 
 // 历练日志数据 + 轮询定时器
 const trainingLogs = ref([])
@@ -620,14 +625,24 @@ function backToStart() {
       </div>
     </div>
 
-    <!-- 右上角返回开始页按钮 -->
-    <button
-      class="back-btn"
-      type="button"
-      @click="backToStart"
-    >
-      返回
-    </button>
+    <!-- 右上角操作按钮组：地图 + 返回开始页 -->
+    <div class="top-right-actions">
+      <button
+        class="top-right-btn"
+        type="button"
+        title="查看地图"
+        @click="miniMapOpen = !miniMapOpen"
+      >
+        地图
+      </button>
+      <button
+        class="top-right-btn"
+        type="button"
+        @click="backToStart"
+      >
+        返回
+      </button>
+    </div>
 
     <!-- 右下角功能图标栏 -->
     <IconToolbar
@@ -661,6 +676,13 @@ function backToStart() {
       v-model="taskPanelOpen"
       v-model:pos="taskPos"
       :player-id="player?.id"
+    />
+
+    <!-- 小地图弹窗（右上角，可拖拽，动态层级） -->
+    <MiniMap
+      v-model="miniMapOpen"
+      v-model:pos="miniMapPos"
+      :location-id="player?.location_id"
     />
 
     <!-- 地图移动遮罩：等待后端生成节点/拉视野，阻断重复点击 -->
@@ -707,11 +729,16 @@ function backToStart() {
   pointer-events: none;
 }
 
-.back-btn {
+/* 右上角按钮组（地图 + 返回） */
+.top-right-actions {
   position: absolute;
   top: 16px;
   right: 16px;
   z-index: 10;
+  display: flex;
+  gap: 8px;
+}
+.top-right-btn {
   padding: 6px 16px;
   font-size: 13px;
   letter-spacing: 2px;
@@ -722,11 +749,10 @@ function backToStart() {
   cursor: pointer;
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
   transition: all 0.2s ease;
-}
-
-.back-btn:hover {
-  background: rgba(180, 150, 90, 0.2);
-  border-color: rgba(220, 190, 120, 0.7);
+  &:hover {
+    background: rgba(180, 150, 90, 0.2);
+    border-color: rgba(220, 190, 120, 0.7);
+  }
 }
 
 .game-container{

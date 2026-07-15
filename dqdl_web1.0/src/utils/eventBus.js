@@ -31,6 +31,8 @@ export const BusEvents = {
   ADVENTURE_FOUND: 'adventure-found',
   /** 打开秘境面板：{ encounterId? } 由奇遇详情「进入」触发，无 encounterId 则恢复/直接进入 */
   DUNGEON_OPEN: 'dungeon-open',
+  /** 打开洞天福地修炼面板：{ encounterId } 由奇遇详情「进入」cultivate 类型触发 */
+  CULTIVATION_OPEN: 'cultivation-open',
   /** 玩家状态变更（秘境进入/撤退等改变 status 时）：前端可监听刷新 player */
   PLAYER_STATUS_CHANGE: 'player-status-change',
   /** 打开「任务接取」预览面板：{ playerId }

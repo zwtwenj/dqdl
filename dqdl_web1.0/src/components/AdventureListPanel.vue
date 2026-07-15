@@ -4,7 +4,7 @@
  *
  * 原子化触发：bus.on(ADVENTURE_OPEN) 打开 → 拉取玩家 pending 奇遇列表。
  * 点奇遇卡片展开详情子弹层（仿 NpcShopPanel 的 buyModal）。
- * 「进入」按钮本次置灰（副本/洞天玩法开发中）。
+ * 「进入」按钮：dungeon→秘境面板，cultivate→洞天福地修炼面板。
  * 「放弃」按钮调后端移除该奇遇。
  *
  * 暗金风格与 NpcShopPanel 一致：CSS 渐变 + 楷体 + 金色描边。
@@ -95,7 +95,7 @@ async function onAbandon() {
  * - dungeon 类型：
  *   · pending（未进入）→ 带 encounterId，DungeonPanel 会生成新秘境
  *   · entered（探索中）→ 不带 encounterId，DungeonPanel 走 getCurrent 恢复进行中的秘境
- * - cultivate（洞天）暂未实现
+ * - cultivate（洞天福地）：带 encounterId 触发修炼面板（消耗奇遇、SSE 结算修为）
  */
 function onEnter() {
   if (!selected.value) return
@@ -108,7 +108,12 @@ function onEnter() {
     open.value = false    // 收起奇遇列表
     return
   }
-  bus.emit(BusEvents.TOAST, { type: 'info', message: '洞天福地玩法开发中' })
+  if (selected.value.kind === 'cultivate') {
+    bus.emit(BusEvents.CULTIVATION_OPEN, { encounterId: selected.value.id })
+    selected.value = null
+    open.value = false
+    return
+  }
 }
 
 let offOpen = null

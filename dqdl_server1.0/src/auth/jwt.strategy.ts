@@ -7,6 +7,10 @@ import { AuthService, JwtPayload } from './auth.service';
 /**
  * JWT 策略：从 Authorization: Bearer <token> 提取，校验签发方与有效期。
  * 验证通过后 req.user = { id, username }。
+ *
+ * token 来源（按序尝试）：
+ *   1. Authorization: Bearer <token>  —— 普通接口（axios 自动注入）
+ *   2. URL query ?token=<token>       —— SSE 流（EventSource 无法设 header）
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -15,7 +19,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     config: ConfigService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        (req: any) => req?.query?.token || null,
+      ]),
       ignoreExpiration: false,
       secretOrKey: config.get<string>('JWT_SECRET', 'dqdl-default-secret-change-me'),
     });

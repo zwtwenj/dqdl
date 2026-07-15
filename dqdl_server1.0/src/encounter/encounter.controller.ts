@@ -55,8 +55,8 @@ export class EncounterController {
         { player_id: player.id, status: 'active' },
         { status: 'escaped' },
       );
-      // 玩家状态复位（若正卡在秘境中）
-      if (player.status === PLAYER_STATUS.DUNGEON) {
+      // 玩家状态复位（若正卡在秘境/洞天福地修炼中）
+      if (player.status === PLAYER_STATUS.DUNGEON || player.status === PLAYER_STATUS.CULTIVATING) {
         await this.playerService.setStatus(player.id, PLAYER_STATUS.IDLE);
       }
     }

@@ -342,20 +342,68 @@ export class PlayerService {
   }
 
   /**
-   * 修炼：cultivation += 基础值(10)，夹紧不超过 level_cultivation。
-   * 后续可接入修炼效率加成（宝物/功法）。
+   * 修炼：按斗气浓郁度 qiDensity 结算修为收益，夹紧不超过 level_cultivation。
+   *
+   * 公式（与老版本一致）：
+   *   growth = 已装备功法的 growth（默认 10）
+   *   gained = round(qiDensity * (0.9 + rand*0.2) * growth / 100)
+   *   10% 暴击 → gained × 3
+   *   夹紧到 level_cultivation 上限
+   *
+   * @param qiDensity 斗气浓郁度（洞天福地 = BASE_QI × 星级倍率）
+   * @returns 修炼结果详情（gained/critical/capped + 修为进度）
    */
-  async cultivate(id: number): Promise<any> {
-    const player = await this.assertIdle(id);
-    const gain = Math.round(
-      BASE_CULTIVATION_GAIN * (1 + 0), // 预留效率加成
-    );
-    player.cultivation = Math.min(
-      player.cultivation + gain,
-      player.level_cultivation,
-    );
-    await this.repo.save(player);
-    return this.findOne(id);
+  async cultivate(id: number, qiDensity: number = BASE_CULTIVATION_GAIN): Promise<{
+    gained: number;
+    critical: boolean;
+    capped: boolean;
+    cultivation: number;
+    level_cultivation: number;
+  }> {
+    const player = await this.repo.findOneBy({ id });
+    if (!player) throw Biz.notFound(`玩家 ${id} 不存在`);
+    const lc = player.level_cultivation;
+
+    // 已达上限：不增长（洞天福地结算会继续 tick 但 gained=0）
+    if (player.cultivation >= lc) {
+      return { gained: 0, critical: false, capped: true, cultivation: player.cultivation, level_cultivation: lc };
+    }
+
+    // 已装备功法的 growth（修炼效率系数）
+    const growth = await this.getEquippedTechniqueGrowth(player);
+
+    const factor = 0.9 + Math.random() * 0.2;
+    let gained = Math.round((qiDensity * factor * growth) / 100);
+
+    // 暴击：10% 概率三倍
+    const critical = Math.random() < 0.1;
+    if (critical) gained *= 3;
+
+    // 上限截断
+    let newCultivation = player.cultivation + gained;
+    const capped = newCultivation > lc;
+    if (capped) {
+      gained = lc - player.cultivation;
+      newCultivation = lc;
+    }
+
+    await this.repo.update(id, { cultivation: newCultivation as any });
+    return { gained, critical, capped, cultivation: newCultivation, level_cultivation: lc };
+  }
+
+  /** 取已装备功法的 growth（修炼效率系数）；无装备功法则默认 10 */
+  private async getEquippedTechniqueGrowth(player: Player): Promise<number> {
+    try {
+      const arr = player.technique ? JSON.parse(player.technique) : [];
+      const equipped = (Array.isArray(arr) ? arr : []).find((t: any) => t?.equipped);
+      if (equipped?.id) {
+        const tech = await this.techniqueService.findOne(Number(equipped.id));
+        if (tech?.growth) return tech.growth;
+      }
+    } catch {
+      /* technique 非合法 JSON，降级默认值 */
+    }
+    return 10;
   }
 
   /**
@@ -506,8 +554,9 @@ export class PlayerService {
     return player;
   }
 
-  /** 校验玩家空闲，否则抛状态冲突。返回 player 实体供后续操作。 */
-  private async assertIdle(id: number): Promise<Player> {
+  /** 校验玩家空闲，否则抛状态冲突。返回 player 实体供后续操作。
+   *  public：供 cultivation/dungeon/training 等活动 service 进入前校验。 */
+  async assertIdle(id: number): Promise<Player> {
     const player = await this.repo.findOneBy({ id });
     if (!player) throw Biz.notFound(`玩家 ${id} 不存在`);
     if (player.status !== PLAYER_STATUS.IDLE) {

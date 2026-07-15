@@ -30,6 +30,20 @@ export const ENCOUNTER = {
   dungeonRatio: 0.5,
 };
 
+// ============ 洞天福地修炼 ============
+// 由 encounter(kind='cultivate') 触发，进入后 SSE 流定时结算修为。
+// 收益：effectiveQi = baseQi × starMult[star]，再走 PlayerService.cultivate 公式（growth/暴击/上限）。
+export const BLESSSED_LAND = {
+  /** 基础斗气浓郁度（再乘星级倍率）。1星=150，2星=300，3星=600 */
+  baseQi: 150,
+  /** 星级 → 修炼倍率（1=×1, 2=×2, 3=×4） */
+  starMult: { 1: 1, 2: 2, 3: 4 } as Record<number, number>,
+  /** 最大结算轮次（到上限自动结束） */
+  maxRounds: 10,
+  /** 结算间隔（毫秒）。默认 10s（开发）；.env CULTIVATION_INTERVAL 可覆盖（正式建议更长） */
+  intervalMs: 10_000,
+};
+
 // ============ 地图生成 ============
 export const MAP = {
   /**

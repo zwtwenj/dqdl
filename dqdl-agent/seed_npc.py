@@ -38,23 +38,26 @@ for name, hint in natures:
 
 # ========== 职能 ==========
 print('\n插入职能...')
+# required_in_loc_type 存的是 location_scene.scene_type 代码（非中文名）：
+#   guild=佣兵工会 / market=坊市 / alchemy=炼药师公会 / auction=拍卖行 / ...
+# 这样 LocationNetService 按 scene_type 匹配必生 NPC 时能直接命中。
 roles = [
     # (name, prompt_hint, required_in_loc_type JSON)
     ('公会接待员',
      '你负责接待佣兵，介绍任务、解答规则、处理任务接取和交付。',
-     ['佣兵公会']),
+     ['guild']),
 
     ('坊市管理员',
      '你管理坊市的摊位秩序，处理纠纷，提供商品信息和价格参考。',
-     ['坊市']),
+     ['market']),
 
     ('拍卖师',
      '你是拍卖行的主持拍卖师，负责介绍拍品、引导竞价、渲染气氛。',
-     ['拍卖行']),
+     ['auction']),
 
     ('炼药师',
      '你是炼药师公会的驻场药师，可以鉴定丹药、出售丹方、指点炼药技巧。',
-     ['炼药师公会']),
+     ['alchemy']),
 
     ('铁匠',
      '你是铁匠铺的师傅，擅长打造和修理武器，可以镶嵌魔核强化装备。',

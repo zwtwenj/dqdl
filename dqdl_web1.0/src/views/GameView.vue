@@ -8,7 +8,7 @@
  *  - 移动到 ring1 邻居 = 探索（后端自动补齐新位置的 ring1）。
  *  - 城市地点显示「场景」面板（坊市/佣兵工会/炼药师公会），可进/退场景。
  */
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PlayerInfo from '../components/PlayerInfo.vue'
 import IconToolbar from '../components/IconToolbar.vue'
@@ -242,6 +242,9 @@ async function loadPlayer() {
 /** 拉取玩家地图视野（ring0 当前节点 + ring1 对角邻居） */
 async function loadView() {
   try {
+    // 先用 player 持久化的位置占位，避免 view/scenes 加载期间中央退化成"地图节点"
+    // （刷新时玩家若在场景内，应直接显示场景，而不是先闪一下城市节点）
+    primeFromPlayer()
     const data = await getPlayerView()
     view.value = data
     // 拉当前节点的场景列表
@@ -255,7 +258,26 @@ async function loadView() {
   }
 }
 
-/** 根据 player.scene_id 同步当前场景对象 */
+/**
+ * 用 player 持久化的位置先占位（刷新瞬间）：
+ * - 在场景内（scene_id 非 null）：inScene 先占位为仅含 id 的场景对象，
+ *   待 getMapScenes 拿到完整信息后 syncInScene 会补全 name/description 等。
+ * - 不在场景：inScene 置 null，currentLocation 自然落到 view.ring0。
+ * 占位期间中央面板会因 name/description 缺失而渲染空值，可由 initializing 标志盖住。
+ */
+function primeFromPlayer() {
+  if (!player.value) return
+  if (player.value.scene_id != null) {
+    // 仅占位 id，完整字段等 scenes 加载后补全
+    if (!inScene.value || inScene.value.id !== player.value.scene_id) {
+      inScene.value = { id: player.value.scene_id, name: '', description: '', scene_type: '' }
+    }
+  } else {
+    inScene.value = null
+  }
+}
+
+/** 根据 player.scene_id 同步当前场景对象（scenes 加载后补全完整字段） */
 function syncInScene() {
   if (!player.value || player.value.scene_id == null) {
     inScene.value = null
@@ -264,8 +286,20 @@ function syncInScene() {
   inScene.value = scenes.value.find((s) => s.id === player.value.scene_id) || null
 }
 
-/** 当前节点（ring0），作为 CurrentMap 的 location prop */
-const currentLocation = ref(null)
+/** 当前地点（中央 CurrentMap 渲染对象）：
+ *  - 在场景内 → 显示场景（场景名/描述/该场景 NPC），场景是叶子节点
+ *  - 否则     → 显示地图节点 ring0
+ *  场景对象用 scene_type 作为 loc_type 供 CurrentMap 匹配图标。
+ *  占位场景（name 为空，scenes 未加载完）时不渲染，避免闪烁半成品。 */
+const currentLocation = computed(() => {
+  if (inScene.value) {
+    // 占位对象（刷新瞬间、scenes 未加载完）：name 为空，返回 null 让 loading 遮罩兜住
+    if (!inScene.value.name) return null
+    return { ...inScene.value, loc_type: inScene.value.scene_type }
+  }
+  return view.value?.ring0 ?? null
+})
+
 // 当前地点的 NPC 列表（「此地之人」渲染 + 点击触发对话）
 const currentNpcs = ref([])
 async function loadNpcs(locId) {
@@ -275,12 +309,34 @@ async function loadNpcs(locId) {
     currentNpcs.value = []
   }
 }
-watch(view, (v) => {
-  currentLocation.value = v?.ring0 ?? null
-  // 切换节点后刷新此地 NPC（「此地之人」）
-  if (v?.ring0?.id) loadNpcs(v.ring0.id)
-  else currentNpcs.value = []
-}, { immediate: true })
+/** 加载场景内 NPC：优先用 getMapScenes 返回里已带的 npcs，避免额外请求 */
+function loadSceneNpcs(scene) {
+  if (!scene) {
+    currentNpcs.value = []
+    return
+  }
+  if (Array.isArray(scene.npcs) && scene.npcs.length) {
+    currentNpcs.value = scene.npcs
+  } else {
+    currentNpcs.value = []
+  }
+}
+// 节点切换 / 场景进出 都会刷新中央地点与「此地之人」
+watch(
+  [() => view.value, () => inScene.value],
+  ([v, scene]) => {
+    if (scene) {
+      // 在场景内：NPC 取场景自带（getMapScenes 已附带）
+      loadSceneNpcs(scene)
+    } else if (v?.ring0?.id) {
+      // 在地图节点：拉该节点 NPC
+      loadNpcs(v.ring0.id)
+    } else {
+      currentNpcs.value = []
+    }
+  },
+  { immediate: true },
+)
 
 /** 移动到 ring1 对角邻居（探索 = 移动）。
  *  后端会并发调 agent 生成新位置的 ring1，可能耗时数秒，期间显示地图遮罩。 */
@@ -317,7 +373,12 @@ async function onEnterScene(sceneType) {
   try {
     const r = await enterScene(view.value.ring0.id, sceneType)
     if (player.value) player.value.scene_id = r.scene_id
-    inScene.value = scenes.value.find((s) => s.scene_type === sceneType) || null
+    // 用 enterScene 返回的 scene 信息兜底补全 scenes（含 description 等）
+    const existed = scenes.value.find((s) => s.scene_type === sceneType)
+    if (existed && r.scene) {
+      Object.assign(existed, r.scene)
+    }
+    inScene.value = existed || (r.scene ? { ...r.scene } : null)
     bus.emit(BusEvents.TOAST, { type: 'info', message: `进入${inScene.value?.name || '场景'}` })
   } catch (err) {
     bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '进入场景失败' })
@@ -492,18 +553,29 @@ function backToStart() {
       </button>
     </div>
 
-    <div class="game-container">
+    <!-- 地图内容区：加载中/出错时不渲染，避免 view 未就绪时中央退化显示"地图节点"造成闪烁 -->
+    <div
+      v-show="!loading && !errorMsg"
+      class="game-container"
+    >
       <div class="game-map">
         <!-- 中央当前地图面板 -->
         <CurrentMap
           v-if="currentLocation"
           :location="currentLocation"
           :npcs="currentNpcs"
+          :show-back="!!inScene"
+          :back-text="inScene ? `退出「${inScene.name}」` : '返回上级'"
           class="current-map"
+          @back="onExitScene"
           @npc-select="onNpcSelect"
         />
-        <!-- 左侧地图抽屉：邻近之地（ring1 对角邻居）+ 场景（仅城市） -->
-        <div class="map-drawers">
+        <!-- 左侧地图抽屉：邻近之地（ring1 对角邻居）+ 场景（仅城市）。
+             进入场景后场景是叶子节点：无邻近之地、无子场景，抽屉全部隐藏。 -->
+        <div
+          v-if="!inScene"
+          class="map-drawers"
+        >
           <MapDrawer
             class="drawer-item"
             title="邻近之地"
@@ -517,15 +589,6 @@ function backToStart() {
             :items="scenes"
             @select="onSceneSelect"
           />
-          <!-- 退出场景按钮（玩家在场景内时显示） -->
-          <button
-            v-if="inScene"
-            type="button"
-            class="exit-scene-btn"
-            @click="onExitScene"
-          >
-            退出「{{ inScene.name }}」←
-          </button>
         </div>
       </div>
       <div class="game-logs">
@@ -728,26 +791,6 @@ function backToStart() {
 .retry-btn:hover {
   background: rgba(180, 150, 90, 0.2);
   border-color: rgba(220, 190, 120, 0.8);
-}
-
-/* 退出场景按钮：玩家在场景内时显示 */
-.exit-scene-btn {
-  width: 100%;
-  padding: 10px 0;
-  font-size: 14px;
-  letter-spacing: 2px;
-  color: #e8d5a0;
-  background: rgba(10, 8, 6, 0.55);
-  border: 1px solid rgba(180, 150, 90, 0.4);
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
-  transition: all 0.2s ease;
-}
-
-.exit-scene-btn:hover {
-  background: rgba(180, 150, 90, 0.2);
-  border-color: rgba(220, 190, 120, 0.7);
 }
 
 /* 地图移动遮罩：等待 agent 生成节点/拉视野，阻断重复点击 */

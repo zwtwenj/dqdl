@@ -89,6 +89,7 @@ export class NpcService {
       nature_hint: nature?.prompt_hint || '',
       role_name: role?.name || '',
       role_hint: role?.prompt_hint || '',
+      role_id: role?.id ?? null,
       dialog_events: events.map((e) => ({
         id: e.id,
         text: e.text,
@@ -182,6 +183,7 @@ export class NpcService {
       history,
       session_id: sessionId,
       call_index: callIndex,
+      role_id: npc.role_id ?? undefined,
     });
 
     // server 侧追加对话内容到 messages（JSON_ARRAY_APPEND 原子操作，追加 player + npc 两条）
@@ -209,6 +211,120 @@ export class NpcService {
       rounds: callIndex,
       maxRounds: MAX_DIALOG_ROUNDS,
     };
+  }
+
+  /**
+   * 保证某场景拥有"必生职能"的 NPC。
+   * 按 npc_role.required_in_loc_type 匹配场景类型（可配置）：
+   *   guild   → 公会接待员
+   *   market  → 坊市管理员
+   *   alchemy → 炼药师
+   *   ...
+   * 对每个该场景类型要求的职能：若该场景（location_id=scene.id）下还没有这个职能的 NPC，
+   * 就调 agent 起一个名字/性格补上。已存在则跳过（幂等）。
+   *
+   * @param sceneId    location_scene.id（NPC 的 location_id 指向它）
+   * @param sceneType  场景类型（guild/market/alchemy/...）
+   * @param sceneName  场景名（喂 agent 增加贴合度）
+   * @param cityName   所属城市名（可选，喂 agent）
+   * @returns 新建 NPC 的 id 列表
+   */
+  async ensureSceneNpcs(
+    sceneId: number,
+    sceneType: string,
+    sceneName: string,
+    cityName?: string,
+  ): Promise<number[]> {
+    // 1. 找出要求出现在该场景类型的所有职能（读 required_in_loc_type）
+    const allRoles = await this.roleRepo.find();
+    const matched = allRoles.filter((r) => {
+      const types = Array.isArray(r.required_in_loc_type) ? r.required_in_loc_type : [];
+      return types.includes(sceneType);
+    });
+    if (matched.length === 0) return [];
+
+    // 预载该场景已有 NPC 的 role_id，避免每个职能都查一次
+    const existing = await this.npcRepo.find({ where: { location_id: sceneId } });
+    const existingRoleIds = new Set(existing.map((n) => n.role_id));
+
+    const createdIds: number[] = [];
+    for (const role of matched) {
+      if (existingRoleIds.has(role.id)) continue; // 该职能已有 NPC，跳过
+
+      const npc = await this.spawnNpcForScene(role, sceneId, sceneName, cityName);
+      if (npc) {
+        createdIds.push(npc.id);
+        existingRoleIds.add(role.id); // 同批防重复
+        this.logger.log(`场景 ${sceneName}(${sceneType}) 补 NPC：${npc.name}（${role.name}）`);
+      }
+    }
+    return createdIds;
+  }
+
+  /**
+   * 为某职能在某场景生成并入库一个 NPC。
+   * 姓名/性别/年龄/性格调 agent 生成；agent 不可用或返回不全时随机兜底。
+   */
+  private async spawnNpcForScene(
+    role: NpcRole,
+    sceneId: number,
+    sceneName: string,
+    cityName?: string,
+  ): Promise<StaticNpc | null> {
+    let name = '';
+    let gender = '';
+    let age = '';
+    let natureName = '';
+
+    const agentResult = await this.agent.generateNpc({
+      scene_name: sceneName,
+      scene_type: '', // 场景类型在 ensureSceneNpcs 里已用于匹配职能，这里传空省 token
+      role_name: role.name,
+      role_hint: role.prompt_hint,
+      city_name: cityName,
+    });
+    if (agentResult) {
+      name = agentResult.name || '';
+      gender = agentResult.gender || '';
+      age = agentResult.age || '';
+      natureName = agentResult.nature || '';
+    }
+
+    // 兜底：agent 没给全的字段，随机补齐
+    if (!name) name = this.randomName(gender === '女');
+    if (!gender) gender = Math.random() < 0.5 ? '男' : '女';
+    if (!age) age = this.AGE_POOL[Math.floor(Math.random() * this.AGE_POOL.length)];
+
+    // 性格必须对齐 nature 表：name 找不到则随机取一个
+    let nature = natureName ? await this.natureRepo.findOneBy({ name: natureName }) : null;
+    if (!nature) {
+      const all = await this.natureRepo.find();
+      nature = all[Math.floor(Math.random() * all.length)] || null;
+    }
+
+    return this.npcRepo.save(
+      this.npcRepo.create({
+        name,
+        gender,
+        age,
+        nature_id: nature?.id ?? 1,
+        role_id: role.id,
+        location_id: sceneId,
+        greeting: null,
+      }),
+    );
+  }
+
+  /** 随机中文姓名（agent 不可用时兜底） */
+  private readonly SURNAME_POOL = ['林', '苏', '萧', '古', '叶', '韩', '云', '墨', '白', '柳', '秦', '沈', '顾', '陆'];
+  private readonly MALE_NAME_POOL = ['寒', '风', '霆', '渊', '烈', '铮', '川', '岳', '烽', '戈'];
+  private readonly FEMALE_NAME_POOL = ['霜', '月', '婉', '绾', '璃', '芷', '瑶', '苒', '薇', '莺'];
+  private readonly AGE_POOL = ['少年', '青年', '中年', '老年'];
+  private randomName(female: boolean): string {
+    const s = this.SURNAME_POOL[Math.floor(Math.random() * this.SURNAME_POOL.length)];
+    const pool = female ? this.FEMALE_NAME_POOL : this.MALE_NAME_POOL;
+    const g = pool[Math.floor(Math.random() * pool.length)];
+    return s + g;
   }
 
   /**

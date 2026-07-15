@@ -65,6 +65,8 @@ export interface AgentDialogBody {
   session_id: number;
   /** 会话内第几次调用（1=开场白） */
   call_index: number;
+  /** npc_role.id（可选）；agent 据此按职能限定 NPC 的知识库来源（如炼药师只能查草药/丹药图鉴） */
+  role_id?: number;
 }
 
 /** NPC 对话响应（agent /generate/dialog 返回） */
@@ -111,5 +113,22 @@ export interface AgentMapNodesRequest {
 export interface AgentMapNodesResultItem extends AgentMapNodeResult {
   gx: number;
   gy: number;
+}
+
+/** NPC 生成请求（调 /generate/npc）：按场景+职能生成一个 NPC 的基础设定 */
+export interface AgentNpcRequest {
+  scene_name: string;
+  scene_type: string;
+  role_name: string;
+  role_hint: string;
+  city_name?: string;
+}
+
+/** NPC 生成结果；字段可能为空字符串（agent 失败/未返回时），由 server 兜底随机补齐 */
+export interface AgentNpcResult {
+  name: string;
+  gender: string; // '男' | '女'
+  age: string; // 少年/青年/中年/老年
+  nature: string; // 性格名（须对齐 nature 表）
 }
 

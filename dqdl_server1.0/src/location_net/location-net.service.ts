@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LocationNet } from './location-net.entity';
@@ -6,6 +6,7 @@ import { LocationScene } from './location-scene.entity';
 import { Player } from '../player/player.entity';
 import { Biz } from '../common/biz.exception';
 import { AgentService } from '../agent/agent.service';
+import { NpcService } from '../npc/npc.service';
 import { MAP } from '../config/game.config';
 
 /**
@@ -165,7 +166,7 @@ export interface ExitView {
 }
 
 @Injectable()
-export class LocationNetService {
+export class LocationNetService implements OnApplicationBootstrap {
   private readonly logger = new Logger(LocationNetService.name);
 
   constructor(
@@ -173,7 +174,47 @@ export class LocationNetService {
     @InjectRepository(LocationScene) private readonly sceneRepo: Repository<LocationScene>,
     @InjectRepository(Player) private readonly playerRepo: Repository<Player>,
     private readonly agent: AgentService,
+    private readonly npcService: NpcService,
   ) {}
+
+  /**
+   * 启动兜底：给所有已存在的场景补齐"必生 NPC"。
+   * 这些场景是在本次改造前创建的，创建时不会触发 ensureCityScenes 的补 NPC 逻辑，
+   * 这里统一补一次（幂等，已有就跳过）。
+   *
+   * 注意：每个新 NPC 都要调一次 agent 起名，存量场景较多时耗时较长。
+   * 因此这里 fire-and-forget（不 await），不阻塞应用启动；后台跑完即可。
+   * 后续重启时多数 NPC 已存在，ensureSceneNpcs 会快速跳过。
+   */
+  onApplicationBootstrap() {
+    // 不 await：后台补齐，不卡启动
+    this.backfillSceneNpcs().catch((e) =>
+      this.logger.warn(`启动补 NPC 整体失败（不阻断启动）：${e}`),
+    );
+  }
+
+  private async backfillSceneNpcs() {
+    const scenes = await this.sceneRepo.find();
+    if (scenes.length === 0) return;
+    this.logger.log(`启动检查 ${scenes.length} 个场景的必生 NPC...`);
+    const netNameCache = new Map<number, string>();
+    // 场景间并发，单个场景内串行（避免同一城市场景内 NPC 名字相互串）
+    await Promise.all(
+      scenes.map(async (s) => {
+        try {
+          if (!netNameCache.has(s.net_id)) {
+            const n = await this.netRepo.findOneBy({ id: s.net_id });
+            if (n) netNameCache.set(s.net_id, n.name);
+          }
+          const cityName = netNameCache.get(s.net_id);
+          await this.npcService.ensureSceneNpcs(s.id, s.scene_type, s.name, cityName);
+        } catch (e) {
+          this.logger.warn(`启动补 NPC 跳过场景 ${s.name}：${e}`);
+        }
+      }),
+    );
+    this.logger.log('✅ 必生 NPC 检查完成');
+  }
 
   // ---------- 映射 ----------
   private toView(n: LocationNet): NetNodeView {
@@ -233,7 +274,22 @@ export class LocationNetService {
       where: { net_id: netId },
       order: { id: 'ASC' },
     });
-    return scenes;
+    // 附带每个场景的 NPC 列表（前端进场景后直接渲染对话入口）
+    // 复用 NpcService.findByLocation（location_id = location_scene.id）
+    const result: Array<Record<string, unknown>> = [];
+    for (const s of scenes) {
+      const npcs = await this.npcService.findByLocation(s.id);
+      result.push({
+        id: s.id,
+        net_id: s.net_id,
+        name: s.name,
+        scene_type: s.scene_type,
+        description: s.description,
+        available_actions: s.available_actions,
+        npcs,
+      });
+    }
+    return result;
   }
 
   async getExits(id: number): Promise<ExitView[]> {
@@ -423,7 +479,7 @@ export class LocationNetService {
     };
   }
 
-  /** 给城市补默认场景（已存在的类型跳过，靠 uk_net_scene 幂等） */
+  /** 给城市补默认场景（已存在的类型跳过，靠 uk_net_scene 幂等）；新场景同步补"必生 NPC" */
   private async ensureCityScenes(netId: number, cityName: string): Promise<LocationScene[]> {
     const created: LocationScene[] = [];
     for (const tpl of CITY_SCENES) {
@@ -439,6 +495,13 @@ export class LocationNetService {
         }),
       );
       created.push(s);
+      // 新场景 → 按 npc_role.required_in_loc_type 补齐必生 NPC（佣兵工会→公会接待员 等）
+      // 失败不阻断场景创建；agent 不可用时 NpcService 内部会随机兜底
+      try {
+        await this.npcService.ensureSceneNpcs(s.id, s.scene_type, s.name, cityName);
+      } catch (e) {
+        this.logger.warn(`场景 ${s.name}(${s.scene_type}) 补 NPC 失败：${e}`);
+      }
     }
     return created;
   }
@@ -791,6 +854,15 @@ export class LocationNetService {
     }
     const scene = await this.sceneRepo.findOneBy({ net_id: netId, scene_type: sceneType });
     if (!scene) throw Biz.notFound(`地图 ${netId} 没有类型 ${sceneType} 的场景`);
+
+    // 兜底：给存量场景补齐必生 NPC（这些场景是在本次改造前创建的，创建时没补 NPC）
+    // 幂等——已有对应职能 NPC 就跳过，所以重复进入不会重复创建
+    try {
+      const cityName = (await this.netRepo.findOneBy({ id: netId }))?.name;
+      await this.npcService.ensureSceneNpcs(scene.id, scene.scene_type, scene.name, cityName);
+    } catch (e) {
+      this.logger.warn(`进入场景 ${scene.name} 时补 NPC 失败：${e}`);
+    }
 
     player.scene_id = scene.id;
     await this.playerRepo.save(player);

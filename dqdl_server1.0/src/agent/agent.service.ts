@@ -13,6 +13,8 @@ import type {
   AgentMapNodeResult,
   AgentMapNodesRequest,
   AgentMapNodesResultItem,
+  AgentNpcRequest,
+  AgentNpcResult,
 } from './agent.types';
 
 /**
@@ -276,6 +278,34 @@ export class AgentService {
         `agent /generate/dialog 调用失败：${err.message}（code=${err.code}）`,
       );
       return { reply: '......（对方似乎没有听懂你在说什么）', call_id: null };
+    }
+  }
+
+  /**
+   * 生成 NPC 基础设定：调 POST /generate/npc。
+   * 给定场景+职能，让 LLM 起一个贴合的姓名/性别/年龄/性格。
+   * @returns 设定对象；agent 不可用或返回无效时返回 null（调用方随机兜底）
+   */
+  async generateNpc(req: AgentNpcRequest): Promise<AgentNpcResult | null> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<AgentNpcResult | null>(
+          `${this.baseUrl}/generate/npc`,
+          req,
+          { timeout: 15000 },
+        ),
+      );
+      if (!data || typeof data !== 'object' || !data.name) {
+        this.logger.warn('agent /generate/npc 返回无效数据，已忽略');
+        return null;
+      }
+      return data;
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/npc 调用失败：${err.message}（code=${err.code}）`,
+      );
+      return null;
     }
   }
 }

@@ -223,10 +223,13 @@ def load_index():
     print(f'[RAG] 已加载索引: {len(_chunks)} chunks')
 
 
-def search(query, top_k=5):
+def search(query, top_k=5, sources=None):
     """
     语义检索，返回最相关的 top_k 个chunk
     返回: list of { 'text', 'source', 'type', 'score' }
+
+    sources: 可选的文档来源白名单（文件名列表，如 ['草药图鉴.docx']）。
+             给定时只检索这些文档内的 chunk；不给则检索全部。
     """
     load_index()
     model = get_model()
@@ -240,10 +243,19 @@ def search(query, top_k=5):
 
     # 余弦相似度（已归一化，直接点积）
     scores = np.dot(_vectors, q_vec.T).flatten()
+
+    # 按来源白名单过滤：把不在白名单内的 chunk 分数置 -inf，使其不会出现在 top_k
+    if sources:
+        allowed = set(sources)
+        mask = np.array([c['source'] in allowed for c in _chunks], dtype=bool)
+        scores = np.where(mask, scores, -np.inf)
+
     top_indices = np.argsort(scores)[::-1][:top_k]
 
     results = []
     for idx in top_indices:
+        if scores[idx] == -np.inf:
+            continue  # 被来源过滤掉的空位，跳过
         results.append({
             'text': _chunks[idx]['text'],
             'source': _chunks[idx]['source'],
@@ -254,12 +266,14 @@ def search(query, top_k=5):
     return results
 
 
-def get_context(query, top_k=5, max_chars=3000):
+def get_context(query, top_k=5, max_chars=3000, sources=None):
     """
     检索并拼接成 Prompt 可用的上下文字符串
     自动截断到 max_chars 以内
+
+    sources: 可选的文档来源白名单，见 search()。
     """
-    results = search(query, top_k=top_k)
+    results = search(query, top_k=top_k, sources=sources)
     context_parts = []
     total_len = 0
 

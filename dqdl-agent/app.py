@@ -24,6 +24,7 @@ from routes.encounter import bp as encounter_bp
 from routes.breakthrough import bp as breakthrough_bp
 from routes.dungeon import bp as dungeon_bp
 from routes.event import bp as event_bp
+from routes.npc import bp as npc_bp
 
 app = Flask(__name__)
 
@@ -35,6 +36,7 @@ app.register_blueprint(encounter_bp)
 app.register_blueprint(breakthrough_bp)
 app.register_blueprint(dungeon_bp)
 app.register_blueprint(event_bp)
+app.register_blueprint(npc_bp)
 
 # ── 兼容旧测试的 re-export ──
 # test_event.py / test_fallback.py 用 `import app as agent` 访问以下符号，

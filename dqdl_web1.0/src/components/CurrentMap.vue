@@ -11,6 +11,10 @@ import FloatingTooltip from './FloatingTooltip.vue'
 const props = defineProps({
   location: { type: Object, default: null },
   npcs: { type: Array, default: () => [] },
+  // 是否显示"返回上级"按钮（进入子场景后传 true，点它回到上级地点）
+  showBack: { type: Boolean, default: false },
+  // 返回按钮文案（如"返回地图"/"返回上级"）
+  backText: { type: String, default: '返回上级' },
 })
 
 const emit = defineEmits(['back', 'npc-select'])
@@ -22,7 +26,11 @@ const typeIconMap = {
   empire: '/icon/location/city.png',
   city: '/icon/location/city.png',
   district: '/icon/location/city.png',
+  // 城内场景类型（进入场景后作为"当前地点"渲染）
   market: '/icon/location/city.png',
+  guild: '/icon/location/city.png',
+  alchemy: '/icon/location/city.png',
+  auction: '/icon/location/city.png',
   cultivation: '/icon/location/cultivation.png',
   forging: '/icon/location/forging.png',
   wild: '/icon/location/wild.png',
@@ -30,7 +38,6 @@ const typeIconMap = {
   wild3: '/icon/location/wild.png',
   sect: '/icon/location/sect.png',
   secret: '/icon/location/secret.png',
-  alchemy: '/icon/location/city.png',
 }
 
 /** 危险等级 → 中文 */
@@ -98,6 +105,15 @@ function onDropLeave() {
 
 <template>
   <div class="current-map">
+    <!-- 返回上级按钮：进入子场景后显示（showBack=true），点击 emit('back') -->
+    <button
+      v-if="showBack"
+      type="button"
+      class="back-btn"
+      @click="emit('back')"
+    >
+      ← {{ backText }}
+    </button>
     <div class="current-map-top">
       <div class="current-map-top-left">
         <div class="location-type-name">
@@ -242,29 +258,23 @@ function onDropLeave() {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(220, 190, 120, 0.12);
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
-.current-map-back{
-  position: relative;
+/* 返回上级按钮（进入子场景后显示） */
+.back-btn{
+  align-self: flex-start;
+  margin-bottom: 12px;
+  padding: 6px 16px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #e8d5a0;
+  background: rgba(10, 8, 6, 0.55);
+  border: 1px solid rgba(180, 150, 90, 0.4);
+  border-radius: 4px;
   cursor: pointer;
-  width: 150px;
-  height: 32px;
-  .current-map-back-bg{
-    width: 100%;
-    height: 100%;
-    object-fit: fill;
-    transition: filter 0.2s ease;
-  }
-  .current-map-back-text{
-    position: absolute;
-    top: 7px;
-    left: 40px;
-    font-size: 12px;
-    color: #f0d890;
-    letter-spacing: 2px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-    pointer-events: none;
-  }
-  &:hover .current-map-back-bg{
-    filter: brightness(1.25);
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  transition: all 0.2s ease;
+  &:hover{
+    background: rgba(180, 150, 90, 0.2);
+    border-color: rgba(220, 190, 120, 0.7);
   }
 }
 

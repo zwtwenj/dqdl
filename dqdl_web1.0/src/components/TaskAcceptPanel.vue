@@ -115,7 +115,6 @@ function rewardText(reward) {
     <div
       v-if="open"
       class="accept-overlay"
-      @click.self="onReject"
     >
       <div class="accept-box">
         <!-- 标题 -->

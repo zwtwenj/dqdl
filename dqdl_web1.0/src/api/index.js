@@ -25,4 +25,12 @@ export { getNpcShop, buyItem, sellItem } from './shop'
 export { usePill } from './pill'
 export { getEncounters, abandonEncounter } from './encounter'
 export { enterDungeon, getCurrentDungeon, nextDungeonAct, escapeDungeon, winDungeonAct, failDungeon } from './dungeon'
-export { enterCultivation, getCurrentCultivation, stopCultivation, cultivationStreamUrl } from './cultivation'
+export {
+  getCultivationConfig,
+  enterCultivation,
+  getCurrentCultivation,
+  getCultivationLatest,
+  resumeCultivation,
+  stopCultivation,
+  cultivationStreamUrl,
+} from './cultivation'

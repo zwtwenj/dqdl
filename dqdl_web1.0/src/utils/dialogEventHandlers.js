@@ -84,6 +84,15 @@ async function handleCompleteTask({ playerId, closeDialog }) {
 }
 
 /**
+ * cultivationRoom 事件：打开「修炼室」面板（城内付费修炼）。
+ * 玩家选档位后 SSE 流定时结算（扣金币+涨修为）。
+ */
+function handleCultivationRoom({ closeDialog }) {
+  bus.emit(BusEvents.CULTIVATION_ROOM_OPEN)
+  closeDialog?.()
+}
+
+/**
  * dialog_event 回调注册表。
  * key = dialog_event.event 字符串，value = handler 函数。
  * 新增事件类型时在此注册，保持与后端 dialog_event.event 一对一。
@@ -92,6 +101,7 @@ export const dialogEventHandlers = {
   trade: handleTrade,
   createAdventurerTask: handleCreateAdventurerTask,
   completeTask: handleCompleteTask,
+  cultivationRoom: handleCultivationRoom,
 }
 
 /**

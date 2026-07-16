@@ -33,6 +33,8 @@ export const BusEvents = {
   DUNGEON_OPEN: 'dungeon-open',
   /** 打开洞天福地修炼面板：{ encounterId } 由奇遇详情「进入」cultivate 类型触发 */
   CULTIVATION_OPEN: 'cultivation-open',
+  /** 打开修炼室面板（城内付费修炼）：由修炼室管理员对话「我想要进行修炼」触发 */
+  CULTIVATION_ROOM_OPEN: 'cultivation-room-open',
   /** 玩家状态变更（秘境进入/撤退等改变 status 时）：前端可监听刷新 player */
   PLAYER_STATUS_CHANGE: 'player-status-change',
   /** 打开「任务接取」预览面板：{ playerId }

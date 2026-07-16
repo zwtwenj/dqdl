@@ -30,18 +30,33 @@ export const ENCOUNTER = {
   dungeonRatio: 0.5,
 };
 
-// ============ 洞天福地修炼 ============
-// 由 encounter(kind='cultivate') 触发，进入后 SSE 流定时结算修为。
-// 收益：effectiveQi = baseQi × starMult[star]，再走 PlayerService.cultivate 公式（growth/暴击/上限）。
+// ============ 统一修炼引擎 ============
+// 洞天福地 + 修炼室 共用：effectiveQi = baseQi × starMult[tier]，结算走 PlayerService.cultivate。
+// scene 区分：blessed(免费/按轮数结束) vs room(付费/按时长结束/支持离线补偿)。
 export const BLESSSED_LAND = {
-  /** 基础斗气浓郁度（再乘星级倍率）。1星=150，2星=300，3星=600 */
+  /** 基础斗气浓郁度（再乘档位/星级倍率）。1档=150，2档=300，3档=600 */
   baseQi: 150,
-  /** 星级 → 修炼倍率（1=×1, 2=×2, 3=×4） */
+  /** 档位/星级 → 修炼倍率（1=×1, 2=×2, 3=×4），两场景共用 */
   starMult: { 1: 1, 2: 2, 3: 4 } as Record<number, number>,
-  /** 最大结算轮次（到上限自动结束） */
+  /** 最大结算轮次（仅 blessed 用，到上限自动结束） */
   maxRounds: 10,
   /** 结算间隔（毫秒）。默认 10s（开发）；.env CULTIVATION_INTERVAL 可覆盖（正式建议更长） */
   intervalMs: 10_000,
+};
+
+// ============ 修炼室场景（room）配置 ============
+// 仅 scene='room' 使用。时长可由玩家选择，金币按档位每轮扣。
+export const CULTIVATION_ROOM = {
+  /** 可选修炼时长（分钟），供前端渲染时长选项 */
+  durations: [1, 2, 3, 4, 5, 6, 7, 8] as number[],
+  /** 最短时长（分钟） */
+  minDurationMin: 1,
+  /** 最长时长（分钟） */
+  maxDurationMin: 8,
+  /** 档位 → 每轮金币消耗（原 service 内硬编码 TIER_COST 迁入此处） */
+  costPerTier: { 1: 200, 2: 400, 3: 800 } as Record<number, number>,
+  /** room 场景的 max_rounds 占位（实际按时长结束，这里给足够大的安全上限） */
+  roomMaxRounds: 10_000,
 };
 
 // ============ 地图生成 ============

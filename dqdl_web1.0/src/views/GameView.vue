@@ -627,6 +627,16 @@ function backToStart() {
 
     <!-- 右上角操作按钮组：地图 + 返回开始页 -->
     <div class="top-right-actions">
+      <!-- 修炼中（status==4）：玩家关闭了修炼弹窗但修炼仍在后台进行，点此返回修炼界面 -->
+      <button
+        v-if="player?.status === 4"
+        class="top-right-btn cultivating-btn"
+        type="button"
+        title="返回修炼界面"
+        @click="bus.emit(BusEvents.CULTIVATION_ROOM_OPEN)"
+      >
+        🧘 修炼中
+      </button>
       <button
         class="top-right-btn"
         type="button"
@@ -753,6 +763,22 @@ function backToStart() {
     background: rgba(180, 150, 90, 0.2);
     border-color: rgba(220, 190, 120, 0.7);
   }
+}
+/* 修炼中按钮：暗绿灵气风格 + 呼吸脉冲，提示有进行中的修炼 */
+.cultivating-btn {
+  color: #6fbfa8;
+  background: rgba(20, 40, 34, 0.6);
+  border-color: rgba(111, 191, 168, 0.5);
+  animation: cultivating-pulse 1.8s ease-in-out infinite;
+  &:hover {
+    background: rgba(30, 74, 62, 0.6);
+    border-color: #6fbfa8;
+    color: #8fd8c0;
+  }
+}
+@keyframes cultivating-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(111, 191, 168, 0); }
+  50% { box-shadow: 0 0 10px 1px rgba(111, 191, 168, 0.45); }
 }
 
 .game-container{

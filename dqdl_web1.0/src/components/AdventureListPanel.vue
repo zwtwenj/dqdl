@@ -202,7 +202,6 @@ onUnmounted(() => {
         <div
           v-if="selected"
           class="detail-overlay"
-          @click.self="selected = null"
         >
           <div class="detail-box">
             <div class="detail-header">

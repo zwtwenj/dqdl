@@ -79,6 +79,12 @@ const CITY_SCENES: SceneTemplate[] = [
     description: (c) => `${c}炼药师公会分部，炼药师考核与丹药交易的权威场所。`,
     available_actions: ['buy', 'sell', 'cultivate'],
   },
+  {
+    name: '修炼室',
+    scene_type: 'cultivation',
+    description: (c) => `${c}的修炼室，斗气浓郁、环境清幽，适合闭关修炼、精进修为（按席位列费）。`,
+    available_actions: ['cultivate'],
+  },
 ];
 
 // ---------- 命名素材池（真实工程换 agent/DeepSeek） ----------

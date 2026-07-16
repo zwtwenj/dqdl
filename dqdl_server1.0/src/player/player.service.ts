@@ -391,8 +391,9 @@ export class PlayerService {
     return { gained, critical, capped, cultivation: newCultivation, level_cultivation: lc };
   }
 
-  /** 取已装备功法的 growth（修炼效率系数）；无装备功法则默认 10 */
-  private async getEquippedTechniqueGrowth(player: Player): Promise<number> {
+  /** 取已装备功法的 growth（修炼效率系数）；无装备功法则默认 10。
+   *  public：供统一修炼引擎的离线补偿（compensate）按期望值批量结算时复用。 */
+  async getEquippedTechniqueGrowth(player: Player): Promise<number> {
     try {
       const arr = player.technique ? JSON.parse(player.technique) : [];
       const equipped = (Array.isArray(arr) ? arr : []).find((t: any) => t?.equipped);
@@ -517,6 +518,34 @@ export class PlayerService {
   /** 部分字段更新（供战斗等模块持久化 hp/energy 等运行时状态） */
   async patch(playerId: number, updates: Partial<Player>): Promise<void> {
     await this.repo.update({ id: playerId }, updates as any);
+  }
+
+  /**
+   * 增减金币（正数加、负数扣）。扣金币时余额不足会夹紧到 0（调用方应先校验）。
+   * 用 increment 原子操作，避免并发读写。
+   * @returns 更新后的金币余额
+   */
+  async grantMoney(playerId: number, delta: number): Promise<number> {
+    if (delta === 0) {
+      const p = await this.repo.findOneBy({ id: playerId });
+      return p?.money ?? 0;
+    }
+    await this.repo.increment({ id: playerId }, 'money', delta);
+    const p = await this.repo.findOneBy({ id: playerId });
+    // 扣超了夹紧到 0（理论上调用方先校验，这里兜底）
+    if (p && p.money < 0) {
+      p.money = 0;
+      await this.repo.save(p);
+    }
+    return p?.money ?? 0;
+  }
+
+  /**
+   * 直接设置修为（绝对值），供统一修炼引擎的离线补偿（compensate）批量结算用。
+   * 由调用方保证不超过 level_cultivation（已在 cultivation service 内夹紧）。
+   */
+  async setCultivation(playerId: number, value: number): Promise<void> {
+    await this.repo.update({ id: playerId }, { cultivation: value as any });
   }
 
   /** 删除角色的 player（删角色时级联） */

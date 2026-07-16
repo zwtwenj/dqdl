@@ -19,3 +19,11 @@ export const movePlayerLocation = (id, locationId) =>
 /** 更新斗技装配 POST /api/player/:id/skill { skill } skill 为 JSON 字符串 */
 export const updatePlayerSkills = (id, skillJson) =>
   http.post(`/player/${id}/skill`, { skill: skillJson })
+
+/** 更新功法装配 POST /api/player/:id/technique { technique } technique 为 JSON 字符串 */
+export const updatePlayerTechniques = (id, techniqueJson) =>
+  http.post(`/player/${id}/technique`, { technique: techniqueJson })
+
+/** 功法突破 POST /api/player/:id/technique/breakthrough { techniqueId, rate } */
+export const breakthroughTechnique = (id, techniqueId, rate) =>
+  http.post(`/player/${id}/technique/breakthrough`, { techniqueId, rate })

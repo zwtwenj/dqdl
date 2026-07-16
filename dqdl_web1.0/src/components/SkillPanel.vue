@@ -1,16 +1,25 @@
 <script setup>
 /**
- * 斗技弹窗（RPG 风格）：右下角功能栏「斗技」按钮触发。
+ * 功法 / 斗技弹窗（RPG 风格）：右下角功能栏「功法/斗技」按钮触发。
+ * 顶部 Tab 切换两类，沿用同一套「装备槽 + 已习得列表」布局。
  *
- * 布局：顶部 5 个装备槽（1~5），下方为已习得斗技列表（未装备）。
- * 交互（沿用老版本 SkillPanel 语义，carry=1~5 表装备槽位）：
+ * 斗技 Tab：
+ *   5 个装备槽（1~5）。carry=1~5 表装备槽位。
  *   - 点击列表项 → 装入第一个空槽位；无空位则提示。
  *   - 拖拽列表项 → 落到指定槽位（覆盖原槽位）。
  *   - 右键装备槽 → 卸下。
  *   - hover 列表项 / 装备槽 → 浮层显示斗技详情。
  *
- * 数据：player.skills（后端 findOne 聚合，含 name/attr/rank/carry/max_cultivation 等）。
- * 装配改动本地乐观更新 player.skills 与 player.skill 原始串，并 POST /player/:id/skill 持久化。
+ * 功法 Tab：
+ *   仅 1 个装备槽（功法至多装备 1 部，与后端 computeTechBonus /
+ *   getEquippedTechniqueGrowth 用 .find(t=>t.equipped) 的语义一致）。
+ *   - 点击列表项 → 装备该功法并互斥卸下其它功法。
+ *   - 右键装备槽 → 卸下。
+ *   - hover → 浮层显示功法详情。
+ *
+ * 数据：player.skills / player.techniques（后端 findOne 聚合）。
+ * 装配改动本地乐观更新 player.skills/techniques 与对应原始 JSON 串，
+ * 并 POST /player/:id/skill | /technique 持久化。
  *
  * Props:
  *   modelValue (boolean) - 是否显示
@@ -23,7 +32,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
 import FloatingTooltip from './FloatingTooltip.vue'
-import { updatePlayerSkills } from '../api'
+import TechniqueBreakthroughGame from './TechniqueBreakthroughGame.vue'
+import { updatePlayerSkills, updatePlayerTechniques } from '../api'
 import { bus, BusEvents } from '../utils/eventBus'
 
 const props = defineProps({
@@ -61,6 +71,10 @@ const { dragging, onHandlePointerDown } = usePanelDraggable({
   onStart: focus,
 })
 
+/* ============ Tab 切换：斗技 / 功法 ============ */
+/** 当前展示的 Tab：skill=斗技 / technique=功法 */
+const activeTab = ref('skill')
+
 /* ============ 斗技数据（后端聚合数组） ============ */
 const skills = computed(() => props.player?.skills || [])
 /** carry=1~5 的进装备映射 */
@@ -75,6 +89,42 @@ const equippedMap = computed(() => {
 const inventoryList = computed(() => skills.value.filter((s) => !s.carry))
 function slotSkill(slot) {
   return equippedMap.value[slot] || null
+}
+
+/* ============ 功法数据（后端聚合数组） ============ */
+const techniques = computed(() => props.player?.techniques || [])
+/** 已装备功法（至多 1 部，后端 .find(t=>t.equipped) 约定） */
+const equippedTechnique = computed(() => techniques.value.find((t) => t.equipped) || null)
+/** 未装备功法列表 */
+const techniqueList = computed(() => techniques.value.filter((t) => !t.equipped))
+
+/** 功法是否可突破：修为已满（cultivation≥max_cultivation）且未达最高级 */
+function canBreakthrough(t) {
+  if (!t) return false
+  const max = Number(t.max_cultivation) || 0
+  const cur = Number(t.cultivation) || 0
+  if (!(max > 0 && cur >= max)) return false
+  if (t.max_level && (Number(t.level) || 1) >= t.max_level) return false
+  return true
+}
+
+/* ============ 功法突破小游戏 ============ */
+const breakthroughOpen = ref(false)
+const breakthroughTarget = ref(null)
+function openBreakthrough(t) {
+  breakthroughTarget.value = t
+  breakthroughOpen.value = true
+}
+function onBreakthroughDone({ success, player }) {
+  if (success) {
+    bus.emit(BusEvents.TOAST, { type: 'success', message: '功法突破成功！' })
+  }
+  // 用后端返回的最新 player 刷新弹窗：等级/修为/max_cultivation 立即生效，
+  // 突破成功的功法卡片不再显示「突破」按钮，避免重复提交。
+  if (player && props.player) {
+    props.player.techniques = player.techniques || []
+    props.player.technique = player.technique ?? props.player.technique
+  }
 }
 
 /* ============ 文本格式化 ============ */
@@ -101,8 +151,35 @@ function skillIconUrl(s) {
   }
   return FALLBACK_ICON
 }
+/** 功法图标：gf- 前缀 → /icon/technique/{item_id}.png；缺失用兜底图 */
+function techniqueIconUrl(t) {
+  const id = t?.item_id
+  if (id && id.startsWith('gf-')) {
+    return `/icon/technique/${id}.png`
+  }
+  return FALLBACK_ICON
+}
 function onIconError(e) {
   if (e.target.src !== FALLBACK_ICON) e.target.src = FALLBACK_ICON
+}
+
+/* ============ 功法品阶文本（功法字段名与斗技略有差异） ============ */
+function techniqueRankLabel(rank) {
+  return RANK_LABEL[rank] || ''
+}
+/** 功法 base_params → "力量+5 / 体质+3" 文本 */
+function techniqueBaseText(t) {
+  const params = t?.base_params
+  if (!params) return ''
+  const PARAM_LABEL = {
+    power: '力量', intelligence: '智力', quick: '敏捷', stamina: '体质', lucky: '运气',
+    hp: '气血', energy: '斗气',
+  }
+  const parts = []
+  for (const k of Object.keys(params)) {
+    if (PARAM_LABEL[k] && Number(params[k])) parts.push(`${PARAM_LABEL[k]}+${params[k]}`)
+  }
+  return parts.join(' / ')
 }
 
 /* ============ 悬浮 tooltip（列表 + 装备槽共享一个浮层实例） ============ */
@@ -194,6 +271,50 @@ async function applyCarryChange(mutate) {
   }
 }
 
+/* ============ 功法装配 / 卸下（互斥单选） ============
+   功法至多装备 1 部：点击列表项装为唯一已装备（其余全部卸下），
+   右键装备槽卸下当前。仅改 player.techniques[].equipped 与 player.technique 原始串，
+   不触发整份 player 重拉。 */
+
+/** 点击功法列表项：装备为唯一（互斥卸下其它）。 */
+function onTechniqueEquip(t) {
+  applyTechniqueEquipChange((raw) => {
+    raw.forEach((x) => {
+      x.equipped = Number(x.id) === Number(t.id)
+    })
+  })
+}
+
+/** 右键功法装备槽：卸下当前已装备功法。 */
+function onTechniqueUnequip() {
+  applyTechniqueEquipChange((raw) => {
+    raw.forEach((x) => {
+      x.equipped = false
+    })
+  })
+}
+
+/** 应用 equipped 变更：改原始 JSON 串 → 本地同步 techniques[].equipped → POST 持久化 */
+async function applyTechniqueEquipChange(mutate) {
+  if (!props.player) return
+  const raw = parseRaw(props.player.technique)
+  mutate(raw)
+  // 本地同步富化数组里对应功法的 equipped
+  const equippedById = new Map(raw.map((x) => [Number(x.id), !!x.equipped]))
+  props.player.techniques = techniques.value.map((t) => ({
+    ...t,
+    equipped: equippedById.get(Number(t.id)) ?? false,
+  }))
+  props.player.technique = JSON.stringify(raw)
+  try {
+    await updatePlayerTechniques(props.player.id, props.player.technique)
+    // 功法加成会影响 final_attrs / max_hp 等，通知 GameView 刷新
+    bus.emit(BusEvents.PLAYER_STATUS_CHANGE)
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '保存功法失败' })
+  }
+}
+
 function close() {
   emit('update:modelValue', false)
 }
@@ -233,125 +354,302 @@ function close() {
     </button>
 
     <div class="panel-title">
-      斗技
+      功法 / 斗技
+    </div>
+
+    <!-- Tab 切换条：功法 / 斗技 -->
+    <div class="mode-tabs">
+      <button
+        type="button"
+        class="mode-tab"
+        :class="{ active: activeTab === 'technique' }"
+        @click="activeTab = 'technique'; hideTip()"
+      >
+        功法
+      </button>
+      <button
+        type="button"
+        class="mode-tab"
+        :class="{ active: activeTab === 'skill' }"
+        @click="activeTab = 'skill'; hideTip()"
+      >
+        斗技
+      </button>
     </div>
 
     <!-- 内容区 -->
     <div class="panel-inner">
-      <!-- 装备槽 -->
-      <div class="slots-section">
-        <div class="section-label">
-          装备栏（右键卸下）
-        </div>
-        <div class="slots-row">
-          <div
-            v-for="slot in 5"
-            :key="slot"
-            class="equip-slot"
-            :class="{ occupied: slotSkill(slot) }"
-            @dragover.prevent
-            @drop="onDropSlot(slot, $event)"
-            @contextmenu.prevent="onRightClickSlot(slot)"
-            @pointerenter="slotSkill(slot) && showTip(slotSkill(slot), $event)"
-            @pointerleave="hideTip"
-          >
-            <template v-if="slotSkill(slot)">
-              <img
-                class="slot-icon"
-                :src="skillIconUrl(slotSkill(slot))"
-                :alt="slotSkill(slot).name || ''"
-                @error="onIconError"
-              >
-              <span class="slot-lv">Lv.{{ slotSkill(slot).level ?? 1 }}</span>
-            </template>
-            <template v-else>
-              <span class="slot-num">{{ slot }}</span>
-            </template>
+      <!-- ===================== 功法 Tab ===================== -->
+      <template v-if="activeTab === 'technique'">
+        <!-- 装备槽（功法仅 1 个，右键卸下） -->
+        <div class="slots-section">
+          <div class="section-label">
+            装备栏（功法仅一部，右键卸下）
+          </div>
+          <div class="slots-row single">
+            <div
+              class="equip-slot"
+              :class="{ occupied: equippedTechnique }"
+              @contextmenu.prevent="onTechniqueUnequip()"
+              @pointerenter="equippedTechnique && showTip(equippedTechnique, $event)"
+              @pointerleave="hideTip"
+            >
+              <template v-if="equippedTechnique">
+                <img
+                  class="slot-icon"
+                  :src="techniqueIconUrl(equippedTechnique)"
+                  :alt="equippedTechnique.name || ''"
+                  @error="onIconError"
+                >
+                <span class="slot-lv">Lv.{{ equippedTechnique.level ?? 1 }}</span>
+              </template>
+              <template v-else>
+                <span class="slot-num">空</span>
+              </template>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- 已习得列表 -->
-      <div class="inventory-section">
-        <div class="section-label">
-          已习得（点击或拖拽装配）
-        </div>
+        <!-- 已装备功法修为满：内联突破入口 -->
         <div
-          v-if="inventoryList.length"
-          class="inventory-grid"
+          v-if="equippedTechnique && canBreakthrough(equippedTechnique)"
+          class="equip-breakthrough"
         >
+          <span class="equip-breakthrough-name">{{ equippedTechnique.name }} 修为已满</span>
+          <button
+            type="button"
+            class="card-btn"
+            @click="openBreakthrough(equippedTechnique)"
+          >
+            突破
+          </button>
+        </div>
+
+        <!-- 已习得列表（点击装配，互斥单选） -->
+        <div class="inventory-section">
+          <div class="section-label">
+            已习得（点击装配，仅可装一部）
+          </div>
           <div
-            v-for="s in inventoryList"
-            :key="s.id"
+            v-if="techniqueList.length"
+            class="inventory-grid"
+          >
+          <div
+            v-for="t in techniqueList"
+            :key="t.id"
             class="skill-card"
-            draggable="true"
-            title="点击装备到空槽位，或拖拽到指定槽位"
-            @click="onEquip(s)"
-            @dragstart="onDragStart(s, $event)"
-            @pointerenter="showTip(s, $event)"
+            :class="{ 'is-full': canBreakthrough(t) }"
+            title="点击装备（自动卸下其它功法）"
+            @click="onTechniqueEquip(t)"
+            @pointerenter="showTip(t, $event)"
             @pointerleave="hideTip"
           >
             <img
               class="card-icon"
-              :src="skillIconUrl(s)"
-              :alt="s.name || ''"
+              :src="techniqueIconUrl(t)"
+              :alt="t.name || ''"
               @error="onIconError"
             >
             <div class="card-info">
               <div class="card-name">
-                {{ s.name || '未知斗技' }}
+                {{ t.name || '未知功法' }}
               </div>
               <div class="card-meta">
-                {{ rankLabel(s.rank) }}<template v-if="rankLabel(s.rank)">
+                {{ techniqueRankLabel(t.rank) }}<template v-if="techniqueRankLabel(t.rank)">
                   ·
-                </template>{{ attrLabel(s.attr) }}
+                </template><template v-if="t.attribute">
+                  {{ t.attribute }}属性
+                </template>
               </div>
             </div>
-            <span class="card-lv">Lv.{{ s.level ?? 1 }}</span>
+            <!-- 修为满可突破：显示突破按钮（阻止冒泡到卡片装配） -->
+            <button
+              v-if="canBreakthrough(t)"
+              type="button"
+              class="card-btn"
+              title="修为已满，可突破至下一重"
+              @click.stop="openBreakthrough(t)"
+            >
+              突破
+            </button>
+            <span
+              v-else
+              class="card-lv"
+            >Lv.{{ t.level ?? 1 }}</span>
+          </div>
+          </div>
+          <div
+            v-else
+            class="empty-hint"
+          >
+            {{ techniques.length ? '功法已全部装备' : '尚未习得任何功法' }}
           </div>
         </div>
-        <div
-          v-else
-          class="empty-hint"
-        >
-          所有斗技均已装备
+      </template>
+
+      <!-- ===================== 斗技 Tab ===================== -->
+      <template v-else>
+        <!-- 装备槽 -->
+        <div class="slots-section">
+          <div class="section-label">
+            装备栏（右键卸下）
+          </div>
+          <div class="slots-row">
+            <div
+              v-for="slot in 5"
+              :key="slot"
+              class="equip-slot"
+              :class="{ occupied: slotSkill(slot) }"
+              @dragover.prevent
+              @drop="onDropSlot(slot, $event)"
+              @contextmenu.prevent="onRightClickSlot(slot)"
+              @pointerenter="slotSkill(slot) && showTip(slotSkill(slot), $event)"
+              @pointerleave="hideTip"
+            >
+              <template v-if="slotSkill(slot)">
+                <img
+                  class="slot-icon"
+                  :src="skillIconUrl(slotSkill(slot))"
+                  :alt="slotSkill(slot).name || ''"
+                  @error="onIconError"
+                >
+                <span class="slot-lv">Lv.{{ slotSkill(slot).level ?? 1 }}</span>
+              </template>
+              <template v-else>
+                <span class="slot-num">{{ slot }}</span>
+              </template>
+            </div>
+          </div>
         </div>
-      </div>
+
+        <!-- 已习得列表 -->
+        <div class="inventory-section">
+          <div class="section-label">
+            已习得（点击或拖拽装配）
+          </div>
+          <div
+            v-if="inventoryList.length"
+            class="inventory-grid"
+          >
+            <div
+              v-for="s in inventoryList"
+              :key="s.id"
+              class="skill-card"
+              draggable="true"
+              title="点击装备到空槽位，或拖拽到指定槽位"
+              @click="onEquip(s)"
+              @dragstart="onDragStart(s, $event)"
+              @pointerenter="showTip(s, $event)"
+              @pointerleave="hideTip"
+            >
+              <img
+                class="card-icon"
+                :src="skillIconUrl(s)"
+                :alt="s.name || ''"
+                @error="onIconError"
+              >
+              <div class="card-info">
+                <div class="card-name">
+                  {{ s.name || '未知斗技' }}
+                </div>
+                <div class="card-meta">
+                  {{ rankLabel(s.rank) }}<template v-if="rankLabel(s.rank)">
+                    ·
+                  </template>{{ attrLabel(s.attr) }}
+                </div>
+              </div>
+              <span class="card-lv">Lv.{{ s.level ?? 1 }}</span>
+            </div>
+          </div>
+          <div
+            v-else
+            class="empty-hint"
+          >
+            所有斗技均已装备
+          </div>
+        </div>
+      </template>
     </div>
 
-    <!-- 悬浮详情：装备槽 + 列表共享一个浮层，Teleport 到 body -->
+    <!-- 悬浮详情：装备槽 + 列表共享一个浮层，Teleport 到 body；按 Tab 渲染不同字段 -->
     <FloatingTooltip
       v-model:open="tipOpen"
       :reference="hoveredEl"
       placement="right-start"
     >
-      <div class="tip-name">
-        {{ hoveredData?.name || '未知斗技' }}
-        <span
-          v-if="hoveredData?.rank"
-          class="tip-rank"
-        >{{ rankLabel(hoveredData.rank) }}</span>
-      </div>
-      <div
-        v-if="hoveredData?.attr"
-        class="tip-meta"
-      >
-        {{ attrLabel(hoveredData.attr) }}属性 · 耗气 {{ hoveredData.energy_cost ?? 0 }}
-      </div>
-      <div
-        v-if="hoveredData?.max_level"
-        class="tip-progress"
-      >
-        Lv.{{ hoveredData.level ?? 1 }}/{{ hoveredData.max_level }}
-        · 修为 {{ hoveredData.cultivation ?? 0 }}/{{ hoveredData.max_cultivation || 0 }}
-      </div>
-      <div
-        v-if="hoveredData?.description"
-        class="tip-desc"
-      >
-        {{ hoveredData.description }}
-      </div>
+      <!-- 功法详情 -->
+      <template v-if="activeTab === 'technique'">
+        <div class="tip-name">
+          {{ hoveredData?.name || '未知功法' }}
+          <span
+            v-if="hoveredData?.rank"
+            class="tip-rank"
+          >{{ techniqueRankLabel(hoveredData.rank) }}</span>
+        </div>
+        <div
+          v-if="hoveredData?.attribute"
+          class="tip-meta"
+        >
+          {{ hoveredData.attribute }}属性
+        </div>
+        <div
+          v-if="hoveredData && techniqueBaseText(hoveredData)"
+          class="tip-base"
+        >
+          {{ techniqueBaseText(hoveredData) }}
+        </div>
+        <div class="tip-progress">
+          修为 {{ hoveredData?.cultivation ?? 0 }}/{{ hoveredData?.max_cultivation || 0 }}
+          <template v-if="hoveredData?.max_level">
+            · 最高 Lv.{{ hoveredData.max_level }}
+          </template>
+        </div>
+        <div
+          v-if="hoveredData?.description"
+          class="tip-desc"
+        >
+          {{ hoveredData.description }}
+        </div>
+      </template>
+
+      <!-- 斗技详情 -->
+      <template v-else>
+        <div class="tip-name">
+          {{ hoveredData?.name || '未知斗技' }}
+          <span
+            v-if="hoveredData?.rank"
+            class="tip-rank"
+          >{{ rankLabel(hoveredData.rank) }}</span>
+        </div>
+        <div
+          v-if="hoveredData?.attr"
+          class="tip-meta"
+        >
+          {{ attrLabel(hoveredData.attr) }}属性 · 耗气 {{ hoveredData.energy_cost ?? 0 }}
+        </div>
+        <div
+          v-if="hoveredData?.max_level"
+          class="tip-progress"
+        >
+          Lv.{{ hoveredData.level ?? 1 }}/{{ hoveredData.max_level }}
+          · 修为 {{ hoveredData.cultivation ?? 0 }}/{{ hoveredData.max_cultivation || 0 }}
+        </div>
+        <div
+          v-if="hoveredData?.description"
+          class="tip-desc"
+        >
+          {{ hoveredData.description }}
+        </div>
+      </template>
     </FloatingTooltip>
+
+    <!-- 功法突破小游戏（全屏遮罩，独立于本弹窗层级） -->
+    <TechniqueBreakthroughGame
+      v-model="breakthroughOpen"
+      :technique="breakthroughTarget"
+      :player-id="player?.id"
+      @done="onBreakthroughDone"
+    />
   </div>
 </template>
 
@@ -434,10 +732,43 @@ function close() {
   pointer-events: none;
 }
 
+/* ========== Tab 切换条（功法 / 斗技） ========== */
+.mode-tabs {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  gap: 4px;
+}
+.mode-tab {
+  padding: 2px 14px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: rgba(210, 180, 120, 0.7);
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  background: rgba(8, 6, 4, 0.7);
+  border: 1px solid rgba(120, 100, 60, 0.35);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mode-tab:hover {
+  color: #e8d5a0;
+  border-color: rgba(200, 170, 100, 0.6);
+}
+.mode-tab.active {
+  color: #f0d896;
+  background: rgba(40, 30, 16, 0.85);
+  border-color: rgba(220, 190, 120, 0.7);
+  box-shadow: 0 0 6px rgba(200, 170, 100, 0.3);
+}
+
 /* ========== 内容流式布局 ========== */
 .panel-inner {
   position: absolute;
-  inset: 55px 55px 40px 55px;
+  inset: 72px 55px 40px 55px;
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -460,6 +791,10 @@ function close() {
 .slots-row {
   display: flex;
   gap: 8px;
+}
+/* 功法仅 1 个槽位：限制宽度，避免单个 flex:1 撑满整行 */
+.slots-row.single .equip-slot {
+  flex: 0 0 calc((100% - 32px) / 5); /* 与 5 槽位的单格等宽 */
 }
 .equip-slot {
   position: relative;
@@ -576,6 +911,47 @@ function close() {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
 }
 
+/* 功法修为满（可突破）的卡片高亮 + 突破按钮 */
+.skill-card.is-full {
+  border-color: rgba(240, 192, 64, 0.7);
+  box-shadow: 0 0 6px rgba(240, 192, 64, 0.25);
+}
+.card-btn {
+  flex: 0 0 auto;
+  padding: 2px 10px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #2a2010;
+  background: #f0c040;
+  border: 1px solid #d4a838;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  font-weight: 600;
+  transition: filter 0.15s;
+}
+.card-btn:hover {
+  filter: brightness(1.15);
+}
+
+/* 已装备功法修为满：装备槽下方的内联突破条 */
+.equip-breakthrough {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(240, 192, 64, 0.1);
+  border: 1px solid rgba(240, 192, 64, 0.5);
+  border-radius: 4px;
+}
+.equip-breakthrough-name {
+  font-size: 11px;
+  color: #f0c040;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  letter-spacing: 1px;
+}
+
 .empty-hint {
   font-size: 10px;
   letter-spacing: 1px;
@@ -603,6 +979,12 @@ function close() {
   font-size: 10px;
   color: rgba(210, 180, 120, 0.8);
   margin-bottom: 3px;
+}
+.tip-base {
+  font-size: 11px;
+  color: #9fc880;
+  margin-bottom: 3px;
+  font-family: 'Georgia', serif;
 }
 .tip-progress {
   font-size: 10px;

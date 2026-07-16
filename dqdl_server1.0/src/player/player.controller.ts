@@ -73,4 +73,30 @@ export class PlayerController {
     await this.playerService.verifyOwnership(id, req.user.id);
     return this.playerService.updateSkillEquip(id, body?.skill ?? '[]');
   }
+
+  /** 更新功法装配 POST /api/player/:id/technique { technique } technique 为 JSON 字符串 */
+  @Post(':id/technique')
+  async updateTechnique(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { technique: string },
+    @Req() req: any,
+  ) {
+    await this.playerService.verifyOwnership(id, req.user.id);
+    return this.playerService.updateTechniqueEquip(id, body?.technique ?? '[]');
+  }
+
+  /** 功法突破 POST /api/player/:id/technique/breakthrough { techniqueId, rate } */
+  @Post(':id/technique/breakthrough')
+  async breakthroughTechnique(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { techniqueId: number; rate: number },
+    @Req() req: any,
+  ) {
+    await this.playerService.verifyOwnership(id, req.user.id);
+    return this.playerService.breakthroughTechnique(
+      id,
+      Number(body?.techniqueId),
+      Number(body?.rate) || 0,
+    );
+  }
 }

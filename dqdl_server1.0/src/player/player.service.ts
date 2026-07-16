@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { Player } from './player.entity';
 import { CharacterService } from '../character/character.service';
 import { LocationService } from '../location/location.service';
-import { TechniqueService } from '../technique/technique.service';
+import { TechniqueService, techniqueBreakthroughBaseRate } from '../technique/technique.service';
 import { SkillService } from '../skill/skill.service';
 import { Biz } from '../common/biz.exception';
 
@@ -262,6 +262,8 @@ export class PlayerService {
         max_cultivation: this.techniqueService.maxCultivationAtLevel(def, level),
         /** 该等级的属性加成（params），用于 final_attrs 叠加 */
         base_params: def ? this.techniqueService.parseBase(def.base, level) : {},
+        /** 突破基础成功率(%)，按品阶 rank 取（功法突破小游戏用） */
+        breakthrough_rate: def ? techniqueBreakthroughBaseRate(def.rank) : 50,
         description: def?.description ?? null,
         equipped: !!e?.equipped,
       };
@@ -439,6 +441,7 @@ export class PlayerService {
   /** 读取某项功法的修炼进度（供修炼室 enter 校验/前端渲染） */
   async getTechniqueState(playerId: number, techniqueId: number): Promise<{
     name: string; level: number; cultivation: number; max_cultivation: number; max_level: number;
+    breakthrough_rate: number;
   } | null> {
     const player = await this.repo.findOneBy({ id: playerId });
     if (!player) return null;
@@ -454,6 +457,7 @@ export class PlayerService {
       cultivation: Number(entry.cultivation) || 0,
       max_cultivation: this.techniqueService.maxCultivationAtLevel(def, lv),
       max_level: def.max_level ?? 0,
+      breakthrough_rate: techniqueBreakthroughBaseRate(def.rank),
     };
   }
 
@@ -738,6 +742,111 @@ export class PlayerService {
     player.skill = JSON.stringify(cleaned);
     await this.repo.save(player);
     return this.findOne(playerId);
+  }
+
+  /**
+   * 更新玩家功法装配：前端功法弹窗点选装配后，把整份 technique JSON 回传。
+   * 元素结构：{id, level, cultivation, equipped}（equipped=是否装配）。
+   *
+   * 互斥语义：功法至多装备 1 部（与 computeTechBonus / getEquippedTechniqueGrowth
+   * 用 .find(t=>t.equipped) 取唯一已装备功法的约定一致）。这里以后端为权威，
+   * 至多保留第一个 equipped:true，其余强制置 false，保证库内始终单选。
+   *
+   * 后端只做基本校验：元素须含合法 id；不重算等级/修为/属性。
+   * @returns 聚合后的最新玩家数据（含 techniques 数组）
+   */
+  async updateTechniqueEquip(playerId: number, techniqueJson: string): Promise<any> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+
+    let arr: any[] = [];
+    try {
+      const parsed = JSON.parse(techniqueJson);
+      if (Array.isArray(parsed)) arr = parsed;
+      else throw new Error('technique 必须是数组');
+    } catch {
+      throw Biz.badRequest('technique JSON 格式错误');
+    }
+
+    // 规整：保留 id/level/cultivation，equipped 限布尔；同时强制互斥（仅首个 true 生效）
+    let firstEquipped = true;
+    const cleaned = arr
+      .filter((e) => Number(e?.id) > 0)
+      .map((e) => {
+        let equipped = !!e?.equipped;
+        // 互斥：第一个 equipped:true 通过，之后的强制降级
+        if (equipped && !firstEquipped) equipped = false;
+        if (equipped) firstEquipped = false;
+        return {
+          id: Number(e.id),
+          level: Number(e?.level) || 1,
+          cultivation: Number(e?.cultivation) || 0,
+          ...(equipped ? { equipped: true } : {}),
+        };
+      });
+
+    player.technique = JSON.stringify(cleaned);
+    await this.repo.save(player);
+    return this.findOne(playerId);
+  }
+
+  /**
+   * 功法突破：由前端小游戏汇总一个成功率 rate(%)，后端按规则判定成功与否并结算。
+   * - 成功：等级+1（不超过 max_level）、修为清零。
+   *   1.0 的 max_hp/max_energy 为基础值（突破时持久化），功法加成由 findOne 实时聚合，
+   *   故升级后 final_attrs / computeMaxHpEnergy 自动按新等级放大，无需单独重算。
+   * - 失败：等级不变，修为折损一半（向下取整），需重新积攒满修为方可再试。
+   * @returns 最新玩家数据 + 突破结果（含叙事文案）
+   */
+  async breakthroughTechnique(
+    playerId: number,
+    techniqueId: number,
+    rate: number,
+  ): Promise<any> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+
+    let arr: any[] = [];
+    try { arr = JSON.parse(player.technique) || []; } catch { arr = []; }
+    if (!Array.isArray(arr)) arr = [];
+    const entry = arr.find((t) => Number(t.id) === Number(techniqueId));
+    if (!entry) throw Biz.badRequest('未习得该功法');
+    const def = await this.techniqueService.findOne(techniqueId);
+    if (!def) throw Biz.notFound('功法不存在');
+
+    const lv = Number(entry.level) || 1;
+    const max = this.techniqueService.maxCultivationAtLevel(def, lv);
+    if (!(max > 0 && Number(entry.cultivation) >= max)) {
+      throw Biz.badRequest('功法修为未满，无法突破');
+    }
+    if (def.max_level && lv >= def.max_level) {
+      throw Biz.badRequest('功法已达最高境界');
+    }
+
+    const clampedRate = Math.max(0, Math.min(100, Number(rate) || 0));
+    const success = clampedRate >= 100 ? true : Math.random() * 100 < clampedRate;
+
+    let newLevel = lv;
+    let narrative: string;
+    if (success) {
+      newLevel = def.max_level ? Math.min(lv + 1, def.max_level) : lv + 1;
+      entry.level = newLevel;
+      entry.cultivation = 0;
+      narrative = `你心神沉入《${def.name}》的功法意境，于斩魔证道间豁然贯通，成功将其参悟至第 ${newLevel} 重！`;
+    } else {
+      // 失败惩罚：当前修为折损一半（向下取整），需重新积攒修为方可再试
+      const lost = Math.floor(Number(entry.cultivation) / 2);
+      entry.cultivation = Math.max(0, Number(entry.cultivation) - lost);
+      narrative = `你试图参悟《${def.name}》更深一层的奥义，却被心魔所扰，功亏一篑，修为折损过半（-${lost}），尚需再行静修。`;
+    }
+    player.technique = JSON.stringify(arr);
+    await this.repo.save(player);
+
+    const fresh = await this.findOne(playerId);
+    return {
+      player: fresh,
+      breakthrough: { success, narrative, level: newLevel, techniqueId, techniqueName: def.name },
+    };
   }
 
   /** 获取 player 实体（原始，非聚合），供其他 service 使用 */

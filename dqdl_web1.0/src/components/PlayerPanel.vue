@@ -108,6 +108,8 @@ const techniques = computed(() => {
   if (Array.isArray(agg) && agg.length) return agg
   return parseList(props.player?.technique)
 })
+/** 角色面板只展示已装备的功法（至多 1 部，与下方已装备斗技对称）；完整管理在功法/斗技弹窗 */
+const equippedTechniques = computed(() => techniques.value.filter((t) => t.equipped))
 
 /** 图标兜底：缺失统一用 cl-100.png */
 const FALLBACK_ICON = '/icon/cl/cl-100.png'
@@ -324,17 +326,17 @@ function close() {
           </div>
         </section>
 
-        <!-- 功法 -->
+        <!-- 功法（仅显示已装备，至多一部；完整管理在功法/斗技弹窗） -->
         <section class="card">
           <h4 class="card-title">
             功法
           </h4>
           <div
-            v-if="techniques.length"
+            v-if="equippedTechniques.length"
             class="technique-list"
           >
             <TechniqueTooltip
-              v-for="(t, i) in techniques"
+              v-for="(t, i) in equippedTechniques"
               :key="'t'+i"
               :technique="t"
             >
@@ -353,7 +355,7 @@ function close() {
           <span
             v-else
             class="empty-hint"
-          >— 尚未习得 —</span>
+          >— 尚未装备 —</span>
         </section>
 
         <!-- 斗技（仅已装备 carry 1~5） -->

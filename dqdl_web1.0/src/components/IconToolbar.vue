@@ -1,6 +1,6 @@
 <script setup>
 /**
- * 右下角功能图标栏：背包 / 角色 / 斗技 / 宝物 / 炼丹 / 任务 / 奇遇。
+ * 右下角功能图标栏：背包 / 角色 / 功法·斗技 / 宝物 / 炼丹 / 任务 / 奇遇。
  * 图标来自 /icon/btn/。暂时只做 UI 占位，点击 emit 一个 select 事件并附带 key。
  * badges: { [key]: true } 用于在图标右上角显示红点（如奇遇有新内容）。
  */
@@ -14,7 +14,7 @@ defineEmits(['select'])
 const items = [
   { key: 'player', label: '角色', icon: '/icon/btn/player.png' },
   { key: 'bag', label: '背包', icon: '/icon/btn/bag.png' },
-  { key: 'skill', label: '斗技', icon: '/icon/btn/skill.png' },
+  { key: 'skill', label: '功法/斗技', icon: '/icon/btn/skill.png' },
   { key: 'battle', label: '战斗', icon: '/icon/btn/encounter.png' },
   { key: 'treasure', label: '宝物', icon: '/icon/btn/treasure.png' },
   { key: 'pill', label: '炼丹', icon: '/icon/btn/pill.png' },
@@ -112,6 +112,7 @@ const active = ref(null)
   letter-spacing: 1px;
   font-family: 'STKaiti', 'KaiTi', '楷体', serif;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
 }
 
 .icon-btn:hover {

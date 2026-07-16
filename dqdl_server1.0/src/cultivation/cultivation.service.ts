@@ -44,6 +44,13 @@ interface ResumeResult {
   level_cultivation: number;
   finished: boolean;
   reason: EndReason | null;
+  // 进度字段（按 mode 不同，对齐 SettleResult）：
+  //   qi: cultivation（本体修为）/ level_cultivation
+  //   skill: cultivation / max_cultivation / level / maxed
+  //   technique: cultivation / max_cultivation / full
+  // 注意：skill/technique 模式下 cultivation 为目标斗技/功法的修为（非本体修为），
+  // 否则前端进度条分母缺失会把进度条撑满。
+  [key: string]: any;
 }
 
 /**
@@ -619,7 +626,10 @@ export class CultivationService {
     playerId: number,
   ): Promise<ResumeResult> {
     const player = await this.playerService.getEntity(playerId);
-    return {
+    const mode = (session.mode || 'qi') as 'qi' | 'skill' | 'technique';
+
+    // 基础累计字段（所有 mode 共用）
+    const base: ResumeResult = {
       gained: 0,
       rounds: session.rounds,
       total_gained: session.total_gained,
@@ -630,5 +640,27 @@ export class CultivationService {
       finished: session.status !== 'active',
       reason: (session.end_reason as EndReason) ?? null,
     };
+
+    // skill/technique 模式：cultivation 须为目标斗技/功法的修为（非本体修为），
+    // 否则前端进度条分母缺失（max_cultivation 未返回）会把进度条瞬间撑满。
+    if (mode === 'skill' && session.target_id) {
+      const st = await this.playerService.getSkillState(playerId, Number(session.target_id));
+      if (st) {
+        base.cultivation = st.cultivation;
+        base.max_cultivation = st.max_cultivation;
+        base.level = st.level;
+        base.maxed = st.max_level > 0 && st.level >= st.max_level;
+      }
+    } else if (mode === 'technique' && session.target_id) {
+      const st = await this.playerService.getTechniqueState(playerId, Number(session.target_id));
+      if (st) {
+        base.cultivation = st.cultivation;
+        base.max_cultivation = st.max_cultivation;
+        base.level = st.level;
+        base.full = st.max_cultivation > 0 && st.cultivation >= st.max_cultivation;
+      }
+    }
+
+    return base;
   }
 }

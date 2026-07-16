@@ -75,7 +75,9 @@ const cultPct = computed(() => {
   // 按 mode 取不同的进度上限/当前值
   const mode = (session.value?.mode || live.value.mode || 'qi')
   if (mode === 'skill' || mode === 'technique') {
-    const max = live.value.max_cultivation || 1
+    // 分母缺失/未就绪（<=0）时按 0% 显示，避免某帧 cur>0 而 max=0 把进度条撑满
+    const max = live.value.max_cultivation
+    if (!max || max <= 0) return 0
     const cur = live.value.cultivation || 0
     return Math.min(100, (cur / max) * 100)
   }

@@ -227,7 +227,9 @@ export class PlayerService {
    * base_params 为该等级的属性加成（params），final_attrs 叠加已装备功法的此项。
    * 定义缺失（脏数据）的条目仍保留，name 落空由前端兜底。
    */
-  private async aggregateTechniques(raw: string | null): Promise<any[]> {
+  /** 解析 player.technique(JSON) → 功法详情数组（含 max_cultivation/base_params）。
+   *  public：供统一修炼引擎列出可修炼功法时复用。 */
+  async aggregateTechniques(raw: string | null): Promise<any[]> {
     let arr: any[] = [];
     if (raw) {
       try {
@@ -274,7 +276,9 @@ export class PlayerService {
    * max_cultivation（升至下一级所需修为）由公式 K(阶)*2^(level-1) 给出供前端显示进度。
    * 定义缺失（脏数据）的条目仍保留，name 落空由前端兜底。
    */
-  private async aggregateSkills(raw: string | null): Promise<any[]> {
+  /** 解析 player.skill(JSON) → 斗技详情数组（含 max_cultivation/energy_cost/carry）。
+   *  public：供统一修炼引擎列出可修炼斗技时复用。 */
+  async aggregateSkills(raw: string | null): Promise<any[]> {
     let arr: any[] = [];
     if (raw) {
       try {
@@ -405,6 +409,237 @@ export class PlayerService {
       /* technique 非合法 JSON，降级默认值 */
     }
     return 10;
+  }
+
+  // ============ 修炼斗技 / 功法（修炼室 skill/technique 模式）============
+  // 公式与 cultivate(qi) 一致：gained = round(qi × (0.9+rand*0.2) × growth / 100)，10%暴击×3。
+  // 差异：斗技 growth 固定 10，满级前自动突破（lv+1 清零）；功法 growth=def.growth，满后夹紧不升级。
+
+  /** 读取某项斗技的修炼进度（供修炼室 enter 校验/前端渲染） */
+  async getSkillState(playerId: number, skillId: number): Promise<{
+    name: string; level: number; cultivation: number; max_cultivation: number; max_level: number;
+  } | null> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) return null;
+    let arr: any[] = [];
+    try { arr = JSON.parse(player.skill) || []; } catch { arr = []; }
+    const entry = (Array.isArray(arr) ? arr : []).find((s) => Number(s.id) === Number(skillId));
+    const def = await this.skillService.findOne(skillId);
+    if (!entry || !def) return null;
+    const lv = Number(entry.level) || 1;
+    return {
+      name: def.name,
+      level: lv,
+      cultivation: Number(entry.cultivation) || 0,
+      max_cultivation: this.skillService.maxCultivationAtLevel(def, lv),
+      max_level: def.max_level ?? 0,
+    };
+  }
+
+  /** 读取某项功法的修炼进度（供修炼室 enter 校验/前端渲染） */
+  async getTechniqueState(playerId: number, techniqueId: number): Promise<{
+    name: string; level: number; cultivation: number; max_cultivation: number; max_level: number;
+  } | null> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) return null;
+    let arr: any[] = [];
+    try { arr = JSON.parse(player.technique) || []; } catch { arr = []; }
+    const entry = (Array.isArray(arr) ? arr : []).find((t) => Number(t.id) === Number(techniqueId));
+    const def = await this.techniqueService.findOne(techniqueId);
+    if (!entry || !def) return null;
+    const lv = Number(entry.level) || 1;
+    return {
+      name: def.name,
+      level: lv,
+      cultivation: Number(entry.cultivation) || 0,
+      max_cultivation: this.techniqueService.maxCultivationAtLevel(def, lv),
+      max_level: def.max_level ?? 0,
+    };
+  }
+
+  /**
+   * 修炼斗技（修炼室 skill 模式每跳调用）。growth 固定 10（斗技无 growth 字段）。
+   * 与功法区别：修为满后【自动突破】（等级+1、修为清零），可一直修炼直至 max_level（返回 maxed=true）。
+   */
+  async cultivateSkill(playerId: number, skillId: number, qiDensity: number): Promise<{
+    gained: number; critical: boolean; level: number; cultivation: number;
+    max_cultivation: number; maxed: boolean; leveledUp: boolean;
+  }> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    let arr: any[] = [];
+    try { arr = JSON.parse(player.skill) || []; } catch { arr = []; }
+    if (!Array.isArray(arr)) arr = [];
+    const entry = arr.find((s) => Number(s.id) === Number(skillId));
+    if (!entry) throw Biz.badRequest('未习得该斗技');
+    const def = await this.skillService.findOne(skillId);
+    if (!def) throw Biz.notFound('斗技不存在');
+
+    let lv = Number(entry.level) || 1;
+    const maxLevel = def.max_level ?? 0;
+    // 已达最高级
+    if (maxLevel > 0 && lv >= maxLevel) {
+      return { gained: 0, critical: false, level: lv, cultivation: Number(entry.cultivation) || 0, max_cultivation: 0, maxed: true, leveledUp: false };
+    }
+
+    const max = this.skillService.maxCultivationAtLevel(def, lv);
+    const cur = Number(entry.cultivation) || 0;
+    const growth = 10;
+    const factor = 0.9 + Math.random() * 0.2;
+    let gained = Math.round((qiDensity * factor * growth) / 100);
+    const critical = Math.random() < 0.1;
+    if (critical) gained *= 3;
+
+    let newCult = cur + gained;
+    let leveledUp = false;
+    // 修为满 → 自动突破：等级+1、修为清零
+    if (max > 0 && newCult >= max) {
+      lv += 1; newCult = 0; leveledUp = true;
+    }
+    entry.level = lv;
+    entry.cultivation = newCult;
+    player.skill = JSON.stringify(arr);
+    await this.repo.save(player);
+
+    const maxed = maxLevel > 0 && lv >= maxLevel;
+    return {
+      gained, critical, level: lv, cultivation: newCult,
+      max_cultivation: this.skillService.maxCultivationAtLevel(def, lv), maxed, leveledUp,
+    };
+  }
+
+  /**
+   * 修炼功法（修炼室 technique 模式每跳调用）。growth 取该功法定义 def.growth（默认10）。
+   * 与斗技区别：修为满后【夹紧不升级】（返回 full=true 让修炼室停止），需玩家手动突破。
+   */
+  async cultivateTechnique(playerId: number, techniqueId: number, qiDensity: number): Promise<{
+    gained: number; critical: boolean; cultivation: number; max_cultivation: number; full: boolean;
+  }> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    let arr: any[] = [];
+    try { arr = JSON.parse(player.technique) || []; } catch { arr = []; }
+    if (!Array.isArray(arr)) arr = [];
+    const entry = arr.find((t) => Number(t.id) === Number(techniqueId));
+    if (!entry) throw Biz.badRequest('未习得该功法');
+    const def = await this.techniqueService.findOne(techniqueId);
+    if (!def) throw Biz.notFound('功法不存在');
+
+    const lv = Number(entry.level) || 1;
+    const max = this.techniqueService.maxCultivationAtLevel(def, lv);
+    const cur = Number(entry.cultivation) || 0;
+    if (max > 0 && cur >= max) {
+      return { gained: 0, critical: false, cultivation: cur, max_cultivation: max, full: true };
+    }
+
+    const growth = def.growth ?? 10;
+    const factor = 0.9 + Math.random() * 0.2;
+    let gained = Math.round((qiDensity * factor * growth) / 100);
+    const critical = Math.random() < 0.1;
+    if (critical) gained *= 3;
+
+    let newCult = cur + gained;
+    const full = max > 0 && newCult >= max;
+    if (full) { gained = max - cur; newCult = max; }
+
+    entry.cultivation = newCult;
+    player.technique = JSON.stringify(arr);
+    await this.repo.save(player);
+
+    return { gained, critical, cultivation: newCult, max_cultivation: max, full };
+  }
+
+  // ============ 离线补偿批量结算（修炼室 skill/technique 模式）============
+  // 不逐轮调 cultivate（避免随机），用确定期望值批量写入。逐级模拟满后行为。
+
+  /** 批量补发斗技修为（skill 模式离线补偿）：逐级模拟自动突破，受 max_level 截断。
+   *  expectPerRound=单轮期望修为，rounds=补发轮数。返回累计获得修为 + 是否满级。 */
+  async batchCultivateSkill(
+    playerId: number,
+    skillId: number,
+    expectPerRound: number,
+    rounds: number,
+  ): Promise<{ gained: number; maxed: boolean; level: number; cultivation: number }> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    let arr: any[] = [];
+    try { arr = JSON.parse(player.skill) || []; } catch { arr = []; }
+    if (!Array.isArray(arr)) arr = [];
+    const entry = arr.find((s) => Number(s.id) === Number(skillId));
+    const def = await this.skillService.findOne(skillId);
+    if (!entry || !def) return { gained: 0, maxed: false, level: 1, cultivation: 0 };
+
+    let lv = Number(entry.level) || 1;
+    let cur = Number(entry.cultivation) || 0;
+    const maxLevel = def.max_level ?? 0;
+    let remain = rounds;
+    let gained = 0;
+
+    while (remain > 0) {
+      if (maxLevel > 0 && lv >= maxLevel) break; // 已满级
+      const max = this.skillService.maxCultivationAtLevel(def, lv);
+      if (max <= 0) {
+        // 无上限设定：直接累加后跳出
+        const add = expectPerRound * remain;
+        cur += add; gained += add; remain = 0;
+        break;
+      }
+      const need = max - cur; // 当前级到满还差多少
+      const costRounds = Math.min(remain, Math.ceil(need / expectPerRound));
+      const add = Math.min(expectPerRound * costRounds, need);
+      cur += add; gained += add; remain -= costRounds;
+      if (cur >= max) { lv += 1; cur = 0; } // 自动突破
+      else break; // 剩余轮不足以升满当前级
+    }
+
+    const maxed = maxLevel > 0 && lv >= maxLevel;
+    entry.level = lv;
+    const finalMax = this.skillService.maxCultivationAtLevel(def, lv);
+    entry.cultivation = finalMax > 0 ? Math.min(cur, finalMax) : cur;
+    player.skill = JSON.stringify(arr);
+    await this.repo.save(player);
+    return { gained, maxed, level: lv, cultivation: entry.cultivation };
+  }
+
+  /** 批量补发功法修为（technique 模式离线补偿）：补到当前级上限（不升级），写回 JSON。
+   *  返回累计获得修为 + 是否已满。 */
+  async batchCultivateTechnique(
+    playerId: number,
+    techniqueId: number,
+    expectPerRound: number,
+    rounds: number,
+  ): Promise<{ gained: number; full: boolean; cultivation: number }> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    let arr: any[] = [];
+    try { arr = JSON.parse(player.technique) || []; } catch { arr = []; }
+    if (!Array.isArray(arr)) arr = [];
+    const entry = arr.find((t) => Number(t.id) === Number(techniqueId));
+    const def = await this.techniqueService.findOne(techniqueId);
+    if (!entry || !def) return { gained: 0, full: false, cultivation: 0 };
+
+    const lv = Number(entry.level) || 1;
+    const max = this.techniqueService.maxCultivationAtLevel(def, lv);
+    const cur = Number(entry.cultivation) || 0;
+    const add = expectPerRound * rounds;
+    const after = max > 0 ? Math.min(cur + add, max) : cur + add;
+    const gained = after - cur;
+    entry.cultivation = after;
+    player.technique = JSON.stringify(arr);
+    await this.repo.save(player);
+    return { gained, full: max > 0 && after >= max, cultivation: after };
+  }
+
+  /** 保存 player 实体（供修炼引擎补偿直接写回聚合后的 JSON 字段） */
+  async saveEntity(player: Player): Promise<void> {
+    await this.repo.save(player);
+  }
+
+  /** 取某功法定义的 growth（修炼效率系数）；缺失默认 10。
+   *  供统一修炼引擎 technique 模式离线补偿算期望值用。 */
+  async getTechniqueDefGrowth(techniqueId: number): Promise<number> {
+    const def = await this.techniqueService.findOne(techniqueId);
+    return def?.growth ?? 10;
   }
 
   /**

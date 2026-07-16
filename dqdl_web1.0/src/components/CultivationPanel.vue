@@ -43,13 +43,24 @@ const latest = computed(() => session.value) // 结算页用 session 末态
 const errorMsg = ref('')
 const endReason = ref(null)      // 本次结束原因
 
-// 选档态：玩家选的档位 & 时长（分钟）
+// 选档态：玩家选的档位 & 时长（分钟）& 修炼模式 & 目标
 const pickedTier = ref(1)
 const pickedDuration = ref(1)
+/** 修炼模式：qi=修为 / skill=斗技 / technique=功法 */
+const pickedMode = ref('qi')
+/** skill/technique 模式的目标 ID（斗技/功法主键） */
+const pickedTargetId = ref(null)
 
 let es = null                    // EventSource 实例
 // 实时态的累计数据（SSE 推送），独立于 session 以便直接展示
-const live = ref({ rounds: 0, total_gained: 0, total_cost: 0, money: 0, cultivation: 0, level_cultivation: 0, lastReason: null })
+const live = ref({
+  rounds: 0, total_gained: 0, total_cost: 0, money: 0,
+  // qi 进度
+  cultivation: 0, level_cultivation: 0,
+  // skill/technique 进度
+  level: 1, max_cultivation: 0, maxed: false, leveledUp: false, full: false, targetName: '',
+  lastReason: null,
+})
 // 倒计时（room 用）
 const remainSec = ref(0)
 let countdownTimer = null
@@ -61,9 +72,49 @@ const starText = computed(() => '★'.repeat(session.value?.tier || 1))
 const sceneLabel = computed(() => (isRoom.value ? (curTier.value?.name || '修炼室') : `洞天福地 · ${starText.value}`))
 
 const cultPct = computed(() => {
+  // 按 mode 取不同的进度上限/当前值
+  const mode = (session.value?.mode || live.value.mode || 'qi')
+  if (mode === 'skill' || mode === 'technique') {
+    const max = live.value.max_cultivation || 1
+    const cur = live.value.cultivation || 0
+    return Math.min(100, (cur / max) * 100)
+  }
+  // qi
   const max = live.value.level_cultivation || session.value?.level_cultivation || 1
   const cur = live.value.cultivation || 0
   return Math.min(100, (cur / max) * 100)
+})
+
+/** 当前实时态的 mode（从 session 取，blessed 恒 qi） */
+const curMode = computed(() => session.value?.mode || 'qi')
+const isQiMode = computed(() => curMode.value === 'qi')
+const isSkillMode = computed(() => curMode.value === 'skill')
+/** 进度条标签/数值（按 mode） */
+const cultLabel = computed(() => {
+  if (isSkillMode.value) return `斗技 Lv.${live.value.level || 1}`
+  if (curMode.value === 'technique') return `功法 Lv.${live.value.level || 1}`
+  return '斗气修为'
+})
+const cultValText = computed(() => {
+  if (isSkillMode.value || curMode.value === 'technique') {
+    return `${live.value.cultivation} / ${live.value.max_cultivation}`
+  }
+  return `${live.value.cultivation} / ${live.value.level_cultivation}`
+})
+
+/** 实时态顶部场景标签：修炼室(qi) / 修炼斗技·<名> / 修炼功法·<名> / 洞天福地 */
+const liveSceneLabel = computed(() => {
+  if (!isRoom.value) return `洞天福地 · ${starText.value}`
+  if (isSkillMode.value) return `修炼斗技 · ${live.value.targetName || ''}`
+  if (curMode.value === 'technique') return `修炼功法 · ${live.value.targetName || ''}`
+  return curTier.value?.name || '修炼室'
+})
+
+/** 实时态大数字的标签（按 mode） */
+const bigLabel = computed(() => {
+  if (isSkillMode.value) return '本次获得斗技修为'
+  if (curMode.value === 'technique') return '本次获得功法修为'
+  return '本次获得修为'
 })
 
 /** 倒计时文本 */
@@ -111,6 +162,8 @@ async function handleOpenRoom() {
     config.value = await getCultivationConfig()
     pickedTier.value = config.value?.tiers?.[0]?.tier || 1
     pickedDuration.value = config.value?.durations?.[0] || 1
+    pickedMode.value = 'qi'
+    pickedTargetId.value = null
     view.value = VIEW.SELECT
   } catch (err) {
     errorMsg.value = err.message || '加载失败'
@@ -167,10 +220,20 @@ async function resumeAndEnterLive(cur) {
 /* ============ 选档 → 进入修炼（room） ============ */
 async function onEnterRoom() {
   if (entering.value) return
+  // skill/technique 模式必须选目标
+  if ((pickedMode.value === 'skill' || pickedMode.value === 'technique') && !pickedTargetId.value) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: '请先选择要修炼的斗技/功法' })
+    return
+  }
   entering.value = true
   errorMsg.value = ''
   try {
-    const s = await enterCultivation({ scene: 'room', tier: pickedTier.value, duration: pickedDuration.value })
+    const payload = { scene: 'room', tier: pickedTier.value, duration: pickedDuration.value }
+    if (pickedMode.value !== 'qi') {
+      payload.mode = pickedMode.value
+      payload.targetId = pickedTargetId.value
+    }
+    const s = await enterCultivation(payload)
     session.value = s
     resetLive(s)
     startCountdown(s)
@@ -197,29 +260,22 @@ function openStream() {
   es.addEventListener('resume', (e) => {
     try {
       const d = JSON.parse(e.data)
-      if (d.total_gained != null) live.value.total_gained = d.total_gained
-      if (d.rounds != null) live.value.rounds = d.rounds
-      if (d.total_cost != null) live.value.total_cost = d.total_cost
-      if (d.money != null) live.value.money = d.money
-      if (d.cultivation != null) live.value.cultivation = d.cultivation
-      if (d.level_cultivation != null) live.value.level_cultivation = d.level_cultivation
+      applyProgress(d)
     } catch { /* ignore */ }
   })
   // 普通结算数据
   es.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data)
-      if (d.rounds != null) live.value.rounds = d.rounds
-      if (d.total_gained != null) live.value.total_gained = d.total_gained
-      if (d.total_cost != null) live.value.total_cost = d.total_cost
-      if (d.money != null) live.value.money = d.money
-      if (d.cultivation != null) live.value.cultivation = d.cultivation
-      if (d.level_cultivation != null) live.value.level_cultivation = d.level_cultivation
-      live.value.lastReason = d.reason
+      applyProgress(d)
       if (session.value) {
         session.value.rounds = d.rounds
         session.value.total_gained = d.total_gained
         session.value.total_cost = d.total_cost
+      }
+      // skill 自动突破提示
+      if (d.leveledUp) {
+        bus.emit(BusEvents.TOAST, { type: 'success', message: `斗技突破至 Lv.${d.level}` })
       }
     } catch { /* ignore */ }
   }
@@ -317,8 +373,46 @@ function resetLive(s) {
     money: s?.money ?? 0,
     cultivation: s?.cultivation || 0,
     level_cultivation: s?.level_cultivation || 0,
+    level: s?.level || 1,
+    max_cultivation: s?.max_cultivation || 0,
+    maxed: !!s?.maxed,
+    leveledUp: false,
+    full: !!s?.full,
+    targetName: resolveTargetName(s),
     lastReason: s?.reason || null,
   }
+}
+
+/** 从 SSE 数据（resume/data）同步累计 + 进度字段到 live */
+function applyProgress(d) {
+  if (d.rounds != null) live.value.rounds = d.rounds
+  if (d.total_gained != null) live.value.total_gained = d.total_gained
+  if (d.total_cost != null) live.value.total_cost = d.total_cost
+  if (d.money != null) live.value.money = d.money
+  // qi 进度
+  if (d.cultivation != null) live.value.cultivation = d.cultivation
+  if (d.level_cultivation != null) live.value.level_cultivation = d.level_cultivation
+  // skill 进度
+  if (d.level != null) live.value.level = d.level
+  if (d.max_cultivation != null) live.value.max_cultivation = d.max_cultivation
+  if (d.maxed != null) live.value.maxed = d.maxed
+  if (d.leveledUp != null) live.value.leveledUp = d.leveledUp
+  // technique 进度（d.cultivation 已覆盖，full 单独）
+  if (d.full != null) live.value.full = d.full
+  if (d.reason != null) live.value.lastReason = d.reason
+}
+
+/** 解析会话的目标名称（skill/technique 模式用于标题展示） */
+function resolveTargetName(s) {
+  if (!s) return ''
+  const mode = s.mode || 'qi'
+  if (mode === 'skill') {
+    return config.value?.skills?.find((x) => x.id === Number(s.target_id))?.name || '斗技'
+  }
+  if (mode === 'technique') {
+    return config.value?.techniques?.find((x) => x.id === Number(s.target_id))?.name || '功法'
+  }
+  return ''
 }
 
 /* ============ 倒计时（room） ============ */
@@ -408,10 +502,74 @@ onUnmounted(() => {
           <div class="cv-header">
             <div class="cv-scene">修炼室</div>
             <h2 class="cv-title">
-              选择修炼档位
+              潜心修炼
             </h2>
           </div>
           <div class="cv-body">
+            <!-- 模式 Tab：修为 / 斗技 / 功法 -->
+            <div class="cv-mode-tabs">
+              <button
+                type="button"
+                class="cv-mode-tab"
+                :class="{ active: pickedMode === 'qi' }"
+                @click="pickedMode = 'qi'; pickedTargetId = null"
+              >
+                修为
+              </button>
+              <button
+                type="button"
+                class="cv-mode-tab"
+                :class="{ active: pickedMode === 'skill' }"
+                @click="pickedMode = 'skill'; pickedTargetId = null"
+              >
+                斗技
+              </button>
+              <button
+                type="button"
+                class="cv-mode-tab"
+                :class="{ active: pickedMode === 'technique' }"
+                @click="pickedMode = 'technique'; pickedTargetId = null"
+              >
+                功法
+              </button>
+            </div>
+
+            <!-- 选目标（仅 skill/technique） -->
+            <template v-if="pickedMode === 'skill' || pickedMode === 'technique'">
+              <div class="cv-section-title">
+                选择修炼目标（{{ pickedMode === 'skill' ? '斗技' : '功法' }}）
+              </div>
+              <div
+                v-if="!(pickedMode === 'skill' ? config?.skills : config?.techniques)?.length"
+                class="cv-empty-sm"
+              >
+                暂无可修炼的{{ pickedMode === 'skill' ? '斗技' : '功法' }}
+              </div>
+              <div
+                v-else
+                class="cv-target-list"
+              >
+                <div
+                  v-for="t in (pickedMode === 'skill' ? config?.skills : config?.techniques) || []"
+                  :key="t.id"
+                  class="cv-target-card"
+                  :class="{ active: pickedTargetId === t.id }"
+                  @click="pickedTargetId = t.id"
+                >
+                  <div class="cv-target-name">
+                    {{ t.name }}
+                  </div>
+                  <div class="cv-target-progress">
+                    Lv.{{ t.level }}{{ t.max_level ? '/' + t.max_level : '' }} ·
+                    {{ t.cultivation }}/{{ t.max_cultivation || '∞' }}
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <div class="cv-section-title">
+              选择修炼档位
+            </div>
             <div class="cv-tier-list">
               <div
                 v-for="t in config?.tiers || []"
@@ -468,7 +626,7 @@ onUnmounted(() => {
         <template v-else-if="view === 'live'">
           <div class="cv-header">
             <div class="cv-scene">
-              {{ sceneLabel }}
+              {{ liveSceneLabel }}
             </div>
             <h2 class="cv-title">
               潜心修炼
@@ -483,10 +641,10 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="cv-body">
-            <!-- 大数字：本次总修为 -->
+            <!-- 大数字：本次获得 -->
             <div class="cv-big">
               <div class="cv-big-label">
-                本次获得修为
+                {{ bigLabel }}
               </div>
               <div class="cv-big-val">
                 +{{ live.total_gained }}
@@ -515,11 +673,11 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- 修为进度条 -->
+            <!-- 进度条（按 mode 不同含义） -->
             <div class="cv-cult">
               <div class="cv-cult-top">
-                <span class="cv-cult-label">斗气修为</span>
-                <span class="cv-cult-val">{{ live.cultivation }} / {{ live.level_cultivation }}</span>
+                <span class="cv-cult-label">{{ cultLabel }}</span>
+                <span class="cv-cult-val">{{ cultValText }}</span>
               </div>
               <div class="cv-cult-bar">
                 <div
@@ -527,10 +685,17 @@ onUnmounted(() => {
                   :style="{ width: cultPct + '%' }"
                 />
               </div>
+              <!-- technique 修满提示 -->
+              <div
+                v-if="curMode === 'technique' && live.full"
+                class="cv-hint"
+              >
+                功法修为已满，请前往突破
+              </div>
             </div>
 
             <div class="cv-spin">
-              <span class="cv-spinner-sm" />吐纳调息中…
+              <span class="cv-spinner-sm" />{{ live.leveledUp ? '突破成功！' : '吐纳调息中…' }}
             </div>
           </div>
         </template>
@@ -592,7 +757,7 @@ onUnmounted(() => {
 }
 .cv-box {
   position: relative;
-  width: 560px;
+  width: 700px;
   max-width: 94vw;
   max-height: 86vh;
   display: flex;
@@ -925,5 +1090,85 @@ onUnmounted(() => {
   font-size: 13px;
   letter-spacing: 2px;
   padding: 6px 0;
+}
+
+/* 模式 Tab */
+.cv-mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.cv-mode-tab {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #6f8a80;
+  background: rgba(20, 36, 30, 0.4);
+  border: 1px solid #1d2e26;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.cv-mode-tab:hover {
+  border-color: rgba(111, 191, 168, 0.6);
+  color: #8fd8c0;
+}
+.cv-mode-tab.active {
+  color: #d4af6a;
+  background: rgba(60, 48, 20, 0.35);
+  border-color: #d4af6a;
+}
+
+/* 目标选择列表 */
+.cv-target-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.cv-target-card {
+  padding: 10px 12px;
+  cursor: pointer;
+  background: linear-gradient(180deg, rgba(20, 36, 30, 0.5), rgba(12, 22, 18, 0.6));
+  border: 1px solid #2a5448;
+  border-radius: 5px;
+  transition: all 0.15s ease;
+}
+.cv-target-card:hover {
+  border-color: rgba(111, 191, 168, 0.6);
+}
+.cv-target-card.active {
+  border-color: #6fbfa8;
+  box-shadow: 0 0 10px rgba(111, 191, 168, 0.3);
+}
+.cv-target-name {
+  font-size: 13px;
+  color: #a0e0c0;
+  margin-bottom: 4px;
+}
+.cv-target-progress {
+  font-size: 11px;
+  color: #5a8a7a;
+}
+
+.cv-empty-sm {
+  text-align: center;
+  padding: 20px 0;
+  font-size: 12px;
+  color: #5a6a60;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+}
+
+.cv-hint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: #d4af6a;
+  letter-spacing: 1px;
 }
 </style>

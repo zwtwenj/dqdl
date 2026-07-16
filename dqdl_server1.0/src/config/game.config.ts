@@ -59,6 +59,22 @@ export const CULTIVATION_ROOM = {
   roomMaxRounds: 10_000,
 };
 
+// ============ 修炼模式（mode）配置 ============
+// 三模式共用 effectiveQi = baseQi × starMult[tier]，差异在 growth 来源与满后行为。
+//   qi:        growth 取已装备功法（getEquippedTechniqueGrowth），满后停止需手动突破。
+//   skill:     斗技无 growth 字段，用固定速率；满后【自动突破】(等级+1清零)，可连续修至 max_level。
+//   technique: growth 取该功法定义 def.growth；满后停止需手动突破。
+export const CULTIVATION_MODE = {
+  /** 斗技修炼速率（固定，斗技无 growth 字段） */
+  skillGrowth: 10,
+  /** 默认 growth（功法/skill 缺失定义时兜底） */
+  defaultGrowth: 10,
+  /** 暴击率（与 PlayerService.cultivate 一致，离线补偿期望值用） */
+  critRate: 0.1,
+  /** 暴击倍率 */
+  critMult: 3,
+};
+
 // ============ 地图生成 ============
 export const MAP = {
   /**

@@ -38,16 +38,28 @@ export class CultivationController {
     private readonly playerService: PlayerService,
   ) {}
 
-  /** 修炼室档位信息 GET /api/cultivation/config */
+  /** 修炼室档位信息 + 玩家可修炼的斗技/功法列表 GET /api/cultivation/config */
   @Get('config')
-  config() {
-    return this.cultivationService.getOptions();
+  async config(@Req() req: any) {
+    const player = await this.playerService.verifyOwnershipByUser(req.user.id);
+    return this.cultivationService.getOptions(player.id);
   }
 
-  /** 进入修炼 POST /api/cultivation/enter { scene, encounterId?, tier?, duration? } */
+  /** 进入修炼 POST /api/cultivation/enter
+   *  body { scene, encounterId?, tier?, duration?, mode?, targetId? }
+   *    scene='blessed' → enterBlessed(encounterId)
+   *    scene='room'    → enterRoom(tier, duration, mode?, targetId?)
+   *      mode: qi(默认)/skill/technique；skill/technique 需 targetId */
   @Post('enter')
   async enter(
-    @Body() body: { scene?: string; encounterId?: number; tier?: number; duration?: number },
+    @Body() body: {
+      scene?: string;
+      encounterId?: number;
+      tier?: number;
+      duration?: number;
+      mode?: string;
+      targetId?: number;
+    },
     @Req() req: any,
   ) {
     const player = await this.playerService.verifyOwnershipByUser(req.user.id);
@@ -59,6 +71,8 @@ export class CultivationController {
         player.id,
         Number(body.tier),
         Number(body.duration),
+        body.mode || 'qi',
+        body.targetId != null ? Number(body.targetId) : undefined,
       );
       return { ...session, interval: this.cultivationService.interval };
     }

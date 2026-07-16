@@ -36,6 +36,14 @@ export class CultivationSession {
   @Column({ type: 'varchar', length: 16, default: 'room', comment: '场景: blessed/room' })
   scene: string;
 
+  /** 修炼模式：qi=修为 / skill=斗技 / technique=功法（仅 room 支持后两者，blessed 恒 qi） */
+  @Column({ type: 'varchar', length: 16, default: 'qi', comment: '模式: qi/skill/technique' })
+  mode: string;
+
+  /** 修炼目标ID（skill/technique 模式用，qi 模式 null） */
+  @Column({ type: 'int', nullable: true, comment: '修炼目标ID（skill/technique）' })
+  target_id: number | null;
+
   /** 来源奇遇ID（仅 blessed 有，结束时回写奇遇状态） */
   @Column({ type: 'int', nullable: true, comment: '来源奇遇ID（仅 blessed）' })
   encounter_id: number | null;

@@ -3,7 +3,7 @@ import http from './request'
 /**
  * 统一修炼接口（对应后端 /api/cultivation/*，合并洞天福地 + 修炼室）。
  *
- *   getCultivationConfig()              修炼室档位 + 时长范围（供选档态）
+ *   getCultivationConfig()              修炼室档位 + 时长范围 + 可修炼的斗技/功法列表（供选档态）
  *   enterCultivation({scene,...})       进入：blessed{encounterId} / room{tier,duration}
  *   getCurrentCultivation()             当前进行中的会话
  *   getCultivationLatest()              最近一次会话（结算页）
@@ -17,9 +17,11 @@ export const getCultivationConfig = () => http.get('/cultivation/config')
 
 /**
  * 进入修炼 POST /api/cultivation/enter
- * @param {{scene:'blessed', encounterId:number} | {scene:'room', tier:number, duration:number}} payload
+ * @param payload
  *   - blessed（洞天福地）：{ scene:'blessed', encounterId }
- *   - room（修炼室）：    { scene:'room', tier, duration }（duration=分钟）
+ *   - room（修炼室）修为： { scene:'room', tier, duration }（duration=分钟）
+ *   - room 修炼斗技：      { scene:'room', tier, duration, mode:'skill', targetId }
+ *   - room 修炼功法：      { scene:'room', tier, duration, mode:'technique', targetId }
  */
 export const enterCultivation = (payload) => http.post('/cultivation/enter', payload)
 

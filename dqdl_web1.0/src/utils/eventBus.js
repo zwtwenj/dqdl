@@ -45,6 +45,10 @@ export const BusEvents = {
    *  由公会接待员对话「我完成了任务，来交付」交付后触发，
    *  TaskPanel 若打开着则刷新列表。 */
   TASK_CLAIM_UPDATE: 'task-claim-update',
+  /** 打开 RPG 式分支对话弹窗：{ npc, scene }
+   *  由进入场景钩子触发（如坊市且有动态演员）：纯预设剧本、节点+选项+goto 链式、
+   *  显示最新节点台词不显示历史、玩家无输入只有选项。剧本暂为前端假数据，后续接分镜。 */
+  SCENE_BRANCH_OPEN: 'scene-branch-open',
 }
 
 const listeners = new Map()

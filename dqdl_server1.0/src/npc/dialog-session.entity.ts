@@ -26,6 +26,11 @@ export class DialogSession {
   @Column({ type: 'int' })
   npc_id: number;
 
+  /** npc_id 指向哪张表：static=static_npc / dynamic=dynamic_npc。
+   *  两表独立自增会撞号，必须用本列区分。存量数据默认 static。 */
+  @Column({ type: 'varchar', length: 8, default: 'static' })
+  npc_type: string;
+
   @Column({ type: 'int', nullable: true })
   location_id: number | null;
 

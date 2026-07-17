@@ -11,10 +11,11 @@ export const getNpc = (npcId) => http.get(`/npc/${npcId}`)
 export const getNpcsByLocation = (locationId, type = 'node') =>
   http.get(`/npc/location/${locationId}`, { params: { type } })
 
-/** 创建对话会话 POST /api/npc/:npcId/session { playerId } → { sessionId, npc }
- *  打开弹窗时调一次，server 建 dialog_session（记忆权威源） */
-export const createNpcSession = (npcId, playerId) =>
-  http.post(`/npc/${npcId}/session`, { playerId })
+/** 创建对话会话 POST /api/npc/:npcId/session { playerId, npcType } → { sessionId, npc }
+ *  打开弹窗时调一次，server 建 dialog_session（记忆权威源）
+ *  npcType：'static'（默认）/ 'dynamic'，区分 npcId 指向 static_npc 还是 dynamic_npc */
+export const createNpcSession = (npcId, playerId, npcType) =>
+  http.post(`/npc/${npcId}/session`, { playerId, ...(npcType ? { npcType } : {}) })
 
 /** 会话内对话 POST /api/npc/session/:sessionId/talk { message } → { reply, callId }
  *  历史由 server 从 session.messages 提取，前端只传 message（开场白传空串） */

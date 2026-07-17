@@ -311,10 +311,20 @@ const currentLocation = computed(() => {
 })
 
 // 当前地点的 NPC 列表（「此地之人」渲染 + 点击触发对话）
+// 后端 GET /npc/location/:id 返回 { static, dynamic }，这里合并成单数组并打 is_dynamic 标记。
 const currentNpcs = ref([])
 async function loadNpcs(locId) {
   try {
-    currentNpcs.value = await getNpcsByLocation(locId)
+    const data = await getNpcsByLocation(locId)
+    // 容错：兼容后端万一返回旧数组结构
+    if (Array.isArray(data)) {
+      currentNpcs.value = data
+      return
+    }
+    currentNpcs.value = [
+      ...(data.static || []).map((n) => ({ ...n, is_dynamic: false })),
+      ...(data.dynamic || []).map((n) => ({ ...n, is_dynamic: true })),
+    ]
   } catch {
     currentNpcs.value = []
   }
@@ -390,6 +400,18 @@ async function onEnterScene(sceneType) {
     }
     inScene.value = existed || (r.scene ? { ...r.scene } : null)
     bus.emit(BusEvents.TOAST, { type: 'info', message: `进入${inScene.value?.name || '场景'}` })
+
+    // [TODO] 进入场景钩子：后续接入真实剧本库后，在此触发 RPG 分支对话。
+    //   当前为假数据版，已注释——待「剧本细化/结构化」完成后，从后端按 scene/NPC 取真实剧本再弹。
+    // // 坊市(market)且场景内有动态演员 → 触发 RPG 分支对话
+    // // 仅「主动进入」走这里；刷新恢复路径(syncInScene)不走本函数，天然不会重弹。
+    // const sceneObj = inScene.value
+    // const npcs = sceneObj?.npcs || []
+    // const hasDynamic = npcs.some((n) => n.is_dynamic)
+    // if (sceneObj?.scene_type === 'market' && hasDynamic) {
+    //   const dynNpc = npcs.find((n) => n.is_dynamic)
+    //   bus.emit(BusEvents.SCENE_BRANCH_OPEN, { npc: dynNpc, scene: sceneObj })
+    // }
   } catch (err) {
     bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '进入场景失败' })
   }
@@ -410,7 +432,12 @@ async function onExitScene() {
 /** 点击 NPC 卡片 → 原子化触发对话（事件总线，全局 NpcDialog 监听处理） */
 function onNpcSelect(npc) {
   if (!player.value?.id) return
-  bus.emit(BusEvents.NPC_DIALOG_OPEN, { playerId: player.value.id, npcId: npc.id })
+  // npc.is_dynamic 标记来自后端（static/dynamic 合并时打标），决定对话走哪张表
+  bus.emit(BusEvents.NPC_DIALOG_OPEN, {
+    playerId: player.value.id,
+    npcId: npc.id,
+    npcType: npc.is_dynamic ? 'dynamic' : 'static',
+  })
 }
 
 onMounted(loadPlayer)

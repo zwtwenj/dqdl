@@ -219,9 +219,12 @@ function onDropLeave() {
             @pointerleave="onDropLeave"
             @click="emit('npc-select', npc)"
           >
-            <span class="npc-card-icon">🧙</span>
+            <span class="npc-card-icon">{{ npc.is_dynamic ? '🗡️' : '🧙' }}</span>
             <span class="npc-card-body">
-              <span class="npc-card-name">{{ npc.name }}</span>
+              <span class="npc-card-name">
+                {{ npc.name }}
+                <span v-if="npc.is_dynamic" class="npc-card-dynamic-tag">游历</span>
+              </span>
               <span class="npc-card-role">{{ npc.role_name }} · {{ npc.nature_name }}</span>
             </span>
             <span class="npc-card-gender">{{ npc.gender }}·{{ npc.age }}</span>
@@ -466,6 +469,18 @@ function onDropLeave() {
           font-size: 11px;
           color: rgba(200, 170, 110, 0.7);
           line-height: 1.2;
+        }
+        .npc-card-dynamic-tag{
+          display: inline-block;
+          margin-left: 4px;
+          padding: 0 4px;
+          font-size: 9px;
+          line-height: 1.4;
+          color: #7fd4c4;
+          border: 1px solid rgba(127, 212, 196, 0.5);
+          border-radius: 3px;
+          vertical-align: middle;
+          letter-spacing: 0;
         }
       }
       .npc-card-gender{

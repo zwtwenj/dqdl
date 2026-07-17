@@ -6,6 +6,7 @@ import { Nature } from './nature.entity';
 import { NpcRole } from './npc-role.entity';
 import { DialogSession } from './dialog-session.entity';
 import { DialogEvent } from './dialog-event.entity';
+import { DynamicNpcService } from './dynamic-npc.service';
 import { PlayerService } from '../player/player.service';
 import { LocationService } from '../location/location.service';
 import { AgentService } from '../agent/agent.service';
@@ -46,15 +47,33 @@ export class NpcService {
     private readonly playerService: PlayerService,
     private readonly locationService: LocationService,
     private readonly agent: AgentService,
+    private readonly dynamicNpcService: DynamicNpcService,
     private readonly dataSource: DataSource,
   ) {}
 
-  /** 查某地点的 NPC（"此地之人"），附带 nature_name/role_name/hint 供前端渲染。
-   *  type='node'  → locationId 视为 location_net 节点 id，查 location_id
-   *  type='scene' → locationId 视为 location_scene 场景 id，查 location_scene_id
+  /** 查某地点的 NPC（"此地之人"），一次返回静态 + 动态两组，附带 nature_name/role_name/hint 供前端渲染。
+   *  type='node'  → locationId 视为 location_net 节点 id
+   *  type='scene' → locationId 视为 location_scene 场景 id
    *  显式区分节点/场景，不再靠探测表猜（节点28和场景28会撞号）。
+   *
+   *  返回 { static: [], dynamic: [] }：
+   *   - static：绑该地点的静态 NPC（原 findByLocation 逻辑，改名归组）
+   *   - dynamic：启用且存活的动态演员，且位置匹配该地点 或 游荡（两列皆空）者
+   *  前端无需再发第二次请求取动态演员。
    */
-  async findByLocation(locationId: number, type: 'node' | 'scene' = 'node'): Promise<any[]> {
+  async findByLocation(
+    locationId: number,
+    type: 'node' | 'scene' = 'node',
+  ): Promise<{ static: any[]; dynamic: any[] }> {
+    const [staticNpcs, dynamicNpcs] = await Promise.all([
+      this.findStaticByLocation(locationId, type),
+      this.dynamicNpcService.findByLocation(locationId, type),
+    ]);
+    return { static: staticNpcs, dynamic: dynamicNpcs };
+  }
+
+  /** 原静态 NPC 查询逻辑（findByLocation 拆分后保留，供合并返回用）。 */
+  private async findStaticByLocation(locationId: number, type: 'node' | 'scene' = 'node'): Promise<any[]> {
     const npcs = await this.npcRepo.find({
       where: type === 'scene' ? { location_scene_id: locationId } : { location_id: locationId },
       order: { id: 'ASC' },
@@ -78,16 +97,35 @@ export class NpcService {
 
   /** 单 NPC 详情（含 nature/role 文案 + dialog_events 快捷按钮）。
    *  playerId 可选：传入时按 dialog_event.visible_rule 过滤事件按钮
-   *  （如「交付任务」仅在玩家有可交付任务时返回）；不传则不过滤（兼容旧调用）。 */
-  async findOne(id: number, playerId?: number): Promise<any> {
-    const npc = await this.npcRepo.findOneBy({ id });
-    if (!npc) throw Biz.notFound(`NPC ${id} 不存在`);
+   *  （如「交付任务」仅在玩家有可交付任务时返回）；不传则不过滤（兼容旧调用）。
+   *  npcType：'static'（默认，查 static_npc）/ 'dynamic'（查 dynamic_npc）。
+   *  两表 id 独立自增会撞号，必须用 npcType 区分。 */
+  async findOne(id: number, playerId?: number, npcType: 'static' | 'dynamic' = 'static'): Promise<any> {
+    const base =
+      npcType === 'dynamic'
+        ? await this.dynamicNpcService.findRawOne(id)
+        : await this.npcRepo.findOneBy({ id });
+    if (!base) throw Biz.notFound(`NPC ${id} 不存在`);
+    return this.buildNpcDetail(base, playerId, npcType);
+  }
+
+  /**
+   * 把 static_npc / dynamic_npc 的基础记录拼成统一的详情视图。
+   * 两种 NPC 的 nature_id/role_id 语义一致，复用同一套 nature/role/event 查询逻辑。
+   * 统一返回结构含：nature_name/nature_hint/role_name/role_hint/role_id/dialog_events/npc_type
+   * 以及 location 相关字段（static 用 location_id；dynamic 用 location_net_id）。
+   */
+  private async buildNpcDetail(
+    base: any,
+    playerId: number | undefined,
+    npcType: 'static' | 'dynamic',
+  ): Promise<any> {
     const [nature, role, events] = await Promise.all([
-      this.natureRepo.findOneBy({ id: npc.nature_id }),
-      this.roleRepo.findOneBy({ id: npc.role_id }),
+      this.natureRepo.findOneBy({ id: base.nature_id }),
+      this.roleRepo.findOneBy({ id: base.role_id }),
       // 按 role_id 查快捷事件（同 role 共享），前端渲染快捷按钮
       this.eventRepo.find({
-        where: { role_id: npc.role_id },
+        where: { role_id: base.role_id },
         order: { sort: 'ASC', id: 'ASC' },
       }),
     ]);
@@ -106,12 +144,15 @@ export class NpcService {
     }
 
     return {
-      ...npc,
+      ...base,
+      // 统一字段：节点 id（static 用 location_id；dynamic 用 location_net_id）
+      // 这里不抹平列名，保留原样，调用方按 npc_type 取对应列。
       nature_name: nature?.name || '',
       nature_hint: nature?.prompt_hint || '',
       role_name: role?.name || '',
       role_hint: role?.prompt_hint || '',
       role_id: role?.id ?? null,
+      npc_type: npcType,
       dialog_events: visibleEvents.map((e) => ({
         id: e.id,
         text: e.text,
@@ -124,8 +165,12 @@ export class NpcService {
    * 创建对话会话（每次打开弹窗调一次）。
    * @returns { sessionId, npc } npc 含详情供前端 header 渲染
    */
-  async createSession(playerId: number, npcId: number): Promise<{ sessionId: number; npc: any }> {
-    const npc = await this.findOne(npcId, playerId);
+  async createSession(
+    playerId: number,
+    npcId: number,
+    npcType: 'static' | 'dynamic' = 'static',
+  ): Promise<{ sessionId: number; npc: any }> {
+    const npc = await this.findOne(npcId, playerId, npcType);
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     const title = `${npc.name} · ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
@@ -133,9 +178,10 @@ export class NpcService {
     const session = this.sessionRepo.create({
       player_id: playerId,
       npc_id: npcId,
+      npc_type: npcType,
       // 记 NPC 所在地（节点或场景的 id，互斥只有一个有值）；
-      // dialog_session.location_id 仅作快照，读取方不依赖它区分类型。
-      location_id: npc.location_id ?? npc.location_scene_id ?? null,
+      // static 用 location_id，dynamic 用 location_net_id；dialog_session.location_id 仅作快照。
+      location_id: this.pickNpcLocationId(npc),
       title,
       messages: [],
       status: 1,
@@ -145,14 +191,23 @@ export class NpcService {
     return { sessionId: saved.id, npc };
   }
 
+  /** 从 npc 详情里取它的「所在地 id」作快照（节点或场景其一，互斥）。
+   *  static_npc 用 location_id / location_scene_id；dynamic_npc 用 location_net_id / location_scene_id。 */
+  private pickNpcLocationId(npc: any): number | null {
+    if (npc.npc_type === 'dynamic') {
+      return npc.location_net_id ?? npc.location_scene_id ?? null;
+    }
+    return npc.location_id ?? npc.location_scene_id ?? null;
+  }
+
   /**
    * 解析 NPC 所在地信息（供对话上下文用）。
-   *   绑节点（location_id）→ 查 location_net 节点
    *   绑场景（location_scene_id）→ 查 location_scene 场景
-   *   都没有 → 返回 null（不阻断对话）
+   *   绑节点 → static 用 location_id / dynamic 用 location_net_id，查 location_net 节点
+   *   都没有（动态游荡演员）→ 返回 null（不阻断对话）
    * 返回统一结构 { name, loc_type, description, tags }。
    */
-  private async resolveNpcLocation(npc: StaticNpc): Promise<any> {
+  private async resolveNpcLocation(npc: any): Promise<any> {
     try {
       if (npc.location_scene_id != null) {
         const scene = await this.dataSource
@@ -167,9 +222,10 @@ export class NpcService {
           };
         }
       }
-      if (npc.location_id != null) {
-        // 节点绑定：走老的 locationService（兼容旧体系）
-        return await this.locationService.findOne(npc.location_id);
+      // 节点绑定：static 读 location_id，dynamic 读 location_net_id
+      const netId = npc.npc_type === 'dynamic' ? npc.location_net_id : npc.location_id;
+      if (netId != null) {
+        return await this.locationService.findOne(netId);
       }
     } catch {
       // 降级
@@ -194,7 +250,10 @@ export class NpcService {
       throw Biz.conflict('当前对话轮数过长，请重新进行会话');
     }
 
-    const npc = await this.findOne(session.npc_id);
+    // 按 session.npc_type 分发到 static/dynamic 的 findOne（向后兼容：undefined 降级 static）
+    const npcType: 'static' | 'dynamic' =
+      session.npc_type === 'dynamic' ? 'dynamic' : 'static';
+    const npc = await this.findOne(session.npc_id, undefined, npcType);
 
     // 玩家信息（name/level）
     let player: any = null;

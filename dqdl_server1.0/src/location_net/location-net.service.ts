@@ -282,9 +282,11 @@ export class LocationNetService implements OnApplicationBootstrap {
     });
     // 附带每个场景的 NPC 列表（前端进场景后直接渲染对话入口）
     // 复用 NpcService.findByLocation：这里是场景 id，显式传 type='scene'
+    // findByLocation 返回 { static, dynamic }，这里合并成单个数组并打 is_dynamic 标记，
+    // 让前端 scene.npcs 仍是数组（v-if=npcs.length 生效），且能区分静态/动态。
     const result: Array<Record<string, unknown>> = [];
     for (const s of scenes) {
-      const npcs = await this.npcService.findByLocation(s.id, 'scene');
+      const npcData = await this.npcService.findByLocation(s.id, 'scene');
       result.push({
         id: s.id,
         net_id: s.net_id,
@@ -292,7 +294,10 @@ export class LocationNetService implements OnApplicationBootstrap {
         scene_type: s.scene_type,
         description: s.description,
         available_actions: s.available_actions,
-        npcs,
+        npcs: [
+          ...(npcData.static || []).map((n) => ({ ...n, is_dynamic: false })),
+          ...(npcData.dynamic || []).map((n) => ({ ...n, is_dynamic: true })),
+        ],
       });
     }
     return result;

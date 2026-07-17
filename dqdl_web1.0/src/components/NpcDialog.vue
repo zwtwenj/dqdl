@@ -40,8 +40,9 @@ async function scrollBottom() {
   if (el) el.scrollTop = el.scrollHeight
 }
 
-/** 打开对话：{ playerId, npcId } → 建会话 → 取开场白 */
-async function handleOpen({ playerId: pid, npcId }) {
+/** 打开对话：{ playerId, npcId, npcType } → 建会话 → 取开场白
+ *  npcType：'static'（默认）/ 'dynamic'，决定 npcId 查哪张表（两表 id 会撞号） */
+async function handleOpen({ playerId: pid, npcId, npcType }) {
   open.value = true
   npc.value = null
   sessionId.value = null
@@ -52,7 +53,7 @@ async function handleOpen({ playerId: pid, npcId }) {
   loading.value = true
   try {
     // 1. 创建会话（server 建 dialog_session，返回 sessionId + npc 详情）
-    const sessionRes = await createNpcSession(npcId, pid)
+    const sessionRes = await createNpcSession(npcId, pid, npcType)
     sessionId.value = sessionRes.sessionId
     npc.value = sessionRes.npc
     // 2. 取 AI 开场白（message 为空 → agent 生成开场白）

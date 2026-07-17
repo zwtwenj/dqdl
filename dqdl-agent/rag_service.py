@@ -61,8 +61,10 @@ def split_by_entry(paragraphs, filename):
     chunks = []
     filename_lower = filename.lower()
 
-    # 图鉴类文档：按【ID】条目切分（优先），fallback到【名称】
-    is_bestiary = any(kw in filename_lower for kw in ['图鉴', '魔核'])
+    # 条目类文档：按【ID】/【名称】条目切分。
+    # 覆盖图鉴/魔核/素材，以及任何含【名称】或【ID】行首标记的文档。
+    is_bestiary = any(kw in filename_lower for kw in ['图鉴', '魔核', '素材']) \
+        or any(line.startswith('【名称】') or line.startswith('【ID】') for line in paragraphs)
     if is_bestiary:
         # 先检查是否有【ID】标记
         has_id_marker = any(line.startswith('【ID】') for line in paragraphs)

@@ -137,3 +137,108 @@ def log_dialog_call(
     except Exception as e:
         logger.error(f'写入 agent_dialog_call 失败（已忽略）: {e}')
         return None
+
+
+def save_story(story, source='agent'):
+    """把一个多结局分支故事写入 story 表（agent 直接写库）。
+
+    story 结构（由 generate_story.py 的 normalize_story 产出）：
+      { story_id, title, summary, theme, start, nodes:{start, map:{...}} }
+    本函数额外计算冗余字段：
+      - endings_count：nodes.map 里 end=true 的节点数
+      - max_depth：从 start 出发的最长链路步数（BFS）
+
+    幂等：story_id 有 UNIQUE 约束，重复插入捕获后返回 None（表示已存在）。
+    任何异常吞掉（仅打印错误），返回 None；成功返回新插入的 id。
+    """
+    import json as _json
+
+    nodes = story.get('nodes') or {}
+    node_map = nodes.get('map') or {}
+    endings_count = sum(1 for n in node_map.values() if isinstance(n, dict) and n.get('end'))
+    max_depth = _story_max_depth(nodes)
+
+    try:
+        conn = pymysql.connect(**_db_config(), connect_timeout=5)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO story
+                       (story_id, title, summary, theme, nodes, endings_count, max_depth, source)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (
+                        story.get('story_id', ''),
+                        story.get('title', '')[:64],
+                        (story.get('summary') or '')[:255],
+                        (story.get('theme') or '')[:32] or None,
+                        _json.dumps(nodes, ensure_ascii=False),
+                        int(endings_count),
+                        int(max_depth),
+                        source,
+                    ),
+                )
+                new_id = cur.lastrowid
+            conn.commit()
+            return new_id
+        finally:
+            conn.close()
+    except pymysql.err.IntegrityError as e:
+        # 1062 =Duplicate entry（story_id 已存在）
+        if e.args and e.args[0] == 1062:
+            logger.warning(f'story_id 已存在，跳过入库: {story.get("story_id")}')
+            return None
+        logger.error(f'写入 story 失败（IntegrityError）: {e}')
+        return None
+    except Exception as e:
+        logger.error(f'写入 story 失败（已忽略）: {e}')
+        return None
+
+
+def _story_max_depth(nodes):
+    """计算故事节点图从 start 出发的最长链路步数（DFS + 记忆化）。
+    nodes = {start, map:{id:{choices:[{goto}], end?}}}。
+    DAG 用记忆化正确处理合流；有环时环路径不计入（返回 -∞ sentinel），避免缓存污染。
+    失败返回 0。
+
+    用 DFS 而非 BFS：BFS 的 visited 会让「合流节点」(多条路径汇聚到同一节点)
+    只记录最先到达的深度，导致最长链路算错。DFS 递归返回每个节点到结局的最大步数，
+    合流节点取所有后继的最大值，正确。
+    """
+    try:
+        node_map = nodes.get('map') or {}
+        start = nodes.get('start')
+        if not start or start not in node_map:
+            return 0
+
+        memo = {}           # nodeId -> 到任意结局的最大步数（仅缓存无环路径的结果）
+        CYCLE = -1          # 环 sentinel：表示该分支走入环，不计有效深度
+
+        def dfs(nid, path):
+            """返回从 nid 到任意结局节点的最大步数；环路径返回 CYCLE。"""
+            if nid in memo:
+                return memo[nid]
+            if nid in path:
+                return CYCLE  # 环：不计入，不缓存（缓存会污染其他路径）
+            node = node_map.get(nid)
+            if not isinstance(node, dict):
+                return 0
+            if node.get('end'):
+                return 0
+            choices = node.get('choices') or []
+            if not choices:
+                return 0
+            best = 0
+            next_path = path | {nid}
+            for c in choices:
+                if isinstance(c, dict) and c.get('goto'):
+                    sub = dfs(c['goto'], next_path)
+                    if sub == CYCLE:
+                        continue  # 环路径跳过，不参与比较
+                    if sub + 1 > best:
+                        best = sub + 1
+            memo[nid] = best
+            return best
+
+        return dfs(start, frozenset())
+    except Exception:
+        return 0

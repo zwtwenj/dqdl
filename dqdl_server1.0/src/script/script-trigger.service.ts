@@ -49,6 +49,24 @@ export class ScriptTriggerService {
   ) {}
 
   /**
+   * 查玩家进行中(playing)的剧本实例，返回精简信息（供进入游戏恢复用）。
+   * 无则返回 null。理论上同一玩家同时只有一个 playing 实例（防重复保证）。
+   */
+  async findPlayingByPlayer(playerId: number): Promise<{ instance_id: number; outline_id: number; story_id: string; current_node: string } | null> {
+    const inst = await this.instanceRepo.findOne({
+      where: { player_id: playerId, status: 'playing' },
+      order: { id: 'DESC' },
+    });
+    if (!inst) return null;
+    return {
+      instance_id: inst.id,
+      outline_id: inst.outline_id,
+      story_id: inst.story_id,
+      current_node: inst.current_node || '',
+    };
+  }
+
+  /**
    * 事件总线监听（兼容仍走 emit 的入口）。
    * 注意：@OnEvent 对 async 监听器是 fire-and-forget，不等 promise。
    *       因此需要「触发即锁」的钩子点应直接 await tryTrigger，不要依赖本监听器。
@@ -251,6 +269,64 @@ export class ScriptTriggerService {
       location: locationMapped,
       actors,
     };
+  }
+
+  /**
+   * 推进剧本：玩家选择某选项后，跳到目标节点。
+   *
+   * 流程：
+   *   1. 校验 instance（存在 + 归属 + status=playing）
+   *   2. 校验 goto：必须是当前节点 choices 里的合法目标（防篡改跳到任意节点）
+   *   3. 更新 current_node = goto，node_path 追加 goto
+   *   4. 移动新节点出场的动态 NPC 到新节点 location 映射位置
+   *   5. 返回新节点完整信息（同 getCurrentNode 结构）
+   *
+   * 注意：到达 end 节点时不自动结束（status 保持 playing），由前端显示「结束对话」，
+   *      玩家点结束才调专门的结束接口恢复玩家状态（下轮做）。
+   */
+  async advanceInstance(instanceId: number, playerId: number, goto: string): Promise<any> {
+    const instance = await this.instanceRepo.findOneBy({ id: instanceId });
+    if (!instance) throw Biz.notFound(`剧本实例 ${instanceId} 不存在`);
+    if (instance.player_id !== playerId) throw Biz.forbidden('无权访问该剧本实例');
+    if (instance.status !== 'playing') {
+      throw Biz.conflict(`剧本实例状态为 ${instance.status}，无法推进（须 playing）`);
+    }
+
+    const outline = await this.outlineRepo.findOneBy({ id: instance.outline_id });
+    if (!outline) throw Biz.notFound(`剧本大纲 ${instance.outline_id} 不存在`);
+
+    // 校验 goto 合法性：当前节点的 choices 必须包含 goto
+    const nodeMap = this.parseNodeMap(outline);
+    const currentNodeId = instance.current_node;
+    if (!currentNodeId) throw Biz.conflict('剧本实例无 current_node');
+    const currentNode = nodeMap[currentNodeId];
+    if (!currentNode) throw Biz.notFound(`当前节点 ${currentNodeId} 不存在`);
+    if (currentNode.end) throw Biz.conflict('当前已是结局节点，无法推进');
+    const validGotos = (currentNode.choices || []).map((c: any) => c.goto);
+    if (!validGotos.includes(goto)) {
+      throw Biz.badRequest(`非法跳转：${goto} 不在当前节点 [${currentNodeId}] 的选项中`);
+    }
+
+    // 目标节点须存在
+    const targetNode = nodeMap[goto];
+    if (!targetNode) throw Biz.notFound(`目标节点 ${goto} 不存在`);
+
+    // 更新 current_node + node_path
+    const newPath = Array.isArray(instance.node_path) ? [...instance.node_path] : [];
+    newPath.push(goto);
+    instance.current_node = goto;
+    instance.node_path = newPath;
+    await this.instanceRepo.update(instance.id, {
+      current_node: goto,
+      node_path: newPath,
+    });
+
+    // 移动新节点出场 NPC 到新节点 location 映射位置
+    const mapping = this.parseMapping(instance.actor_mapping);
+    await this.moveActorsToNode(outline, goto, mapping);
+
+    // 返回新节点完整信息（复用 getCurrentNode 逻辑）
+    return this.getCurrentNode(instanceId, playerId);
   }
 
   /** instance.actor_mapping 规整。 */

@@ -20,3 +20,12 @@ export const scriptStreamUrl = () => {
 export const getScriptNode = (instanceId) =>
   http.get(`/script/instance/${instanceId}/node`)
 
+/**
+ * 推进剧本：玩家选某选项后跳到目标节点。
+ * @param instanceId 剧本实例 id
+ * @param goto       目标节点 id（当前节点 choices 里的 goto）
+ * @returns 新节点完整信息（同 getScriptNode 结构）
+ */
+export const advanceScript = (instanceId, goto) =>
+  http.post(`/script/instance/${instanceId}/advance`, { goto })
+

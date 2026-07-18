@@ -16,6 +16,9 @@ build/
 .vscode/
 *.swp
 
+# ZCode 工具缓存（plans 等本地临时文件）
+.zcode/
+
 # OS
 Thumbs.db
 .DS_Store

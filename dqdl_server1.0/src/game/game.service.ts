@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CharacterService } from '../character/character.service';
 import { PlayerService } from '../player/player.service';
 import { LocationService } from '../location/location.service';
 import { LocationNetService } from '../location_net/location-net.service';
 import { Biz } from '../common/biz.exception';
+import { SCRIPT_HOOK_EVENT } from '../script/script-trigger.service';
 
 /**
  * 游戏入口服务（网游模式）：创建角色 + 初始化 player。
@@ -19,6 +21,7 @@ export class GameService {
     private readonly playerService: PlayerService,
     private readonly locationService: LocationService,
     private readonly locationNetService: LocationNetService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -51,6 +54,8 @@ export class GameService {
     const player = await this.playerService.findByCharacterId(character.id)
 
     // 兜底迁移：检查 location_id 是否在 location_net 表中
+    let rootLocationId: number | null = null
+    let finalPlayer = player
     if (player) {
       const needsMigrate =
         player.location_id == null ||
@@ -59,13 +64,27 @@ export class GameService {
         const startId = await this.locationNetService.getStartNodeId()
         await this.playerService.moveToLocation(player.id, startId)
         // 重新拉取聚合结果
-        const migrated = await this.playerService.findByCharacterId(character.id)
-        return { character, player: migrated, rootLocationId: startId }
+        finalPlayer = await this.playerService.findByCharacterId(character.id)
+        rootLocationId = startId
       }
     }
+    if (rootLocationId == null) {
+      const root = await this.locationService.getRoot()
+      rootLocationId = root?.id ?? null
+    }
 
-    const root = await this.locationService.getRoot()
-    return { character, player, rootLocationId: root?.id ?? null }
+    // 剧本钩子：进入游戏后触发（选角进入主界面）。fire-and-forget。
+    if (finalPlayer) {
+      this.eventEmitter.emit(SCRIPT_HOOK_EVENT, {
+        hook: 'enter_game',
+        playerId: finalPlayer.id,
+        context: [
+          { type: 'player', data: { id: finalPlayer.id, level: finalPlayer.level, money: finalPlayer.money } },
+        ],
+      })
+    }
+
+    return { character, player: finalPlayer, rootLocationId }
   }
 
   /**

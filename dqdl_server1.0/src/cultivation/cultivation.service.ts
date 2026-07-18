@@ -2,10 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CultivationSession } from './cultivation-session.entity';
 import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 import { EncounterService } from '../encounter/encounter.service';
 import { Biz } from '../common/biz.exception';
+import { SCRIPT_HOOK_EVENT } from '../script/script-trigger.service';
 import { BLESSSED_LAND, CULTIVATION_ROOM, CULTIVATION_MODE } from '../config/game.config';
 
 /** 结束原因 */
@@ -83,6 +85,7 @@ export class CultivationService {
     private readonly repo: Repository<CultivationSession>,
     private readonly playerService: PlayerService,
     private readonly encounterService: EncounterService,
+    private readonly eventEmitter: EventEmitter2,
     config: ConfigService,
   ) {
     this.interval =
@@ -584,6 +587,28 @@ export class CultivationService {
       await this.encounterService.markDone(session.encounter_id, session.player_id);
     }
     await this.playerService.setStatus(session.player_id, PLAYER_STATUS.IDLE);
+
+    // 剧本钩子：修炼结束后触发。携带 player + cultivation 上下文。fire-and-forget。
+    this.eventEmitter.emit(SCRIPT_HOOK_EVENT, {
+      hook: 'cultivation_end',
+      playerId: session.player_id,
+      context: [
+        { type: 'player', data: { id: session.player_id } },
+        {
+          type: 'cultivation',
+          data: {
+            scene: session.scene,         // blessed(洞天福地) / room(修炼室)
+            mode: session.mode,           // qi / technique / skill
+            tier: session.tier,
+            status,                       // stopped(主动停) / finished(自然结束)
+            reason,                       // full/timeout/insufficient/stopped/error
+            total_gained: session.total_gained,
+            total_cost: session.total_cost,
+            rounds: session.rounds,
+          },
+        },
+      ],
+    });
   }
 
   /** 关闭同玩家残留 active 会话（进入新会话前清理） */

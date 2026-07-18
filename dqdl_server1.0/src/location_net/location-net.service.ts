@@ -1,12 +1,14 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LocationNet } from './location-net.entity';
 import { LocationScene } from './location-scene.entity';
 import { Player } from '../player/player.entity';
 import { Biz } from '../common/biz.exception';
 import { AgentService } from '../agent/agent.service';
 import { NpcService } from '../npc/npc.service';
+import { SCRIPT_HOOK_EVENT } from '../script/script-trigger.service';
 import { MAP } from '../config/game.config';
 
 /**
@@ -181,6 +183,7 @@ export class LocationNetService implements OnApplicationBootstrap {
     @InjectRepository(Player) private readonly playerRepo: Repository<Player>,
     private readonly agent: AgentService,
     private readonly npcService: NpcService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -1037,6 +1040,17 @@ export class LocationNetService implements OnApplicationBootstrap {
 
     player.scene_id = scene.id;
     await this.playerRepo.save(player);
+
+    // 剧本钩子：进入场景后触发。携带 player + location 上下文。
+    this.eventEmitter.emit(SCRIPT_HOOK_EVENT, {
+      hook: 'enter_scene',
+      playerId,
+      context: [
+        { type: 'player', data: { id: playerId, level: player.level, money: player.money } },
+        { type: 'location', data: { netId, sceneId: scene.id, sceneType: scene.scene_type, sceneName: scene.name } },
+      ],
+    });
+
     return {
       ...this.playerPosView(player),
       scene: { id: scene.id, name: scene.name, scene_type: scene.scene_type, description: scene.description },

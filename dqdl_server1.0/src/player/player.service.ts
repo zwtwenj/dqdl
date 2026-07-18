@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Player } from './player.entity';
 import { CharacterService } from '../character/character.service';
 import { LocationService } from '../location/location.service';
 import { TechniqueService, techniqueBreakthroughBaseRate } from '../technique/technique.service';
 import { SkillService } from '../skill/skill.service';
 import { Biz } from '../common/biz.exception';
+import { SCRIPT_HOOK_EVENT } from '../script/script-trigger.service';
 
 /** 等阶 K 常量：1-9=100, 11-19=200, 21-29=300, 31+=400 */
 export function getLevelK(level: number): number {
@@ -70,6 +72,7 @@ export class PlayerService {
     private readonly locationService: LocationService,
     private readonly techniqueService: TechniqueService,
     private readonly skillService: SkillService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /** 等级名称：1-9 斗之气段 / 11-19 斗者星 / ... */
@@ -683,6 +686,14 @@ export class PlayerService {
     }
 
     await this.repo.save(player);
+    // 剧本钩子：玩家境界突破成功后触发（失败不触发）。fire-and-forget。
+    if (success) {
+      this.eventEmitter.emit(SCRIPT_HOOK_EVENT, {
+        hook: 'player_breakthrough',
+        playerId: id,
+        context: [{ type: 'player', data: { id, level: player.level, money: player.money } }],
+      });
+    }
     return { ...await this.findOne(id), breakthrough_success: success };
   }
 
@@ -841,6 +852,18 @@ export class PlayerService {
     }
     player.technique = JSON.stringify(arr);
     await this.repo.save(player);
+
+    // 剧本钩子：功法突破成功后触发（失败不触发）。fire-and-forget。
+    if (success) {
+      this.eventEmitter.emit(SCRIPT_HOOK_EVENT, {
+        hook: 'technique_breakthrough',
+        playerId,
+        context: [
+          { type: 'player', data: { id: playerId, level: player.level, money: player.money } },
+          { type: 'technique', data: { id: techniqueId, name: def.name, level: newLevel } },
+        ],
+      });
+    }
 
     const fresh = await this.findOne(playerId);
     return {

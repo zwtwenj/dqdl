@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuthModule } from './auth/auth.module';
 import { CharacterModule } from './character/character.module';
 import { PlayerModule } from './player/player.module';
@@ -26,11 +27,15 @@ import { CultivationModule } from './cultivation/cultivation.module';
 import { MapDemoModule } from './mapdemo/mapdemo.module';
 import { LocationNetModule } from './location_net/location-net.module';
 import { TaskModule } from './task/task.module';
+import { ScriptModule } from './script/script.module';
 import { AppController } from './app.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // 事件总线：5 个游戏钩子(突破/进入场景/...)通过 emit 触发剧本检查等监听者。
+    // 本轮用于剧本触发引擎（ScriptTriggerService @OnEvent('script.hook')）。
+    EventEmitterModule.forRoot(),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -70,6 +75,7 @@ import { AppController } from './app.controller';
     MapDemoModule,
     LocationNetModule,
     TaskModule,
+    ScriptModule,
   ],
   controllers: [AppController],
 })

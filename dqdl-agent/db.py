@@ -242,3 +242,148 @@ def _story_max_depth(nodes):
         return dfs(start, frozenset())
     except Exception:
         return 0
+
+
+def get_story(story_id):
+    """按 story_id 读取一条故事，返回 dict 或 None。
+    含字段：story_id, title, summary, theme, nodes(已反序列化为 dict)。
+    任何异常吞掉返回 None。"""
+    import json as _json
+    try:
+        conn = pymysql.connect(**_db_config(), connect_timeout=5)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    'SELECT story_id, title, summary, theme, nodes FROM story WHERE story_id=%s',
+                    (story_id,),
+                )
+                row = cur.fetchone()
+            if not row:
+                return None
+            return {
+                'story_id': row[0],
+                'title': row[1],
+                'summary': row[2],
+                'theme': row[3],
+                'nodes': _json.loads(row[4]) if row[4] else {},
+            }
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f'读取 story 失败（已忽略）: {e}')
+        return None
+
+
+def save_script_outline(outline, source='agent'):
+    """把剧本大纲写入 script_outline 表（agent 直接写库）。
+
+    outline 结构（由 generate_outline.py 的 normalize_outline 产出）：
+      { story_id, title, location_map:{id:{name}}, actor_map:{id:{gender,role,nature,description}} }
+    outline 阶段直接分配 id（地点 '{story_id}_loc{N}'、玩家 'player'、配角 '{story_id}_actor{N}'）。
+
+    幂等：story_id 有 UNIQUE 约束，重复插入捕获后返回 None（表示已存在）。
+    任何异常吞掉返回 None；成功返回新插入的 id。
+    """
+    import json as _json
+
+    try:
+        conn = pymysql.connect(**_db_config(), connect_timeout=5)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """INSERT INTO script_outline
+                       (story_id, title, location_map, actor_map, source)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    (
+                        outline.get('story_id', ''),
+                        outline.get('title', '')[:64],
+                        _json.dumps(outline.get('location_map') or {}, ensure_ascii=False),
+                        _json.dumps(outline.get('actor_map') or {}, ensure_ascii=False),
+                        source,
+                    ),
+                )
+                new_id = cur.lastrowid
+            conn.commit()
+            return new_id
+        finally:
+            conn.close()
+    except pymysql.err.IntegrityError as e:
+        # 1062 = Duplicate entry（story_id 已存在）
+        if e.args and e.args[0] == 1062:
+            logger.warning(f'script_outline 已存在，跳过入库: {outline.get("story_id")}')
+            return None
+        logger.error(f'写入 script_outline 失败（IntegrityError）: {e}')
+        return None
+    except Exception as e:
+        logger.error(f'写入 script_outline 失败（已忽略）: {e}')
+        return None
+
+
+def get_outline(story_id):
+    """按 story_id 读取剧本大纲，返回 dict 或 None。
+    含字段：story_id, title, locations, location_map, actors, actor_map, nodes, status
+    （JSON 字段已反序列化；未细化时 location_map/actor_map/nodes 为 None）。
+    任何异常吞掉返回 None。"""
+    import json as _json
+
+    def _loads(v):
+        return _json.loads(v) if v else None
+
+    try:
+        conn = pymysql.connect(**_db_config(), connect_timeout=5)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT story_id, title, location_map, actor_map, nodes, status
+                       FROM script_outline WHERE story_id=%s""",
+                    (story_id,),
+                )
+                row = cur.fetchone()
+            if not row:
+                return None
+            return {
+                'story_id': row[0],
+                'title': row[1],
+                'location_map': _loads(row[2]) or {},
+                'actor_map': _loads(row[3]) or {},
+                'nodes': _loads(row[4]),
+                'status': row[5] or 'pending',
+            }
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f'读取 script_outline 失败（已忽略）: {e}')
+        return None
+
+
+def save_storyboard(story_id, location_map, actor_map, nodes):
+    """把细化后的分镜剧本回写到 script_outline 表（UPDATE 已有大纲记录）。
+
+    写入 location_map / actor_map / nodes 三个 JSON 字段，并把 status 置为 'done'。
+    幂等：同 story_id 可重复细化（覆盖更新）。成功返回 True，失败返回 False。
+    """
+    import json as _json
+
+    try:
+        conn = pymysql.connect(**_db_config(), connect_timeout=5)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """UPDATE script_outline
+                       SET location_map=%s, actor_map=%s, nodes=%s, status='done'
+                       WHERE story_id=%s""",
+                    (
+                        _json.dumps(location_map, ensure_ascii=False),
+                        _json.dumps(actor_map, ensure_ascii=False),
+                        _json.dumps(nodes, ensure_ascii=False),
+                        story_id,
+                    ),
+                )
+                affected = cur.rowcount
+            conn.commit()
+            return affected > 0
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f'写入 storyboard 失败（已忽略）: {e}')
+        return False

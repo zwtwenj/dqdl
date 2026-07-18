@@ -31,8 +31,9 @@ import {
   battleAction,
   getBattleState,
   getNpcsByLocation,
+  getPendingStates,
 } from '../api'
-import { scriptStreamUrl } from '../api/script'
+import { scriptStreamUrl, getScriptNode } from '../api/script'
 import { dispatchSseEvent, sseEventNames } from '../utils/sseEventHandlers'
 import {
   getPlayerView,
@@ -244,10 +245,40 @@ async function loadPlayer() {
     await checkActiveTraining()
     // 检查是否在战斗中（刷新恢复战斗界面 / 清理孤儿状态）
     await checkActiveBattle()
+    // 恢复进行中事件（剧本/修炼等，按 type 分发）
+    await checkPendingStates()
   } catch (err) {
     errorMsg.value = err.message || '加载玩家信息失败'
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * 恢复玩家进行中的事件（剧本演出/修炼等）。
+ * 查 pending-states 接口，按事件 type 分发：
+ *   - script：调 getScriptNode 拿当前节点 → emit SCRIPT_NODE_READY（复用 SSE 收到时的演出逻辑）
+ *   - cultivation：现有修炼恢复由组件按 player.status===4 处理（保留按钮入口），此处不重复
+ * 新增事件类型只需在此加分支。
+ */
+async function checkPendingStates() {
+  try {
+    const states = await getPendingStates()
+    if (!Array.isArray(states) || states.length === 0) return
+    for (const s of states) {
+      if (s.type === 'script') {
+        // 剧本：拿当前节点 → 触发演出弹窗（复用 SSE 的恢复路径）
+        const instanceId = s.data?.instance_id
+        if (instanceId) {
+          const node = await getScriptNode(instanceId)
+          bus.emit(BusEvents.SCRIPT_NODE_READY, { node })
+        }
+      }
+      // cultivation：现有机制（player.status===4 显示「修炼中」按钮）已覆盖，无需此处处理
+      // 未来新增事件类型在此加分支
+    }
+  } catch (err) {
+    console.warn('恢复进行中事件失败：', err)
   }
 }
 

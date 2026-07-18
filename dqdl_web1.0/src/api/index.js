@@ -7,6 +7,7 @@ export {
   getCharacters,
   createCharacter,
   enterCharacter,
+  getPendingStates,
   deleteCharacter,
 } from './character'
 export {

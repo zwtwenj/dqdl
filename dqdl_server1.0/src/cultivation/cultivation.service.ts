@@ -7,7 +7,7 @@ import { CultivationSession } from './cultivation-session.entity';
 import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 import { EncounterService } from '../encounter/encounter.service';
 import { Biz } from '../common/biz.exception';
-import { SCRIPT_HOOK_EVENT } from '../script/script-trigger.service';
+import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
 import { BLESSSED_LAND, CULTIVATION_ROOM, CULTIVATION_MODE } from '../config/game.config';
 
 /** 结束原因 */

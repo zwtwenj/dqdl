@@ -33,6 +33,7 @@ import {
   getNpcsByLocation,
 } from '../api'
 import { scriptStreamUrl } from '../api/script'
+import { dispatchSseEvent, sseEventNames } from '../utils/sseEventHandlers'
 import {
   getPlayerView,
   moveToNet,
@@ -443,9 +444,9 @@ function onNpcSelect(npc) {
 
 onMounted(loadPlayer)
 
-/* ============ 剧本触发 SSE 长连接 ============ */
-/** 玩家进入游戏后建立 SSE，后端剧本命中时实时推送 event:trigger。
- *  本轮收到后只弹 toast 提示（后续演出运行时再弹剧本窗口）。 */
+/* ============ 剧本触发 SSE 长连接（通用 event 通道） ============ */
+/** 玩家进入游戏后建立 SSE，后端按 event 名推送（剧本/未来聊天等）。
+ *  前端用 sseEventHandlers 按事件名分发，新增事件类型无需改这里。 */
 let scriptEs = null
 function startScriptStream() {
   // 无 token 不建连（未登录）
@@ -453,17 +454,16 @@ function startScriptStream() {
   if (!token) return
   try {
     scriptEs = new EventSource(scriptStreamUrl())
-    // 命中剧本：弹提示
-    scriptEs.addEventListener('trigger', (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        bus.emit(BusEvents.TOAST, {
-          type: 'info',
-          message: `🎬 触发剧本：《${data.title}》`,
-        })
-      } catch (err) {
-        console.warn('剧本 SSE trigger 解析失败:', err)
-      }
+    // 按已注册的事件名监听，统一走 dispatchSseEvent 分发
+    sseEventNames.forEach((eventName) => {
+      scriptEs.addEventListener(eventName, (e) => {
+        try {
+          const data = JSON.parse(e.data)
+          dispatchSseEvent(eventName, data)
+        } catch (err) {
+          console.warn(`SSE ${eventName} 解析失败:`, err)
+        }
+      })
     })
     // EventSource 断开会自动重连，onerror 不主动 close
     scriptEs.onerror = () => {

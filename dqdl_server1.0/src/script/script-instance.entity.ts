@@ -43,6 +43,16 @@ export class ScriptInstance {
   @Column({ type: 'json', nullable: true })
   node_path: string[] | null;
 
+  /** 选角映射：{actor_key:{type,id}}
+   *  配角=dynamic_npc, 玩家=player, 地点=location_scene/location_net。
+   *  本轮地点全填玩家当前位置（不选地图）。 */
+  @Column({ type: 'json', nullable: true })
+  actor_mapping: Record<string, { type: string; id: number }> | null;
+
+  /** 锁定前玩家原状态（演出结束恢复用）。 */
+  @Column({ type: 'int', nullable: true })
+  from_status: number | null;
+
   @Column({ type: 'varchar', length: 16, default: 'pending' })
   status: string; // pending(进行中) / done(已结束)
 

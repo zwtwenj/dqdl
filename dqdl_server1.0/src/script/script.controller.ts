@@ -1,8 +1,9 @@
-import { Controller, Get, Query, Req, Res } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, Res } from '@nestjs/common';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Response } from 'express';
 import { ScriptSseService } from './script-sse.service';
+import { ScriptTriggerService } from './script-trigger.service';
 import { PlayerService } from '../player/player.service';
 
 /**
@@ -10,15 +11,15 @@ import { PlayerService } from '../player/player.service';
  *
  * 鉴权：JWT（SSE 走 ?token= query，EventSource 无法设 header；与修炼室 SSE 一致）。
  *
- * GET /api/script/stream  剧本触发 SSE 长连接。
- *   玩家进入游戏后建立，命中剧本时实时推送 event:trigger。
- *   连接常驻至玩家退出游戏（前端 EventSource.close）。
+ * GET /api/script/stream            剧本触发 SSE 长连接。
+ * GET /api/script/instance/:id/node 获取某剧本实例的当前节点（含映射NPC信息）。
  */
 @Controller('script')
 @UseGuards(JwtAuthGuard)
 export class ScriptController {
   constructor(
     private readonly sse: ScriptSseService,
+    private readonly scriptTrigger: ScriptTriggerService,
     private readonly playerService: PlayerService,
   ) {}
 
@@ -48,5 +49,19 @@ export class ScriptController {
       this.sse.unregister(playerId);
     };
     res.on('close', closeHandler);
+  }
+
+  /**
+   * 获取某剧本实例的当前节点完整信息（前端收到 SSE 准备完成通知后调此接口）。
+   * 返回 lines/choices/location/actors（含映射后的真实 NPC 信息）。
+   * 校验：归属当前玩家 + status=playing。
+   */
+  @Get('instance/:id/node')
+  async getCurrentNode(
+    @Param('id') id: string,
+    @Req() req: any,
+  ) {
+    const player = await this.playerService.verifyOwnershipByUser(req.user.id);
+    return this.scriptTrigger.getCurrentNode(Number(id), player.id);
   }
 }

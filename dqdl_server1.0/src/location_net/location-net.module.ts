@@ -9,12 +9,14 @@ import { AuthModule } from '../auth/auth.module';
 import { PlayerModule } from '../player/player.module';
 import { AgentModule } from '../agent/agent.module';
 import { NpcModule } from '../npc/npc.module';
+import { ScriptModule } from '../script/script.module';
 
 /**
  * 网状地图 + 场景 模块。
  * 已接入真实游戏流程：接口加 JwtAuthGuard，用 verifyOwnershipByUser 取真实玩家。
  * 地图生成走 agent（DeepSeek），失败降级到名称池。
  * 城市新场景创建后会回调 NpcService 补齐"必生 NPC"（佣兵公会→公会接待员 等）。
+ * 进入场景钩子接入 ScriptTrigger（剧本触发，await 同步锁状态）。
  */
 @Module({
   imports: [
@@ -23,6 +25,7 @@ import { NpcModule } from '../npc/npc.module';
     PlayerModule,
     AgentModule,
     NpcModule,
+    ScriptModule,
   ],
   providers: [LocationNetService],
   controllers: [LocationNetController],

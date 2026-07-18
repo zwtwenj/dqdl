@@ -96,6 +96,16 @@ def normalize_storyboard(obj, story, location_map, actor_map):
             raise ValueError(f'节点 {nid} 清洗后 lines 为空')
         new_node['lines'] = lines
 
+        # actors：从 lines.role 推导该节点出场的演员（排除 narration）
+        # 自动生成而非让 LLM 再写，避免与 lines 不一致。
+        # 例：['player', 'story_78980_actor1']
+        actors_seen = []
+        for ln in lines:
+            r = ln['role']
+            if r != 'narration' and r not in actors_seen:
+                actors_seen.append(r)
+        new_node['actors'] = actors_seen
+
         # choices：沿用 story 原结构（goto 校验指向 story_map 内的节点）
         if snode.get('end'):
             new_node['end'] = True
@@ -165,7 +175,8 @@ def refine_storyboard(story, location_map, actor_map):
         '3. 每个节点必须标注 location（从上面的地点 id 里选一个最贴合该场景的）\n'
         '4. 节点的 choices 和 end 结构原样保留（goto 不要改）\n'
         '5. 节点 id 集合不变（a1/b1/c1... 全部保留，不增不减）\n'
-        '6. 台词用第二人称"你"或符合斗气大陆口吻的对白\n\n'
+        '6. 台词用第二人称"你"或符合斗气大陆口吻的对白\n'
+        '7. 【actors 自动推导】无需手写——后端会从 lines.role 自动提取该节点出场演员列表。\n\n'
         '【输出格式】严格如下 JSON：\n'
         '{\n'
         f'  "start": "{story["nodes"]["start"]}",\n'
@@ -198,7 +209,8 @@ def print_storyboard(title, location_map, actor_map, nodes):
     for nid, node in nodes['map'].items():
         loc_name = location_map.get(node['location'], {}).get('name', '?')
         tag = ' 🏁结局' if node.get('end') else ''
-        print(f'\n[{nid}] @ {loc_name}({node["location"]}){tag}')
+        actors_str = ','.join(node.get('actors', []))
+        print(f'\n[{nid}] @ {loc_name}({node["location"]}){tag} 👥{actors_str}')
         for ln in node['lines']:
             prefix = {'narration': '   📜', 'player': '   🗡️玩家'}.get(ln['role'], f'   💬{ln["role"]}')
             print(f'{prefix}: {ln["text"][:70]}')

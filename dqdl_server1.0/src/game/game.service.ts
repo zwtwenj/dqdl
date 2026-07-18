@@ -5,7 +5,7 @@ import { PlayerService } from '../player/player.service';
 import { LocationService } from '../location/location.service';
 import { LocationNetService } from '../location_net/location-net.service';
 import { Biz } from '../common/biz.exception';
-import { SCRIPT_HOOK_EVENT } from '../script/script-trigger.service';
+import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
 
 /**
  * 游戏入口服务（网游模式）：创建角色 + 初始化 player。

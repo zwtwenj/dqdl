@@ -8,7 +8,7 @@ import { LocationService } from '../location/location.service';
 import { TechniqueService, techniqueBreakthroughBaseRate } from '../technique/technique.service';
 import { SkillService } from '../skill/skill.service';
 import { Biz } from '../common/biz.exception';
-import { SCRIPT_HOOK_EVENT } from '../script/script-trigger.service';
+import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
 
 /** 等阶 K 常量：1-9=100, 11-19=200, 21-29=300, 31+=400 */
 export function getLevelK(level: number): number {
@@ -42,6 +42,7 @@ export const PLAYER_STATUS = {
   ROOM_CULTIVATING: 5,
   GATHERING: 6,
   BATTLE: 7,
+  SCRIPT: 8, // 剧本演出中（锁定移动）
 } as const;
 
 export const STATUS_LABEL: Record<number, string> = {
@@ -52,6 +53,7 @@ export const STATUS_LABEL: Record<number, string> = {
   5: '修炼室修炼',
   6: '采集',
   7: '战斗',
+  8: '剧本演出',
 };
 
 /** 修炼基础收益（后续可被宝物/功法效率加成放大） */
@@ -704,6 +706,10 @@ export class PlayerService {
   async moveToLocation(playerId: number, locationId: number): Promise<any> {
     const player = await this.repo.findOneBy({ id: playerId });
     if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    // 剧本演出中禁止移动（其它活动已有 assertIdle 守卫，这里单独拦剧本）
+    if (player.status === PLAYER_STATUS.SCRIPT) {
+      throw Biz.conflict('剧本演出中，无法移动');
+    }
     // 校验目标地点存在
     await this.locationService.findOne(locationId);
     player.location_id = locationId;

@@ -5,15 +5,18 @@ import { Response } from 'express';
  * 剧本 SSE 连接池：维护「playerId → 响应流」映射。
  *
  * 用途：玩家进入游戏后建立 SSE 长连接（GET /api/script/stream），
- *   ScriptTrigger 命中剧本时调用 push(playerId, payload) 实时推送给该玩家。
+ *   ScriptTrigger 命中剧本时调用 push(playerId, event, data) 实时推送给该玩家。
+ *
+ * 【通用 event 通道】push 接受任意 event 名 + data，前端按 event 分发。
+ *   未来多玩家聊天等其它推送也走这个通道（如 chat_message 事件）。
  *
  * 设计：
  *   - 一个玩家允许一个连接（重复建连会覆盖旧的，避免泄漏）
  *   - push 时连接已断开/不存在 → 静默丢弃（不影响触发判断主流程）
  *   - 周期心跳防中间代理断连（30s 一次 comment 行）
  *
- * 消息格式（与修炼室 SSE 一致）：
- *   event: trigger\ndata: {outline_id, story_id, title, hook}\n\n
+ * 消息格式（与修炼室 SSE 一致，event:data 两条）：
+ *   event: <事件名>\ndata: <JSON>\n\n
  */
 @Injectable()
 export class ScriptSseService {
@@ -59,17 +62,20 @@ export class ScriptSseService {
   }
 
   /**
-   * 推送剧本命中事件给某玩家。连接不存在/写失败 → 静默丢弃（不影响触发）。
+   * 通用推送：按 event 名推送 data。连接不存在/写失败 → 静默丢弃（不影响触发）。
+   * @param playerId 目标玩家
+   * @param event    事件名（前端按此分发，如 script_trigger / chat_message）
+   * @param data     任意 JSON 数据
    * @returns true=推送成功；false=无连接或失败
    */
-  push(playerId: number, payload: Record<string, any>): boolean {
+  push(playerId: number, event: string, data: Record<string, any>): boolean {
     const res = this.connections.get(playerId);
     if (!res) return false;
     try {
-      res.write(`event: trigger\ndata: ${JSON.stringify(payload)}\n\n`);
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
       return true;
     } catch (e) {
-      this.logger.warn(`SSE 推送失败，清理连接: player=${playerId} err=${(e as Error).message}`);
+      this.logger.warn(`SSE 推送失败，清理连接: player=${playerId} event=${event} err=${(e as Error).message}`);
       this.unregister(playerId);
       return false;
     }

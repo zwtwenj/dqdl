@@ -1,14 +1,14 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LocationNet } from './location-net.entity';
 import { LocationScene } from './location-scene.entity';
 import { Player } from '../player/player.entity';
+import { PLAYER_STATUS } from '../player/player.service';
 import { Biz } from '../common/biz.exception';
 import { AgentService } from '../agent/agent.service';
 import { NpcService } from '../npc/npc.service';
-import { SCRIPT_HOOK_EVENT } from '../script/script-trigger.service';
+import { ScriptTriggerService } from '../script/script-trigger.service';
 import { MAP } from '../config/game.config';
 
 /**
@@ -183,7 +183,7 @@ export class LocationNetService implements OnApplicationBootstrap {
     @InjectRepository(Player) private readonly playerRepo: Repository<Player>,
     private readonly agent: AgentService,
     private readonly npcService: NpcService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly scriptTrigger: ScriptTriggerService,
   ) {}
 
   /**
@@ -986,6 +986,9 @@ export class LocationNetService implements OnApplicationBootstrap {
   async movePlayer(playerId: number, toNetId: number) {
     const player = await this.playerRepo.findOneBy({ id: playerId });
     if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    if (player.status === PLAYER_STATUS.SCRIPT) {
+      throw Biz.conflict('剧本演出中，无法移动');
+    }
     const target = await this.netRepo.findOneBy({ id: toNetId });
     if (!target) throw Biz.notFound(`地图节点 ${toNetId} 不存在`);
 
@@ -1023,6 +1026,9 @@ export class LocationNetService implements OnApplicationBootstrap {
   async enterScene(playerId: number, netId: number, sceneType: string) {
     const player = await this.playerRepo.findOneBy({ id: playerId });
     if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    if (player.status === PLAYER_STATUS.SCRIPT) {
+      throw Biz.conflict('剧本演出中，无法进入场景');
+    }
     if (player.location_id !== netId) {
       throw Biz.conflict('必须先到达该地图才能进入其场景');
     }
@@ -1041,15 +1047,20 @@ export class LocationNetService implements OnApplicationBootstrap {
     player.scene_id = scene.id;
     await this.playerRepo.save(player);
 
-    // 剧本钩子：进入场景后触发。携带 player + location 上下文。
-    this.eventEmitter.emit(SCRIPT_HOOK_EVENT, {
-      hook: 'enter_scene',
-      playerId,
-      context: [
-        { type: 'player', data: { id: playerId, level: player.level, money: player.money } },
-        { type: 'location', data: { netId, sceneId: scene.id, sceneType: scene.scene_type, sceneName: scene.name } },
-      ],
-    });
+    // 剧本钩子：进入场景后触发（同步判断+锁状态，选角异步）。
+    // await 保证命中时玩家在 return 前已锁定，前端收到响应即处于 SCRIPT 状态。
+    try {
+      await this.scriptTrigger.tryTrigger({
+        hook: 'enter_scene',
+        playerId,
+        context: [
+          { type: 'player', data: { id: playerId, level: player.level, money: player.money } },
+          { type: 'location', data: { netId, sceneId: scene.id, sceneType: scene.scene_type, sceneName: scene.name } },
+        ],
+      });
+    } catch (e) {
+      this.logger.warn(`进入场景触发剧本检查失败（已忽略）：${(e as Error).message}`);
+    }
 
     return {
       ...this.playerPosView(player),
@@ -1061,6 +1072,9 @@ export class LocationNetService implements OnApplicationBootstrap {
   async exitScene(playerId: number) {
     const player = await this.playerRepo.findOneBy({ id: playerId });
     if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    if (player.status === PLAYER_STATUS.SCRIPT) {
+      throw Biz.conflict('剧本演出中，无法退出场景');
+    }
     if (player.scene_id == null) throw Biz.conflict('当前不在任何场景中');
     player.scene_id = null;
     await this.playerRepo.save(player);

@@ -32,6 +32,7 @@ import {
   getBattleState,
   getNpcsByLocation,
 } from '../api'
+import { scriptStreamUrl } from '../api/script'
 import {
   getPlayerView,
   moveToNet,
@@ -441,6 +442,45 @@ function onNpcSelect(npc) {
 }
 
 onMounted(loadPlayer)
+
+/* ============ 剧本触发 SSE 长连接 ============ */
+/** 玩家进入游戏后建立 SSE，后端剧本命中时实时推送 event:trigger。
+ *  本轮收到后只弹 toast 提示（后续演出运行时再弹剧本窗口）。 */
+let scriptEs = null
+function startScriptStream() {
+  // 无 token 不建连（未登录）
+  const token = localStorage.getItem('dqdl_token')
+  if (!token) return
+  try {
+    scriptEs = new EventSource(scriptStreamUrl())
+    // 命中剧本：弹提示
+    scriptEs.addEventListener('trigger', (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        bus.emit(BusEvents.TOAST, {
+          type: 'info',
+          message: `🎬 触发剧本：《${data.title}》`,
+        })
+      } catch (err) {
+        console.warn('剧本 SSE trigger 解析失败:', err)
+      }
+    })
+    // EventSource 断开会自动重连，onerror 不主动 close
+    scriptEs.onerror = () => {
+      /* 自动重连，无需处理 */
+    }
+  } catch (err) {
+    console.warn('剧本 SSE 建立失败:', err)
+  }
+}
+function stopScriptStream() {
+  if (scriptEs) {
+    scriptEs.close()
+    scriptEs = null
+  }
+}
+onMounted(startScriptStream)
+onUnmounted(stopScriptStream)
 
 /* ============ 跨组件面板控制（事件总线） ============ */
 /** 监听 BAG_OPEN：其它组件（如商店联动）请求打开/置顶背包 */

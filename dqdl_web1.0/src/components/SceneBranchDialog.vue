@@ -1,123 +1,143 @@
 <script setup>
 /**
- * RPG 式分支对话弹窗（全局原子组件）。
+ * 剧本演出弹窗（全局原子组件，真实数据驱动）。
  *
- * 与 NpcDialog 的区别：
- *   - NpcDialog 是「聊天式」：玩家有输入框，AI 自由生成回复，显示历史
- *   - 本组件是「RPG 分支树式」：纯预设剧本，玩家无输入只有选项，只显示当前节点台词
+ * 触发：SSE script_trigger → sseHandler 调 getScriptNode → emit SCRIPT_NODE_READY
+ *   → 本组件接收 { node } 渲染。
  *
- * 剧本结构（对齐 refine_script storyboard，便于后续接真剧本）：
- *   { start, nodes: { nodeId: { text, choices:[{text,goto}], end } } }
- *   - start：入口节点 id
- *   - node.text：NPC 当前这句台词
- *   - node.choices：玩家可选选项，goto 跳到下一节点
- *   - node.end：true 表示结局节点，无 choices，显示「结束对话」按钮
+ * 节点数据结构（后端 GET /api/script/instance/:id/node 返回）：
+ *   {
+ *     instance_id, story_id, title, node_id,
+ *     lines: [{ role, text }],            // role ∈ narration / player / {actor_key}
+ *     choices: [{ text, goto }] | null,    // null 或空 = 结局节点
+ *     end: bool,
+ *     location: { type, id } | null,
+ *     actors: [{ key, type, info }]        // 本节点出场演员，info 含 name/gender/role_name
+ *   }
  *
- * 触发：进入坊市(market)且场景内有动态演员 → GameView.onEnterScene emit SCENE_BRANCH_OPEN。
- * 当前剧本为前端假数据，后续替换为「匹配分镜内容」的真实剧本。
+ * 渲染规则：
+ *   - lines 每行按 role 显示发言者（用 actors 映射成可读名）
+ *     · narration → 旁白（无前缀名，斜体灰）
+ *     · player → 「你」
+ *     · 配角 key → actors 里查 info.name，查不到显示 role_name 或「??」
+ *   - choices 渲染按钮（本轮点击暂 toast，推进接口下轮做）
+ *   - end 节点显示「结束对话」（本轮也暂 toast，恢复状态接口下轮做）
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { bus, BusEvents } from '../utils/eventBus'
+import { advanceScript } from '../api/script'
 
 const open = ref(false)
-const npc = ref(null)          // 触发对话的演员 { name, role_name, ... }
-const scene = ref(null)        // 场景对象 { name, scene_type, ... }
-const script = ref(null)       // 当前剧本 { start, nodes }
-const currentNodeId = ref(null)
+const node = ref(null)            // 当前节点完整数据
+const actorMap = ref({})          // 本节点 actors 按 key 索引：{key: {type, info}}
+const advancing = ref(false)      // 推进中（禁用选项防连点）
+const lineIndex = ref(0)          // 当前显示到 lines 的第几行（逐行推进）
 
-/** 节点 id 合法性兜底（goto 指向不存在的节点时回退到 start，避免白屏） */
-const resolvedNodeId = computed(() => {
-  const id = currentNodeId.value
-  if (id != null && script.value?.nodes?.[id]) return id
-  return script.value?.start ?? null
+/** 当前应显示的那一行台词 */
+const currentLine = computed(() => {
+  const lines = node.value?.lines || []
+  return lines[lineIndex.value] || null
 })
 
-/** 当前节点对象 */
-const currentNode = computed(() => {
-  if (!script.value || resolvedNodeId.value == null) return null
-  return script.value.nodes?.[resolvedNodeId.value] || null
+/** 当前行的角色解析（决定渲染样式 + 发言者标签） */
+const currentRole = computed(() => {
+  if (!currentLine.value) return { kind: 'narration', label: '' }
+  return resolveRole(currentLine.value.role)
 })
 
-/** 是否结局节点 */
-const isEnd = computed(() => !!currentNode.value?.end)
+/** 所有台词是否已显示完（true 时再点击就显示选项） */
+const allLinesShown = computed(() => {
+  const lines = node.value?.lines || []
+  return lineIndex.value >= lines.length - 1
+})
 
-// ============================================================
-//  假数据剧本（后续替换为「匹配分镜内容」的真实剧本）
-//  按 scene.scene_type 选择对应剧本；未匹配则不弹。
-//  结构对齐 refine_script storyboard 的 {start, map}（这里用 nodes 命名，语义同 map）
-// ============================================================
-const SCRIPTS = {
-  // 坊市：动态演员兜售「地阶斗技消息」（用户给出的示例剧情）
-  market: {
-    start: 'intro',
-    nodes: {
-      intro: {
-        text: '朋友，我这里有一条关于地阶斗技的消息，有没有兴趣？',
-        choices: [
-          { text: '愿闻其详', goto: 'detail' },
-          { text: '不屑一顾', goto: 'refuse' },
-        ],
-      },
-      detail: {
-        text: '传闻最近有人在魔兽山脉深处获得了一张藏宝图，可能是一位斗宗强者的传承。',
-        choices: [
-          { text: '详细说说', goto: 'price' },
-          { text: '一派胡言', goto: 'refuse' },
-        ],
-      },
-      price: {
-        text: '藏宝图我只要五百金币就转让给你，如何？这可是千载难逢的机缘。',
-        choices: [
-          { text: '成交（后续接交易）', goto: 'accept' },
-          { text: '太贵了，算了', goto: 'refuse' },
-        ],
-      },
-      accept: {
-        text: '痛快！图就在这儿，祝你好运。咱们后会有期。',
-        end: true,
-      },
-      refuse: {
-        text: '随你便，错过可别后悔。这种机缘，可不会等人。',
-        end: true,
-      },
-    },
-  },
-  // 预留：其他场景类型的剧本后续补充
+/** 是否该显示选项区（台词看完 + 非结局节点） */
+const showChoices = computed(() => allLinesShown.value && !isEnd.value)
+
+/** 当前节点是否结局节点 */
+const isEnd = computed(() => !!(node.value?.end) || !(node.value?.choices?.length))
+
+/** 把 line.role 映射成可读的发言者标签 + 类型（决定渲染样式）。
+ *  返回 { kind: 'narration'|'player'|'actor', label } */
+function resolveRole(role) {
+  if (role === 'narration') return { kind: 'narration', label: '' }
+  if (role === 'player') return { kind: 'player', label: '你' }
+  // 配角：从 actorMap 查
+  const a = actorMap.value[role]
+  const name = a?.info?.name || a?.info?.role_name || '??'
+  return { kind: 'actor', label: name }
 }
 
-/** 打开：{ npc, scene } → 按场景类型选剧本 → 跳到 start 节点 */
-function handleOpen({ npc: n, scene: s }) {
-  const sceneType = s?.scene_type
-  const sc = SCRIPTS[sceneType]
-  if (!sc) return // 该场景类型暂无剧本，不弹
-  npc.value = n
-  scene.value = s
-  script.value = sc
-  currentNodeId.value = sc.start
+/** 把后端返回的节点数据应用到渲染状态 */
+function applyNode(n) {
+  if (!n) return
+  node.value = n
+  lineIndex.value = 0  // 新节点从第一行开始
+  const map = {}
+  for (const a of n.actors || []) {
+    map[a.key] = a
+  }
+  actorMap.value = map
+}
+
+/**
+ * 点击弹窗（台词区/遮罩）推进到下一行；
+ * 已是最后一行时不再推进（此时显示选项区，由选项按钮触发后端推进）。
+ * 结局节点看完最后一行显示「结束对话」按钮。
+ */
+function nextLine() {
+  if (!allLinesShown.value) {
+    lineIndex.value += 1
+  }
+}
+
+/** 打开：接收 { node } 渲染 */
+function handleNodeReady({ node: n }) {
+  if (!n) return
+  applyNode(n)
   open.value = true
 }
 
-/** 选择某选项 → 跳转到目标节点 */
-function pickChoice(choice) {
-  currentNodeId.value = choice.goto
+/** 选择某选项 → 调推进接口 → 更新渲染 */
+async function pickChoice(choice) {
+  if (advancing.value) return
+  const instanceId = node.value?.instance_id
+  if (!instanceId || !choice?.goto) return
+  advancing.value = true
+  try {
+    const next = await advanceScript(instanceId, choice.goto)
+    applyNode(next)
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, {
+      type: 'error',
+      message: err.message || '推进剧本失败',
+    })
+  } finally {
+    advancing.value = false
+  }
 }
 
-/** 关闭 */
+/** 结束对话（结局节点；本轮暂 toast，恢复状态接口下轮做） */
 function close() {
+  if (isEnd.value) {
+    bus.emit(BusEvents.TOAST, {
+      type: 'info',
+      message: '【预览】剧本结束（状态恢复待实现）',
+    })
+  }
   open.value = false
-  // 清理状态，避免下次打开闪现旧内容
-  script.value = null
-  currentNodeId.value = null
-  npc.value = null
-  scene.value = null
+  node.value = null
+  actorMap.value = {}
+  advancing.value = false
+  lineIndex.value = 0
 }
 
-let offOpen = null
+let offReady = null
 onMounted(() => {
-  offOpen = bus.on(BusEvents.SCENE_BRANCH_OPEN, handleOpen)
+  offReady = bus.on(BusEvents.SCRIPT_NODE_READY, handleNodeReady)
 })
 onUnmounted(() => {
-  offOpen && offOpen()
+  offReady && offReady()
 })
 </script>
 
@@ -128,12 +148,11 @@ onUnmounted(() => {
       class="branch-overlay"
     >
       <div class="branch-box">
-        <!-- header：演员名 + 职能 + 场景 + 关闭 -->
+        <!-- header：剧本标题 + 节点 id + 关闭 -->
         <div class="branch-header">
-          <span class="branch-npc-name">{{ npc?.name || '???' }}</span>
+          <span class="branch-npc-name">🎬 {{ node?.title || '剧本演出' }}</span>
           <span class="branch-npc-info">
-            {{ npc?.role_name || '神秘人' }}
-            <span class="branch-scene-tag">· {{ scene?.name || '' }}</span>
+            节点 {{ node?.node_id || '?' }}
           </span>
           <button
             class="branch-close"
@@ -144,36 +163,56 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <!-- 台词区：只显示当前节点台词（不显示历史） -->
-        <div class="branch-stage">
-          <div class="branch-portrait">🗡️</div>
-          <div class="branch-text">
-            {{ currentNode?.text || '……' }}
+        <!-- 台词区：逐行显示（点击推进下一行），全部看完才显示选项 -->
+        <div
+          class="branch-stage"
+          @click="nextLine"
+        >
+          <div
+            v-if="currentLine"
+            :class="['branch-line', 'branch-line-' + currentRole.kind]"
+          >
+            <span
+              v-if="currentRole.kind !== 'narration'"
+              class="branch-line-speaker"
+            >{{ currentRole.label }}：</span>
+            <span class="branch-line-text">{{ currentLine.text }}</span>
           </div>
+          <!-- 提示：点击继续（未看完时） -->
+          <div
+            v-if="!allLinesShown"
+            class="branch-stage-hint"
+          >点击继续 ▾</div>
         </div>
 
-        <!-- 选项区：当前节点的 choices；结局节点显示「结束对话」 -->
-        <div class="branch-choices">
-          <template v-if="isEnd">
-            <button
-              class="branch-choice branch-choice-end"
-              type="button"
-              @click="close"
-            >
-              结束对话
-            </button>
-          </template>
-          <template v-else>
-            <button
-              v-for="(choice, idx) in currentNode?.choices || []"
-              :key="idx"
-              class="branch-choice"
-              type="button"
-              @click="pickChoice(choice)"
-            >
-              {{ choice.text }}
-            </button>
-          </template>
+        <!-- 选项区：台词全部看完后才显示 -->
+        <div
+          v-if="showChoices"
+          class="branch-choices"
+        >
+          <button
+            v-for="(choice, idx) in node?.choices || []"
+            :key="idx"
+            class="branch-choice"
+            type="button"
+            :disabled="advancing"
+            @click.stop="pickChoice(choice)"
+          >
+            {{ choice.text }}
+          </button>
+        </div>
+        <!-- 结局节点：看完台词显示「结束对话」 -->
+        <div
+          v-else-if="allLinesShown && isEnd"
+          class="branch-choices"
+        >
+          <button
+            class="branch-choice branch-choice-end"
+            type="button"
+            @click.stop="close"
+          >
+            结束对话
+          </button>
         </div>
       </div>
     </div>
@@ -253,33 +292,61 @@ onUnmounted(() => {
 
 /* 台词区 */
 .branch-stage {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 32px 28px;
+  padding: 24px 28px;
   min-height: 180px;
-}
-.branch-portrait {
-  flex-shrink: 0;
-  width: 64px;
-  height: 64px;
+  max-height: 50vh;
+  overflow-y: auto;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
-  font-size: 2.6rem;
-  border: 1px solid rgba(150, 120, 70, 0.35);
-  border-radius: 50%;
-  background: rgba(30, 24, 16, 0.6);
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+  gap: 14px;
+  cursor: pointer;
+  position: relative;
 }
-.branch-text {
-  flex: 1;
-  font-size: 17px;
-  line-height: 1.9;
-  color: #e8e2d0;
+.branch-stage-hint {
+  position: absolute;
+  right: 20px;
+  bottom: 12px;
+  font-size: 12px;
+  color: rgba(180, 160, 130, 0.5);
   letter-spacing: 1px;
-  text-indent: 2em;
+  animation: branch-blink 1.5s ease-in-out infinite;
+}
+@keyframes branch-blink {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+}
+
+/* 台词行（每行一句，按发言者类型区分样式） */
+.branch-line {
+  font-size: 16px;
+  line-height: 1.8;
+  letter-spacing: 1px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+/* 旁白：斜体灰色，无发言者前缀，缩进 */
+.branch-line-narration {
+  color: rgba(200, 180, 150, 0.75);
+  font-style: italic;
+  text-indent: 2em;
+}
+/* 玩家：浅金色 */
+.branch-line-player .branch-line-speaker {
+  color: #ffd97a;
+  font-weight: bold;
+  margin-right: 2px;
+}
+.branch-line-player .branch-line-text {
+  color: #e8d5a0;
+}
+/* 配角：青色 */
+.branch-line-actor .branch-line-speaker {
+  color: #7fd4c4;
+  font-weight: bold;
+  margin-right: 2px;
+}
+.branch-line-actor .branch-line-text {
+  color: #c8e8e0;
 }
 
 /* 选项区 */

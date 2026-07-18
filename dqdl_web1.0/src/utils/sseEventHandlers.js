@@ -27,11 +27,8 @@ const sseHandlers = {
     try {
       const node = await getScriptNode(instanceId)
       console.log('🎬 剧本准备完成，当前节点信息：', node)
-      bus.emit(BusEvents.TOAST, {
-        type: 'info',
-        message: `🎬 剧本演出：《${node?.title || '?'}》`,
-      })
-      // [TODO] 下轮：把 node 数据交给剧本演出组件渲染
+      // 通知剧本演出组件渲染（携带完整节点数据）
+      bus.emit(BusEvents.SCRIPT_NODE_READY, { node })
     } catch (err) {
       console.error('获取剧本节点失败：', err)
     }

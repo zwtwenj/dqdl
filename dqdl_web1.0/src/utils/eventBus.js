@@ -49,6 +49,10 @@ export const BusEvents = {
    *  由进入场景钩子触发（如坊市且有动态演员）：纯预设剧本、节点+选项+goto 链式、
    *  显示最新节点台词不显示历史、玩家无输入只有选项。剧本暂为前端假数据，后续接分镜。 */
   SCENE_BRANCH_OPEN: 'scene-branch-open',
+  /** 剧本节点准备就绪：{ node }
+   *  由 SSE script_trigger handler 调完 getScriptNode 接口后 emit，
+   *  携带完整节点数据（lines/choices/actors 等），SceneBranchDialog 接收并渲染演出。 */
+  SCRIPT_NODE_READY: 'script-node-ready',
 }
 
 const listeners = new Map()

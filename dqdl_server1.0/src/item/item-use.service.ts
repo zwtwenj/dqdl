@@ -133,6 +133,11 @@ export class ItemUseService {
       if (Array.isArray(v)) arr = v.map((t) => ({ id: Number(t.id), slot: Number(t.slot) }));
     } catch { arr = []; }
 
+    // 校验：同一宝物不能重复装备
+    if (arr.some((t) => t.id === treasureId)) {
+      throw Biz.badRequest('该宝物已装备，不可重复装备');
+    }
+
     // 找空槽
     const usedSlots = new Set(arr.map((t) => t.slot));
     const freeSlot = [1, 2, 3, 4, 5].find((s) => !usedSlots.has(s));

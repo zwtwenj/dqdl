@@ -14,6 +14,7 @@ import { usePanelDraggable } from '../composables/usePanelDraggable'
 import { useBackpackStore } from '../stores/backpack'
 import { bus, BusEvents } from '../utils/eventBus'
 import { useItem, unequipTreasure } from '../api'
+import { getAllTreasures } from '../api/treasure'
 import FloatingTooltip from './FloatingTooltip.vue'
 
 const props = defineProps({
@@ -24,10 +25,6 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'update:pos'])
 
 const { z, focus, mount, unmount } = usePanelStack('treasure')
-watch(
-  () => props.modelValue,
-  (v) => { if (v) { mount(); focus() } else unmount() },
-)
 onMounted(() => props.modelValue && mount())
 onUnmounted(unmount)
 
@@ -44,6 +41,35 @@ const { dragging, onHandlePointerDown } = usePanelDraggable({
 
 /* ---- 背包 store ---- */
 const backpackStore = useBackpackStore()
+
+/* ---- treasure 定义缓存（item_id → 定义，tooltip 显示属性用） ---- */
+const treasureDefs = ref({})
+const parseJson = (s) => { try { return JSON.parse(s) } catch { return {} } }
+
+watch(
+  () => props.modelValue,
+  async (v) => {
+    if (v) {
+      mount(); focus()
+      // 打开时拉一次 treasure 定义
+      try {
+        const list = await getAllTreasures()
+        const map = {}
+        for (const t of (list || [])) {
+          map[t.item_id] = {
+            name: t.name,
+            item_id: t.item_id,
+            category: t.category,
+            description: t.description,
+            stats: parseJson(t.stats),
+            effects: parseJson(t.effects),
+          }
+        }
+        treasureDefs.value = map
+      } catch (e) { /* 忽略 */ }
+    } else unmount()
+  },
+)
 
 /* ---- 已装备宝物：按 slot 索引 ---- */
 function slotTreasure(slot) {
@@ -205,7 +231,7 @@ function close() {
             :key="bp.item_id"
             class="inv-slot"
             @contextmenu.prevent="onEquip(bp)"
-            @pointerenter="showTip({ name: bp.item?.name, item_id: bp.item_id, description: bp.item?.description, stats: {}, effects: {} }, $event)"
+            @pointerenter="showTip(treasureDefs[bp.item_id] || { name: bp.item?.name, item_id: bp.item_id, description: bp.item?.description, stats: {}, effects: {} }, $event)"
             @pointerleave="hideTip"
           >
             <img

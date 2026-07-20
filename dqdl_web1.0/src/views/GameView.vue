@@ -15,6 +15,7 @@ import IconToolbar from '../components/IconToolbar.vue'
 import BagPanel from '../components/BagPanel.vue'
 import PlayerPanel from '../components/PlayerPanel.vue'
 import SkillPanel from '../components/SkillPanel.vue'
+import TreasurePanel from '../components/TreasurePanel.vue'
 import TaskPanel from '../components/TaskPanel.vue'
 import MiniMap from '../components/MiniMap.vue'
 import BattlePanel from '../components/BattlePanel.vue'
@@ -67,6 +68,9 @@ const playerPanelOpen = ref(false)
 // 斗技弹窗显隐
 const skillPanelOpen = ref(false)
 
+// 宝物弹窗显隐
+const treasurePanelOpen = ref(false)
+
 // 任务弹窗显隐
 const taskPanelOpen = ref(false)
 
@@ -85,6 +89,7 @@ const battleBusy = ref(false)
 const bagPos = ref(null)
 const playerPos = ref(null)
 const skillPos = ref(null)
+const treasurePos = ref(null)
 const taskPos = ref(null)
 const miniMapPos = ref(null)
 
@@ -559,9 +564,9 @@ function onIconSelect(key) {
     bus.emit(BusEvents.ADVENTURE_OPEN)
     return
   }
-  // 宝物：打开角色面板（PlayerPanel 已含宝物区，装备/卸下/tooltip）
+  // 宝物：打开独立宝物面板
   if (key === 'treasure') {
-    playerPanelOpen.value = !playerPanelOpen.value
+    treasurePanelOpen.value = !treasurePanelOpen.value
     return
   }
   console.log('选中功能：', key)
@@ -781,6 +786,13 @@ function backToStart() {
     <SkillPanel
       v-model="skillPanelOpen"
       v-model:pos="skillPos"
+      :player="player"
+    />
+
+    <!-- 宝物弹窗（功能栏上方，可拖拽，动态层级） -->
+    <TreasurePanel
+      v-model="treasurePanelOpen"
+      v-model:pos="treasurePos"
       :player="player"
     />
 

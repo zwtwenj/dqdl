@@ -144,22 +144,18 @@ function close() {
     :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto', zIndex: z } : { zIndex: z }"
     @pointerdown="focus"
   >
-    <img
-      class="panel-frame"
-      src="/player/player.png"
-      alt=""
-    >
+    <!-- 顶部拖拽手柄条 -->
     <div
       class="drag-handle"
       @pointerdown.stop="onHandlePointerDown"
-    />
-    <button
-      class="close-btn"
-      type="button"
-      @click="close"
-    >×</button>
-
-    <div class="panel-title">宝物</div>
+    >
+      <span class="panel-title">宝物</span>
+      <button
+        class="close-btn"
+        type="button"
+        @click="close"
+      >×</button>
+    </div>
 
     <div class="panel-inner">
       <!-- 装备槽：横向 5 格 -->
@@ -227,7 +223,7 @@ function close() {
 </template>
 
 <style scoped>
-/* ========== 面板外壳（对齐 SkillPanel） ========== */
+/* ========== 面板外壳（暗金背景，对齐 TaskPanel） ========== */
 .treasure-panel {
   position: absolute;
   right: 20px;
@@ -235,61 +231,51 @@ function close() {
   width: 440px;
   overflow: hidden;
   border-radius: 10px;
-}
-.panel-frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 0;
-  pointer-events: none;
+  border: 1px solid rgba(180, 150, 90, 0.45);
+  background: linear-gradient(160deg, rgba(28, 22, 16, 0.96), rgba(14, 11, 8, 0.98));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(220, 190, 120, 0.12);
+  color: #e8e2d0;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
 }
 .drag-handle {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 36px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(150, 120, 70, 0.25);
+  background: rgba(40, 30, 18, 0.5);
   cursor: move;
   z-index: 1;
 }
+.panel-title {
+  font-size: 16px;
+  color: #e8d5a0;
+  letter-spacing: 3px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
 .close-btn {
-  position: absolute;
-  top: 6px;
-  right: 8px;
   width: 26px;
   height: 26px;
   border: 1px solid rgba(150, 120, 70, 0.4);
-  background: rgba(30, 24, 16, 0.6);
+  background: transparent;
   color: rgba(220, 200, 160, 0.7);
   border-radius: 6px;
   font-size: 16px;
   cursor: pointer;
-  z-index: 2;
+  font-family: inherit;
 }
 .close-btn:hover {
   background: rgba(150, 120, 70, 0.2);
   color: #e8d5a0;
 }
-.panel-title {
-  position: relative;
-  z-index: 1;
-  padding: 8px 16px 4px;
-  font-size: 16px;
-  color: #e8d5a0;
-  letter-spacing: 3px;
-  text-align: center;
-  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-}
 .panel-inner {
   position: relative;
   z-index: 1;
-  padding: 4px 16px 16px;
+  padding: 14px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* ========== 装备槽 ========== */

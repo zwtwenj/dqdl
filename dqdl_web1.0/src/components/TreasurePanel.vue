@@ -1,20 +1,19 @@
 <script setup>
 /**
  * 宝物面板（独立弹窗，功能栏"宝物"按钮触发）。
+ * 风格对齐 SkillPanel：player.png 边框 + 横向 5 格装备槽 + 下方可装备列表。
  *
- * 展示玩家已装备的 5 个宝物槽位（含空槽），悬浮 tooltip 显示属性加成，
- * 可卸下宝物（返还物品到背包）。
+ * 上方：5 格装备槽（已装备的宝物，只显示 emoji 图标 + tooltip，右键卸下）
+ * 下方：背包中的宝物物品列表（点击装备到空槽位）
  *
- * Props / Emits 与 BagPanel/SkillPanel 同模式：
- *   modelValue (boolean) - 是否显示
- *   player    (object)   - 玩家完整数据（findOne 聚合，含 treasures 数组）
- *   pos       (object)   - 弹窗位置（可拖拽）
+ * Props / Emits 与 SkillPanel 同模式。
  */
-import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
+import { useBackpackStore } from '../stores/backpack'
 import { bus, BusEvents } from '../utils/eventBus'
-import { unequipTreasure } from '../api'
+import { useItem, unequipTreasure } from '../api'
 import FloatingTooltip from './FloatingTooltip.vue'
 
 const props = defineProps({
@@ -27,9 +26,7 @@ const emit = defineEmits(['update:modelValue', 'update:pos'])
 const { z, focus, mount, unmount } = usePanelStack('treasure')
 watch(
   () => props.modelValue,
-  (v) => {
-    if (v) { mount(); focus() } else unmount()
-  },
+  (v) => { if (v) { mount(); focus() } else unmount() },
 )
 onMounted(() => props.modelValue && mount())
 onUnmounted(unmount)
@@ -45,28 +42,79 @@ const { dragging, onHandlePointerDown } = usePanelDraggable({
   onStart: focus,
 })
 
-/* ---- 宝物数据 ---- */
-const TOTAL_SLOTS = 5
+/* ---- 背包 store ---- */
+const backpackStore = useBackpackStore()
 
-/** 已装备宝物按 slot 索引 {slot: treasure} */
-const treasureMap = computed(() => {
-  const map = {}
+/* ---- 已装备宝物：按 slot 索引 ---- */
+function slotTreasure(slot) {
   const list = props.player?.treasures
-  if (Array.isArray(list)) {
-    for (const t of list) map[t.slot] = t
+  if (!Array.isArray(list)) return null
+  return list.find((t) => Number(t.slot) === slot) || null
+}
+
+/* ---- 背包中的宝物物品（可装备） ---- */
+const backpackTreasures = computed(() => {
+  return backpackStore.slots.filter((s) => s.item?.type === '宝物')
+})
+
+/** 背包宝物是否已装备（同名宝物不重复显示在列表——实际上宝物每件独立，都显示） */
+function isEquipped(item_id) {
+  // 简单：都显示，玩家可以装备多件同类（受 unique_cat_max 约束）
+  return false
+}
+
+/* ---- 装备/卸下 ---- */
+const equipping = ref(false)
+async function onEquip(bpItem) {
+  if (equipping.value || !props.player?.id) return
+  equipping.value = true
+  try {
+    const res = await useItem(props.player.id, bpItem.item_id)
+    if (res?.player) {
+      bus.emit(BusEvents.PLAYER_UPDATE, { player: res.player })
+      await backpackStore.load(props.player.id)
+      bus.emit(BusEvents.TOAST, { type: 'success', message: `装备了 ${bpItem.item?.name || '宝物'}` })
+    }
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '装备失败' })
+  } finally {
+    equipping.value = false
   }
-  return map
-})
+}
 
-/** 5 个槽位（含空槽），按 1-5 顺序 */
-const slots = computed(() => {
-  return Array.from({ length: TOTAL_SLOTS }, (_, i) => {
-    const slot = i + 1
-    return { slot, treasure: treasureMap.value[slot] || null }
-  })
-})
+async function onUnequip(slot) {
+  if (equipping.value || !props.player?.id) return
+  equipping.value = true
+  try {
+    const res = await unequipTreasure(props.player.id, slot)
+    if (res?.player) {
+      bus.emit(BusEvents.PLAYER_UPDATE, { player: res.player })
+      await backpackStore.load(props.player.id)
+      bus.emit(BusEvents.TOAST, { type: 'success', message: '已卸下宝物' })
+    }
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '卸下失败' })
+  } finally {
+    equipping.value = false
+  }
+}
 
-/* ---- 属性/效果文案 ---- */
+/* ---- tooltip ---- */
+const tipOpen = ref(false)
+const tipData = ref(null)
+const hoveredEl = ref(null)
+const FALLBACK_ICON = '/icon/cl/cl-100.png'
+
+function showTip(t, e) {
+  if (!t) return
+  hoveredEl.value = e.currentTarget
+  tipData.value = t
+  tipOpen.value = true
+}
+function hideTip() {
+  tipOpen.value = false
+}
+
 const ATTR_LABEL = { power: '力量', intelligence: '智力', quick: '敏捷', stamina: '体质', lucky: '运气', hp: '生命', energy: '斗气' }
 const EFFECT_LABEL = { cultivation_efficiency: '修炼效率' }
 const EFFECT_UNIT = { cultivation_efficiency: '%' }
@@ -79,36 +127,8 @@ function effectText(t) {
   return Object.keys(e).map((k) => `${EFFECT_LABEL[k] || k}+${e[k]}${EFFECT_UNIT[k] || ''}`).join(' ')
 }
 
-/* ---- 卸下 ---- */
-const unequipping = ref(false)
-async function doUnequip(slot) {
-  if (unequipping.value || !props.player?.id) return
-  unequipping.value = true
-  try {
-    const res = await unequipTreasure(props.player.id, slot)
-    if (res?.player) {
-      bus.emit(BusEvents.PLAYER_UPDATE, { player: res.player })
-      bus.emit(BusEvents.TOAST, { type: 'success', message: '已卸下宝物' })
-    }
-  } catch (err) {
-    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '卸下失败' })
-  } finally {
-    unequipping.value = false
-  }
-}
-
-/* ---- tooltip ---- */
-const tipOpen = ref(false)
-const tipData = ref(null)
-const hoveredEl = ref(null)
-function onEnter(e, t) {
-  if (!t) return
-  hoveredEl.value = e.currentTarget
-  tipData.value = t
-  tipOpen.value = true
-}
-function onLeave() {
-  tipOpen.value = false
+function onIconError(e) {
+  if (e.target.src !== FALLBACK_ICON) e.target.src = FALLBACK_ICON
 }
 
 function close() {
@@ -124,50 +144,75 @@ function close() {
     :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto', zIndex: z } : { zIndex: z }"
     @pointerdown="focus"
   >
-    <!-- 头部（可拖拽） -->
-    <div
-      class="panel-header"
-      @pointerdown.stop="onHandlePointerDown"
+    <img
+      class="panel-frame"
+      src="/player/player.png"
+      alt=""
     >
-      <span class="panel-title">💎 宝物</span>
-      <button
-        class="panel-close"
-        type="button"
-        @click="close"
-      >×</button>
-    </div>
+    <div
+      class="drag-handle"
+      @pointerdown.stop="onHandlePointerDown"
+    />
+    <button
+      class="close-btn"
+      type="button"
+      @click="close"
+    >×</button>
 
-    <!-- 槽位区：5 格 grid -->
-    <div class="slot-grid">
-      <div
-        v-for="s in slots"
-        :key="s.slot"
-        :class="['slot', { 'slot-empty': !s.treasure }]"
-        @pointerenter="onEnter($event, s.treasure)"
-        @pointerleave="onLeave"
-      >
-        <template v-if="s.treasure">
-          <span class="slot-icon">{{ s.treasure.icon || '💎' }}</span>
-          <span class="slot-name">{{ s.treasure.name }}</span>
-          <span class="slot-cat">{{ s.treasure.category }}</span>
-          <button
-            class="slot-unequip"
-            type="button"
-            :disabled="unequipping"
-            @click.stop="doUnequip(s.slot)"
-          >卸</button>
-        </template>
-        <template v-else>
-          <span class="slot-empty-icon">-empty-</span>
-        </template>
+    <div class="panel-title">宝物</div>
+
+    <div class="panel-inner">
+      <!-- 装备槽：横向 5 格 -->
+      <div class="slots-section">
+        <div class="section-label">装备栏（右键卸下）</div>
+        <div class="slots-row">
+          <div
+            v-for="slot in 5"
+            :key="slot"
+            class="equip-slot"
+            :class="{ occupied: slotTreasure(slot) }"
+            @contextmenu.prevent="slotTreasure(slot) && onUnequip(slot)"
+            @pointerenter="slotTreasure(slot) && showTip(slotTreasure(slot), $event)"
+            @pointerleave="hideTip"
+          >
+            <template v-if="slotTreasure(slot)">
+              <span class="slot-emoji">{{ slotTreasure(slot).icon || '💎' }}</span>
+            </template>
+            <template v-else>
+              <span class="slot-num">{{ slot }}</span>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- 可装备列表（背包中的宝物） -->
+      <div class="inventory-section">
+        <div class="section-label">背包宝物（点击装备）</div>
+        <div
+          v-if="backpackTreasures.length"
+          class="inventory-grid"
+        >
+          <div
+            v-for="bp in backpackTreasures"
+            :key="bp.item_id"
+            class="treasure-card"
+            @click="onEquip(bp)"
+            @pointerenter="showTip({ name: bp.item?.name, icon: bp.item?.icon, description: bp.item?.description }, $event)"
+            @pointerleave="hideTip"
+          >
+            <span class="card-emoji">{{ bp.item?.icon || '💎' }}</span>
+            <span class="card-name">{{ bp.item?.name || bp.item_id }}</span>
+            <span class="card-count">×{{ bp.count }}</span>
+          </div>
+        </div>
+        <div
+          v-else
+          class="empty-hint"
+        >背包中暂无宝物</div>
       </div>
     </div>
 
-    <div class="panel-hint">
-      在背包中「使用」宝物即可装备；悬浮查看属性，卸下后以物品形态返回背包。
-    </div>
-
-    <!-- tooltip 浮层 -->
+    <!-- tooltip -->
     <FloatingTooltip
       v-model:open="tipOpen"
       :reference="hoveredEl"
@@ -182,151 +227,157 @@ function close() {
 </template>
 
 <style scoped>
+/* ========== 面板外壳（对齐 SkillPanel） ========== */
 .treasure-panel {
   position: absolute;
   right: 20px;
   bottom: 80px;
-  width: 380px;
-  background: linear-gradient(160deg, rgba(28, 22, 16, 0.97), rgba(14, 11, 8, 0.98));
-  border: 1px solid rgba(180, 150, 90, 0.45);
-  border-radius: 10px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(220, 190, 120, 0.12);
-  color: #e8e2d0;
-  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  width: 440px;
   overflow: hidden;
+  border-radius: 10px;
 }
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-bottom: 1px solid rgba(150, 120, 70, 0.25);
-  background: rgba(40, 30, 18, 0.5);
+.panel-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  pointer-events: none;
+}
+.drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
   cursor: move;
+  z-index: 1;
 }
-.panel-title {
-  font-size: 16px;
-  color: #e8d5a0;
-  letter-spacing: 2px;
-}
-.panel-close {
+.close-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
   width: 26px;
   height: 26px;
   border: 1px solid rgba(150, 120, 70, 0.4);
-  background: transparent;
+  background: rgba(30, 24, 16, 0.6);
   color: rgba(220, 200, 160, 0.7);
   border-radius: 6px;
   font-size: 16px;
   cursor: pointer;
+  z-index: 2;
 }
-.panel-close:hover {
+.close-btn:hover {
   background: rgba(150, 120, 70, 0.2);
   color: #e8d5a0;
 }
-
-.slot-grid {
+.panel-title {
+  position: relative;
+  z-index: 1;
+  padding: 8px 16px 4px;
+  font-size: 16px;
+  color: #e8d5a0;
+  letter-spacing: 3px;
+  text-align: center;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+.panel-inner {
+  position: relative;
+  z-index: 1;
+  padding: 4px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
+  gap: 12px;
 }
 
-.slot {
-  position: relative;
+/* ========== 装备槽 ========== */
+.section-label {
+  font-size: 12px;
+  color: rgba(200, 170, 110, 0.6);
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+}
+.slots-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.equip-slot {
+  width: 56px;
+  height: 56px;
+  border: 1px solid rgba(150, 120, 70, 0.3);
+  background: rgba(20, 16, 10, 0.5);
+  border-radius: 6px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.equip-slot.occupied {
+  border-color: rgba(200, 170, 110, 0.6);
+  background: rgba(40, 30, 18, 0.6);
+}
+.equip-slot:hover {
+  border-color: rgba(220, 190, 120, 0.8);
+  background: rgba(50, 38, 22, 0.7);
+}
+.slot-emoji {
+  font-size: 1.8rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+}
+.slot-num {
+  font-size: 14px;
+  color: rgba(120, 100, 70, 0.4);
+}
+
+/* ========== 可装备列表 ========== */
+.inventory-grid {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  padding: 8px 12px;
-  background: rgba(30, 24, 16, 0.6);
+}
+.treasure-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
   border: 1px solid rgba(150, 120, 70, 0.35);
+  background: rgba(30, 24, 16, 0.6);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.18s ease;
 }
-.slot:hover {
-  border-color: rgba(200, 170, 110, 0.6);
+.treasure-card:hover {
+  border-color: rgba(200, 170, 110, 0.7);
   background: rgba(40, 32, 20, 0.7);
 }
-.slot-empty {
-  justify-content: center;
-  border-style: dashed;
-  border-color: rgba(100, 80, 50, 0.25);
-  cursor: default;
-}
-.slot-empty:hover {
-  border-color: rgba(100, 80, 50, 0.25);
-  background: rgba(30, 24, 16, 0.6);
-}
-.slot-empty-icon {
-  font-size: 11px;
-  color: rgba(120, 100, 70, 0.35);
-  letter-spacing: 2px;
-}
-
-.slot-icon {
-  font-size: 1.6rem;
+.card-emoji {
+  font-size: 1.4rem;
   line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
-.slot-name {
-  flex: 1;
-  font-size: 14px;
+.card-name {
+  font-size: 13px;
   color: #e8d5a0;
   letter-spacing: 1px;
 }
-.slot-cat {
+.card-count {
   font-size: 11px;
   color: rgba(180, 160, 130, 0.6);
 }
-.slot-unequip {
-  width: 22px;
-  height: 22px;
-  border: 1px solid rgba(150, 120, 70, 0.4);
-  background: rgba(40, 30, 18, 0.7);
-  color: rgba(220, 190, 120, 0.7);
-  border-radius: 4px;
-  font-size: 11px;
-  cursor: pointer;
-  padding: 0;
-  font-family: inherit;
-}
-.slot-unequip:hover:not(:disabled) {
-  background: rgba(150, 120, 70, 0.3);
-  color: #e8d5a0;
-}
-.slot-unequip:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.empty-hint {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(150, 130, 100, 0.4);
+  padding: 12px;
 }
 
-.panel-hint {
-  padding: 8px 16px 14px;
-  font-size: 11px;
-  color: rgba(160, 140, 110, 0.5);
-  line-height: 1.5;
-}
-
-/* tooltip */
-.tip-name {
-  font-size: 14px;
-  color: #e8d5a0;
-  margin-bottom: 4px;
-}
-.tip-stat {
-  font-size: 12px;
-  color: #7fd4c4;
-  margin-bottom: 2px;
-}
-.tip-effect {
-  font-size: 12px;
-  color: #ffd97a;
-  margin-bottom: 2px;
-}
-.tip-desc {
-  font-size: 11px;
-  color: rgba(190, 175, 145, 0.85);
-  line-height: 1.5;
-  word-break: break-all;
-}
+/* ========== tooltip ========== */
+.tip-name { font-size: 14px; color: #e8d5a0; margin-bottom: 4px; }
+.tip-stat { font-size: 12px; color: #7fd4c4; margin-bottom: 2px; }
+.tip-effect { font-size: 12px; color: #ffd97a; margin-bottom: 2px; }
+.tip-desc { font-size: 11px; color: rgba(190,175,145,0.85); line-height: 1.5; word-break: break-all; }
 </style>

@@ -27,15 +27,23 @@ const emit = defineEmits(['update:modelValue', 'update:pos'])
 const { z, focus, mount, unmount } = usePanelStack('treasure')
 watch(
   () => props.modelValue,
-  (v) => { v ? mount() : unmount() },
+  (v) => {
+    if (v) { mount(); focus() } else unmount()
+  },
 )
-onMounted(() => { if (props.modelValue) mount() })
-onUnmounted(() => unmount())
+onMounted(() => props.modelValue && mount())
+onUnmounted(unmount)
 
-const { panelRef, headerRef, onPointerDown } = usePanelDraggable(
-  () => props.pos,
-  (v) => emit('update:pos', v),
-)
+const panelRef = ref(null)
+const posModel = computed({
+  get: () => props.pos,
+  set: (v) => emit('update:pos', v),
+})
+const { dragging, onHandlePointerDown } = usePanelDraggable({
+  elRef: panelRef,
+  pos: posModel,
+  onStart: focus,
+})
 
 /* ---- 宝物数据 ---- */
 const TOTAL_SLOTS = 5
@@ -113,14 +121,13 @@ function close() {
     v-if="modelValue"
     ref="panelRef"
     class="treasure-panel"
-    :style="{ zIndex: z, left: pos?.x + 'px', top: pos?.y + 'px' }"
+    :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto', zIndex: z } : { zIndex: z }"
     @pointerdown="focus"
   >
     <!-- 头部（可拖拽） -->
     <div
-      ref="headerRef"
       class="panel-header"
-      @pointerdown="onPointerDown"
+      @pointerdown.stop="onHandlePointerDown"
     >
       <span class="panel-title">💎 宝物</span>
       <button
@@ -177,6 +184,8 @@ function close() {
 <style scoped>
 .treasure-panel {
   position: absolute;
+  right: 20px;
+  bottom: 80px;
   width: 380px;
   background: linear-gradient(160deg, rgba(28, 22, 16, 0.97), rgba(14, 11, 8, 0.98));
   border: 1px solid rgba(180, 150, 90, 0.45);

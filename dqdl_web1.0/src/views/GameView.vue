@@ -559,6 +559,11 @@ function onIconSelect(key) {
     bus.emit(BusEvents.ADVENTURE_OPEN)
     return
   }
+  // 宝物：打开角色面板（PlayerPanel 已含宝物区，装备/卸下/tooltip）
+  if (key === 'treasure') {
+    playerPanelOpen.value = !playerPanelOpen.value
+    return
+  }
   console.log('选中功能：', key)
 }
 

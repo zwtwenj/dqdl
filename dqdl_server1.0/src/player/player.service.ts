@@ -297,7 +297,6 @@ export class PlayerService {
         id: e.id,
         slot: e.slot,
         name: def?.name || '未知宝物',
-        icon: def?.icon || null,
         item_id: def?.item_id || null,
         category: def?.category || '饰品',
         rank: def?.rank || 43,

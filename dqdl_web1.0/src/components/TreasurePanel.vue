@@ -193,9 +193,9 @@ function close() {
         </div>
       </div>
 
-      <!-- 可装备列表（背包中的宝物） -->
+      <!-- 可装备列表（背包中的宝物，图标格，右键装备） -->
       <div class="inventory-section">
-        <div class="section-label">背包宝物（点击装备）</div>
+        <div class="section-label">背包宝物（右键装备）</div>
         <div
           v-if="backpackTreasures.length"
           class="inventory-grid"
@@ -203,19 +203,21 @@ function close() {
           <div
             v-for="bp in backpackTreasures"
             :key="bp.item_id"
-            class="treasure-card"
-            @click="onEquip(bp)"
-            @pointerenter="showTip({ name: bp.item?.name, icon: bp.item?.icon, description: bp.item?.description }, $event)"
+            class="inv-slot"
+            @contextmenu.prevent="onEquip(bp)"
+            @pointerenter="showTip({ name: bp.item?.name, item_id: bp.item_id, description: bp.item?.description, stats: {}, effects: {} }, $event)"
             @pointerleave="hideTip"
           >
             <img
-              class="card-icon-img"
+              class="inv-slot-icon"
               :src="treasureIconUrl({ item_id: bp.item_id })"
               :alt="bp.item?.name || ''"
               @error="onIconError"
             >
-            <span class="card-name">{{ bp.item?.name || bp.item_id }}</span>
-            <span class="card-count">×{{ bp.count }}</span>
+            <span
+              v-if="bp.count > 1"
+              class="inv-slot-count"
+            >{{ bp.count }}</span>
           </div>
         </div>
         <div
@@ -344,34 +346,36 @@ function close() {
   flex-wrap: wrap;
   gap: 8px;
 }
-.treasure-card {
+.inv-slot {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(150, 120, 70, 0.35);
+  background: rgba(20, 16, 10, 0.5);
+  border-radius: 6px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid rgba(150, 120, 70, 0.35);
-  background: rgba(30, 24, 16, 0.6);
-  border-radius: 6px;
+  justify-content: center;
   cursor: pointer;
   transition: all 0.18s ease;
 }
-.treasure-card:hover {
-  border-color: rgba(200, 170, 110, 0.7);
-  background: rgba(40, 32, 20, 0.7);
+.inv-slot:hover {
+  border-color: rgba(220, 190, 120, 0.8);
+  background: rgba(50, 38, 22, 0.7);
 }
-.card-icon-img {
-  width: 28px;
-  height: 28px;
+.inv-slot-icon {
+  width: 36px;
+  height: 36px;
   object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
 }
-.card-name {
-  font-size: 13px;
-  color: #e8d5a0;
-  letter-spacing: 1px;
-}
-.card-count {
+.inv-slot-count {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
   font-size: 11px;
-  color: rgba(180, 160, 130, 0.6);
+  color: rgba(220, 200, 160, 0.8);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
 }
 .empty-hint {
   text-align: center;

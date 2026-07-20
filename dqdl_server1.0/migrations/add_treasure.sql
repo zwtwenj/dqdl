@@ -8,7 +8,6 @@
 CREATE TABLE IF NOT EXISTS `treasure` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(64) NOT NULL COMMENT '宝物名',
-  `icon` VARCHAR(64) DEFAULT NULL COMMENT '图标(emoji或图片URL)',
   `description` TEXT DEFAULT NULL COMMENT '描述',
   `category` VARCHAR(32) NOT NULL DEFAULT '饰品' COMMENT '部位:戒指/靴/镜/甲/饰…(同类限带约束)',
   `rank` INT NOT NULL DEFAULT 43 COMMENT '品阶编码(43=黄阶下品)',
@@ -22,18 +21,18 @@ CREATE TABLE IF NOT EXISTS `treasure` (
 
 -- ========== 种子数据：3 件宝物 + 对应 item 物品形态 ==========
 -- 宝物定义
-INSERT INTO `treasure` (`name`, `icon`, `description`, `category`, `rank`, `stats`, `effects`, `unique_cat_max`, `item_id`) VALUES
-('玄铁戒指', '💍', '以玄铁铸就的戒指，坚固耐用，能少量提升体质与生命，并加快修炼效率。', '戒指', 43,
+INSERT INTO `treasure` (`name`, `description`, `category`, `rank`, `stats`, `effects`, `unique_cat_max`, `item_id`) VALUES
+('玄铁戒指', '以玄铁铸就的戒指，坚固耐用，能少量提升体质与生命，并加快修炼效率。', '戒指', 43,
  '{"stamina":5,"hp":50}', '{"cultivation_efficiency":5}', 2, 'bw-001'),
-('凌风靴', '👢', '轻若无物的灵靴，穿戴者步履如风，大幅提升敏捷。', '靴', 43,
+('凌风靴', '轻若无物的灵靴，穿戴者步履如风，大幅提升敏捷。', '靴', 43,
  '{"quick":10}', NULL, 1, 'bw-002'),
-('聚灵镜', '🪞', '能汇聚天地灵气的古镜，提升智力与斗气上限。', '镜', 42,
+('聚灵镜', '能汇聚天地灵气的古镜，提升智力与斗气上限。', '镜', 42,
  '{"intelligence":8,"energy":30}', NULL, 1, 'bw-003')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
 
 -- 对应 item 物品形态（type='宝物', ref_type='treasure', ref_id=宝物id, usable=1）
 INSERT INTO `item` (`item_id`, `name`, `type`, `icon`, `price`, `description`, `usable`, `use_effect`, `ref_type`, `ref_id`) VALUES
-('bw-001', '玄铁戒指', '宝物', '💍', 500, '以玄铁铸就的戒指，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-001')),
-('bw-002', '凌风靴', '宝物', '👢', 800, '轻若无物的灵靴，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-002')),
-('bw-003', '聚灵镜', '宝物', '🪞', 1200, '能汇聚天地灵气的古镜，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-003'))
+('bw-001', '玄铁戒指', '宝物', NULL, 500, '以玄铁铸就的戒指，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-001')),
+('bw-002', '凌风靴', '宝物', NULL, 800, '轻若无物的灵靴，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-002')),
+('bw-003', '聚灵镜', '宝物', NULL, 1200, '能汇聚天地灵气的古镜，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-003'))
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);

@@ -8,6 +8,7 @@ import { CharacterModule } from '../character/character.module';
 import { LocationModule } from '../location/location.module';
 import { TechniqueModule } from '../technique/technique.module';
 import { SkillModule } from '../skill/skill.module';
+import { TreasureModule } from '../treasure/treasure.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { SkillModule } from '../skill/skill.module';
     LocationModule,
     TechniqueModule,
     SkillModule,
+    TreasureModule,
   ],
   providers: [PlayerService],
   controllers: [PlayerController],

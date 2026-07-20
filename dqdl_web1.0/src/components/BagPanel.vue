@@ -19,7 +19,7 @@ import { useBackpackStore } from '../stores/backpack'
 import { bus, BusEvents } from '../utils/eventBus'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
-import { sellItem, usePill } from '../api'
+import { sellItem, useItem } from '../api'
 import FloatingTooltip from './FloatingTooltip.vue'
 
 const props = defineProps({
@@ -237,9 +237,9 @@ const sellCount = ref(1)
 const selling = ref(false)
 const usingPill = ref(false) // 丹药使用中（防抖）
 
-/** 判断是否可使用丹药（type 为丹药且 usable） */
+/** 判断是否可使用（丹药/宝物 且 usable） */
 function isUsablePill(item) {
-  return item && item.type === '丹药' && item.usable
+  return item && (item.type === '丹药' || item.type === '宝物') && item.usable
 }
 
 /** 右键 slot：丹药优先使用，否则交易态出售 */
@@ -266,7 +266,7 @@ async function doUse(itemId, name) {
   if (usingPill.value || !props.playerId) return
   usingPill.value = true
   try {
-    const res = await usePill(props.playerId, itemId)
+    const res = await useItem(props.playerId, itemId)
     // 整体覆盖 player（后端返回聚合数据，含 final_attrs）
     bus.emit(BusEvents.PLAYER_UPDATE, { player: res.player })
     await backpackStore.reload(props.playerId) // 刷新背包（物品数量变了）

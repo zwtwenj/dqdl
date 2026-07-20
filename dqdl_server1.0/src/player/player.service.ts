@@ -7,6 +7,7 @@ import { CharacterService } from '../character/character.service';
 import { LocationService } from '../location/location.service';
 import { TechniqueService, techniqueBreakthroughBaseRate } from '../technique/technique.service';
 import { SkillService } from '../skill/skill.service';
+import { TreasureService } from '../treasure/treasure.service';
 import { Biz } from '../common/biz.exception';
 import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
 
@@ -74,6 +75,7 @@ export class PlayerService {
     private readonly locationService: LocationService,
     private readonly techniqueService: TechniqueService,
     private readonly skillService: SkillService,
+    private readonly treasureService: TreasureService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -162,18 +164,21 @@ export class PlayerService {
 
     const techBonus = await this.computeTechBonus(player.technique);
 
-    // 对齐老版本语义：max_hp = 含功法加成的 stamina × 10 + 功法 hp 加成；
-    // max_energy = level × 20 + 功法 energy 加成。
-    // player.max_hp/max_energy 是突破时持久化的基础值，功法加成只放大 final_attrs 的临时上限。
-    const finalStamina = player.stamina + techBonus.stamina;
+    // 宝物加成：stats(五维+hp+energy) + effects(cultivation_efficiency)
+    const trStats = await this.sumEquippedTreasureStats(player);
+    const trEff = await this.sumEquippedTreasureEffects(player);
+
+    // 对齐老版本语义：max_hp = 含功法加成的 stamina × 10 + 功法 hp 加成 + 宝物 hp 加成(固定值)；
+    // max_energy = level × 20 + 功法 energy 加成 + 宝物 energy 加成(固定值)。
+    const finalStamina = player.stamina + techBonus.stamina + (trStats.stamina || 0);
     const finalAttrs = {
-      power: player.power + techBonus.power,
-      intelligence: player.intelligence + techBonus.intelligence,
-      quick: player.quick + techBonus.quick,
+      power: player.power + techBonus.power + (trStats.power || 0),
+      intelligence: player.intelligence + techBonus.intelligence + (trStats.intelligence || 0),
+      quick: player.quick + techBonus.quick + (trStats.quick || 0),
       stamina: finalStamina,
-      lucky: player.lucky + techBonus.lucky,
-      max_hp: finalStamina * 10 + techBonus.hp,
-      max_energy: (player.level || 1) * 20 + techBonus.energy,
+      lucky: player.lucky + techBonus.lucky + (trStats.lucky || 0),
+      max_hp: finalStamina * 10 + techBonus.hp + (trStats.hp || 0),
+      max_energy: (player.level || 1) * 20 + techBonus.energy + (trStats.energy || 0),
     };
 
     return {
@@ -181,9 +186,10 @@ export class PlayerService {
       final_attrs: finalAttrs,
       techniques,
       skills,
+      treasures: await this.aggregateTreasures(player.treasures),
       level_name: PlayerService.levelName(player.level),
       status_label: STATUS_LABEL[player.status] || '未知',
-      cultivation_efficiency: 0, // 预留：宝物/功法修炼效率加成
+      cultivation_efficiency: trEff.cultivation_efficiency || 0,
     };
   }
 
@@ -216,11 +222,136 @@ export class PlayerService {
    */
   async computeMaxHpEnergy(player: Player): Promise<{ maxHp: number; maxEnergy: number }> {
     const bonus = await this.computeTechBonus(player.technique);
-    const finalStamina = player.stamina + bonus.stamina;
+    const trStats = await this.sumEquippedTreasureStats(player);
+    const finalStamina = player.stamina + bonus.stamina + (trStats.stamina || 0);
     return {
-      maxHp: finalStamina * 10 + bonus.hp,
-      maxEnergy: (player.level || 1) * 20 + bonus.energy,
+      maxHp: finalStamina * 10 + bonus.hp + (trStats.hp || 0),
+      maxEnergy: (player.level || 1) * 20 + bonus.energy + (trStats.energy || 0),
     };
+  }
+
+  // ============================================================
+  //  宝物系统
+  // ============================================================
+
+  /** 解析 player.treasures(JSON 字符串) → [{id, slot}]。 */
+  private parseTreasures(raw: string | null): Array<{ id: number; slot: number }> {
+    try {
+      const v = JSON.parse(raw || '[]');
+      return Array.isArray(v) ? v.map((t) => ({ id: Number(t.id), slot: Number(t.slot) })) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** 汇总已装备宝物的属性加成 {power,intelligence,quick,stamina,lucky,hp,energy}。 */
+  async sumEquippedTreasureStats(player: Player): Promise<Record<string, number>> {
+    const entries = this.parseTreasures(player.treasures);
+    if (!entries.length) return {};
+    const defs = await this.treasureService.findByIds(entries.map((t) => t.id));
+    const map = new Map(defs.map((d) => [d.id, d]));
+    const sum: Record<string, number> = {};
+    for (const e of entries) {
+      const def = map.get(e.id);
+      if (!def) continue;
+      const s = this.treasureService.parseStats(def.stats);
+      for (const k of Object.keys(s)) sum[k] = (sum[k] || 0) + (Number(s[k]) || 0);
+    }
+    return sum;
+  }
+
+  /** 汇总已装备宝物的被动效果 {cultivation_efficiency}。 */
+  async sumEquippedTreasureEffects(player: Player): Promise<Record<string, number>> {
+    const entries = this.parseTreasures(player.treasures);
+    if (!entries.length) return {};
+    const defs = await this.treasureService.findByIds(entries.map((t) => t.id));
+    const map = new Map(defs.map((d) => [d.id, d]));
+    const sum: Record<string, number> = {};
+    for (const e of entries) {
+      const def = map.get(e.id);
+      if (!def) continue;
+      const f = this.treasureService.parseEffects(def.effects);
+      for (const k of Object.keys(f)) sum[k] = (sum[k] || 0) + (Number(f[k]) || 0);
+    }
+    return sum;
+  }
+
+  /** 取玩家宝物修炼效率（供修炼公式乘 (100+eff)/100）。 */
+  async getTreasureCultivationEfficiency(player: Player): Promise<number> {
+    const eff = await this.sumEquippedTreasureEffects(player);
+    return eff.cultivation_efficiency || 0;
+  }
+
+  /**
+   * 解析 player.treasures → 宝物详情数组（含定义信息），供 findOne 下发前端。
+   * 结构同 techniques/skills：每项含 id/slot + 定义字段(name/category/rank/icon/stats/effects)。
+   */
+  async aggregateTreasures(raw: string | null): Promise<any[]> {
+    const entries = this.parseTreasures(raw);
+    if (!entries.length) return [];
+    const defs = await this.treasureService.findByIds(entries.map((t) => t.id));
+    const map = new Map(defs.map((d) => [d.id, d]));
+    return entries.map((e) => {
+      const def = map.get(e.id);
+      return {
+        id: e.id,
+        slot: e.slot,
+        name: def?.name || '未知宝物',
+        icon: def?.icon || null,
+        category: def?.category || '饰品',
+        rank: def?.rank || 43,
+        description: def?.description || '',
+        stats: def ? this.treasureService.parseStats(def.stats) : {},
+        effects: def ? this.treasureService.parseEffects(def.effects) : {},
+      };
+    });
+  }
+
+  /**
+   * 使用宝物"物品形态" → 装备到宝物栏：占用一个空槽（1-5），校验同类上限，
+   * 加入 player.treasures 并重算属性。物品本身的扣减由调用方（item-use）负责。
+   */
+  async equipTreasureFromItem(playerId: number, treasureId: number): Promise<{ ok: boolean; error?: string; message?: string }> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) return { ok: false, error: '玩家不存在' };
+    const def = await this.treasureService.findOne(treasureId);
+    if (!def) return { ok: false, error: '宝物不存在' };
+
+    const arr = this.parseTreasures(player.treasures);
+    const usedSlots = new Set(arr.map((t) => t.slot));
+    const freeSlot = [1, 2, 3, 4, 5].find((s) => !usedSlots.has(s));
+    if (!freeSlot) return { ok: false, error: '宝物栏已满（5/5）' };
+
+    // 同类上限校验
+    if (def.unique_cat_max && def.unique_cat_max > 0) {
+      const existingIds = arr.map((t) => t.id);
+      const existingDefs = existingIds.length ? await this.treasureService.findByIds(existingIds) : [];
+      const cnt = existingDefs.filter((d) => d.category === def.category).length;
+      if (cnt >= def.unique_cat_max) {
+        return { ok: false, error: `${def.category}类宝物最多携带 ${def.unique_cat_max} 件` };
+      }
+    }
+
+    arr.push({ id: treasureId, slot: freeSlot });
+    player.treasures = JSON.stringify(arr);
+    await this.repo.save(player);
+    return { ok: true, message: `装备宝物：${def.name}` };
+  }
+
+  /**
+   * 从宝物栏卸下指定槽位：移除条目。返回宝物定义的 item_id 供调用方返还物品到背包。
+   */
+  async removeTreasureEntry(playerId: number, slot: number): Promise<{ treasureId: number; itemId: string | null } | null> {
+    const player = await this.repo.findOneBy({ id: playerId });
+    if (!player) return null;
+    const arr = this.parseTreasures(player.treasures);
+    const idx = arr.findIndex((t) => t.slot === slot);
+    if (idx < 0) return null;
+    const removed = arr.splice(idx, 1)[0];
+    player.treasures = JSON.stringify(arr);
+    await this.repo.save(player);
+    const def = await this.treasureService.findOne(removed.id);
+    return { treasureId: removed.id, itemId: def?.item_id ?? null };
   }
 
   /**
@@ -386,6 +517,10 @@ export class PlayerService {
     const factor = 0.9 + Math.random() * 0.2;
     let gained = Math.round((qiDensity * factor * growth) / 100);
 
+    // 宝物修炼效率加成（cultivation_efficiency 百分比）
+    const trEff = await this.getTreasureCultivationEfficiency(player);
+    if (trEff > 0) gained = Math.round((gained * (100 + trEff)) / 100);
+
     // 暴击：10% 概率三倍
     const critical = Math.random() < 0.1;
     if (critical) gained *= 3;
@@ -496,6 +631,9 @@ export class PlayerService {
     const growth = 10;
     const factor = 0.9 + Math.random() * 0.2;
     let gained = Math.round((qiDensity * factor * growth) / 100);
+    // 宝物修炼效率加成
+    const trEffS = await this.getTreasureCultivationEfficiency(player);
+    if (trEffS > 0) gained = Math.round((gained * (100 + trEffS)) / 100);
     const critical = Math.random() < 0.1;
     if (critical) gained *= 3;
 
@@ -544,6 +682,9 @@ export class PlayerService {
     const growth = def.growth ?? 10;
     const factor = 0.9 + Math.random() * 0.2;
     let gained = Math.round((qiDensity * factor * growth) / 100);
+    // 宝物修炼效率加成
+    const trEffT = await this.getTreasureCultivationEfficiency(player);
+    if (trEffT > 0) gained = Math.round((gained * (100 + trEffT)) / 100);
     const critical = Math.random() < 0.1;
     if (critical) gained *= 3;
 

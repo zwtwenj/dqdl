@@ -23,7 +23,7 @@ export { getBackpack, moveBackpackItem, sortBackpack } from './backpack'
 export { startBattle, battleAction, getBattleState, fleeBattle } from './battle'
 export { getNpc, getNpcsByLocation, createNpcSession, talkInSession } from './npc'
 export { getNpcShop, buyItem, sellItem } from './shop'
-export { usePill } from './pill'
+export { useItem, unequipTreasure } from './item'
 export { getEncounters, abandonEncounter } from './encounter'
 export { enterDungeon, getCurrentDungeon, nextDungeonAct, escapeDungeon, winDungeonAct, failDungeon } from './dungeon'
 export {

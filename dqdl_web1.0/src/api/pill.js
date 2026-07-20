@@ -1,6 +1,2 @@
-import http from './request'
-
-/** 使用 1 颗丹药 POST /api/pill/:playerId/use { itemId } → { player, remaining }
- *  后端单事务完成扣背包+应用效果，返回聚合后的 player（含 final_attrs）供整体刷新 */
-export const usePill = (playerId, itemId) =>
-  http.post(`/pill/${playerId}/use`, { itemId })
+// 丹药使用已迁移到通用物品使用接口 api/item.js 的 useItem（按 item.type 分发）。
+// 本文件保留空导出，避免历史引用报错。

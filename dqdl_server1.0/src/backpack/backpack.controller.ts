@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { BackpackService } from './backpack.service';
 import { PlayerService } from '../player/player.service';
+import { ItemService } from '../item/item.service';
+import { Biz } from '../common/biz.exception';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 /**
@@ -22,6 +24,7 @@ export class BackpackController {
   constructor(
     private readonly backpackService: BackpackService,
     private readonly playerService: PlayerService,
+    private readonly itemService: ItemService,
   ) {}
 
   /**
@@ -69,5 +72,30 @@ export class BackpackController {
     await this.playerService.verifyOwnership(playerId, req.user.id);
     const slots = await this.backpackService.sortBackpack(playerId);
     return { slots };
+  }
+
+  /**
+   * 卸下宝物：从 player.treasures 删一条 + 按 treasure.item_id 返还物品形态到背包。
+   * POST /api/backpack/:playerId/treasure/unequip { slot } → { player }
+   */
+  @Post(':playerId/treasure/unequip')
+  async unequipTreasure(
+    @Param('playerId', ParseIntPipe) playerId: number,
+    @Body() body: { slot: number },
+    @Req() req: any,
+  ) {
+    await this.playerService.verifyOwnership(playerId, req.user.id);
+    const res = await this.playerService.removeTreasureEntry(playerId, Number(body.slot));
+    if (!res) throw Biz.notFound('该槽位无宝物');
+    // 按 treasure.item_id 返还物品形态到背包
+    if (res.itemId) {
+      const item = await this.itemService.findByItemId(res.itemId);
+      if (item) {
+        await this.backpackService.addItem(playerId, item.item_id, 1, 'treasure_unequip');
+      }
+    }
+    // 重取聚合后的 player（含 final_attrs/treasures），供前端整体刷新
+    const player = await this.playerService.findOne(playerId);
+    return { player };
   }
 }

@@ -14,7 +14,7 @@ import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
 import { usePanelStack } from '../composables/usePanelStack'
 import { usePanelDraggable } from '../composables/usePanelDraggable'
 import { bus, BusEvents } from '../utils/eventBus'
-import { breakthrough } from '../api'
+import { breakthrough, unequipTreasure } from '../api'
 import TechniqueTooltip from './TechniqueTooltip.vue'
 import FloatingTooltip from './FloatingTooltip.vue'
 
@@ -111,6 +111,52 @@ const techniques = computed(() => {
 /** 角色面板只展示已装备的功法（至多 1 部，与下方已装备斗技对称）；完整管理在功法/斗技弹窗 */
 const equippedTechniques = computed(() => techniques.value.filter((t) => t.equipped))
 
+/**
+ * 宝物：用后端聚合的 treasures 详情数组（含 name/category/rank/stats/effects）。
+ * 后端 findOne 已下发完整定义，前端直接按 slot 排序展示。
+ */
+const equippedTreasures = computed(() => {
+  const list = props.player?.treasures
+  if (Array.isArray(list) && list.length) {
+    return [...list].sort((a, b) => (a.slot || 0) - (b.slot || 0))
+  }
+  return []
+})
+
+/** 宝物属性/效果文案（tooltip 用） */
+const ATTR_LABEL = { power: '力量', intelligence: '智力', quick: '敏捷', stamina: '体质', lucky: '运气', hp: '生命', energy: '斗气' }
+const EFFECT_LABEL = { cultivation_efficiency: '修炼效率' }
+const EFFECT_UNIT = { cultivation_efficiency: '%' }
+function treasureStatText(t) {
+  const s = t?.stats || {}
+  return Object.keys(s).map((k) => `${ATTR_LABEL[k] || k}+${s[k]}`).join(' ')
+}
+function treasureEffectText(t) {
+  const e = t?.effects || {}
+  return Object.keys(e).map((k) => `${EFFECT_LABEL[k] || k}+${e[k]}${EFFECT_UNIT[k] || ''}`).join(' ')
+}
+function treasureIconUrl(t) {
+  return t?.icon || '💎'
+}
+
+/** 卸下宝物：调后端 unequip → 返回最新 player → emit PLAYER_UPDATE 整体刷新 */
+const unequipping = ref(false)
+async function doUnequipTreasure(slot) {
+  if (unequipping.value || !props.player?.id) return
+  unequipping.value = true
+  try {
+    const res = await unequipTreasure(props.player.id, slot)
+    if (res?.player) {
+      bus.emit(BusEvents.PLAYER_UPDATE, { player: res.player })
+      bus.emit(BusEvents.TOAST, { type: 'success', message: '已卸下宝物' })
+    }
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '卸下失败' })
+  } finally {
+    unequipping.value = false
+  }
+}
+
 /** 图标兜底：缺失统一用 cl-100.png */
 const FALLBACK_ICON = '/icon/cl/cl-100.png'
 
@@ -160,6 +206,19 @@ function onSkillEnter(e, s) {
 }
 function onSkillLeave() {
   skillTipOpen.value = false
+}
+
+/* ---- 宝物 tooltip（与斗技同模式） ---- */
+const treasureTipData = ref(null)
+const treasureTipOpen = ref(false)
+const treasureHoveredEl = ref(null)
+function onTreasureEnter(e, t) {
+  treasureHoveredEl.value = e.currentTarget
+  treasureTipData.value = t
+  treasureTipOpen.value = true
+}
+function onTreasureLeave() {
+  treasureTipOpen.value = false
 }
 
 /* ============ 突破 ============ */
@@ -389,6 +448,39 @@ function close() {
             class="empty-hint"
           >— 尚未装配 —</span>
         </section>
+
+        <!-- 宝物（已装备，5 槽位；卸下后返还物品到背包） -->
+        <section class="card">
+          <h4 class="card-title">
+            宝物
+          </h4>
+          <div
+            v-if="equippedTreasures.length"
+            class="technique-list treasure-list"
+          >
+            <div
+              v-for="t in equippedTreasures"
+              :key="'tr'+t.slot"
+              class="technique-item treasure-item"
+              @pointerenter="onTreasureEnter($event, t)"
+              @pointerleave="onTreasureLeave"
+            >
+              <span class="treasure-emoji">{{ treasureIconUrl(t) }}</span>
+              <span class="technique-name">{{ t.name }}</span>
+              <span class="technique-level">{{ t.category }}</span>
+              <button
+                class="treasure-unequip-btn"
+                type="button"
+                :disabled="unequipping"
+                @click.stop="doUnequipTreasure(t.slot)"
+              >卸</button>
+            </div>
+          </div>
+          <span
+            v-else
+            class="empty-hint"
+          >— 尚未装备 —</span>
+        </section>
       </div>
     </div>
 
@@ -422,6 +514,36 @@ function close() {
         class="skill-tip-desc"
       >
         {{ skillTipData.description }}
+      </div>
+    </FloatingTooltip>
+
+    <!-- 宝物 tooltip -->
+    <FloatingTooltip
+      v-model:open="treasureTipOpen"
+      :reference="treasureHoveredEl"
+      placement="right-start"
+    >
+      <div class="skill-tip-name">
+        {{ treasureTipData?.name || '未知宝物' }}
+        <span class="skill-tip-rank">{{ treasureTipData?.category }}</span>
+      </div>
+      <div
+        v-if="treasureTipData && treasureStatText(treasureTipData)"
+        class="skill-tip-meta"
+      >
+        {{ treasureStatText(treasureTipData) }}
+      </div>
+      <div
+        v-if="treasureTipData && treasureEffectText(treasureTipData)"
+        class="skill-tip-meta"
+      >
+        {{ treasureEffectText(treasureTipData) }}
+      </div>
+      <div
+        v-if="treasureTipData && treasureTipData.description"
+        class="skill-tip-desc"
+      >
+        {{ treasureTipData.description }}
       </div>
     </FloatingTooltip>
   </div>
@@ -805,5 +927,40 @@ function close() {
   line-height: 1.5;
   color: rgba(190, 175, 145, 0.85);
   word-break: break-all;
+}
+
+/* ---------- 宝物 ---------- */
+.treasure-item {
+  position: relative;
+}
+.treasure-emoji {
+  font-size: 1.4rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+.treasure-unequip-btn {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(150, 120, 70, 0.4);
+  background: rgba(40, 30, 18, 0.7);
+  color: rgba(220, 190, 120, 0.7);
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.treasure-unequip-btn:hover:not(:disabled) {
+  background: rgba(150, 120, 70, 0.3);
+  color: #e8d5a0;
+}
+.treasure-unequip-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

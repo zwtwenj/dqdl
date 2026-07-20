@@ -103,7 +103,14 @@ async function onUnequip(slot) {
 const tipOpen = ref(false)
 const tipData = ref(null)
 const hoveredEl = ref(null)
-const FALLBACK_ICON = '/icon/cl/cl-100.png'
+const FALLBACK_ICON = '/icon/technique/bw-001.png'
+
+/** 宝物图标路径：按 item_id（bw- 前缀）→ /icon/technique/{item_id}.png */
+function treasureIconUrl(t) {
+  const id = t?.item_id
+  if (id && id.startsWith('bw-')) return `/icon/technique/${id}.png`
+  return FALLBACK_ICON
+}
 
 function showTip(t, e) {
   if (!t) return
@@ -172,7 +179,12 @@ function close() {
             @pointerleave="hideTip"
           >
             <template v-if="slotTreasure(slot)">
-              <span class="slot-emoji">{{ slotTreasure(slot).icon || '💎' }}</span>
+              <img
+                class="slot-icon-img"
+                :src="treasureIconUrl(slotTreasure(slot))"
+                :alt="slotTreasure(slot).name || ''"
+                @error="onIconError"
+              >
             </template>
             <template v-else>
               <span class="slot-num">{{ slot }}</span>
@@ -196,7 +208,12 @@ function close() {
             @pointerenter="showTip({ name: bp.item?.name, icon: bp.item?.icon, description: bp.item?.description }, $event)"
             @pointerleave="hideTip"
           >
-            <span class="card-emoji">{{ bp.item?.icon || '💎' }}</span>
+            <img
+              class="card-icon-img"
+              :src="treasureIconUrl({ item_id: bp.item_id })"
+              :alt="bp.item?.name || ''"
+              @error="onIconError"
+            >
             <span class="card-name">{{ bp.item?.name || bp.item_id }}</span>
             <span class="card-count">×{{ bp.count }}</span>
           </div>
@@ -310,9 +327,10 @@ function close() {
   border-color: rgba(220, 190, 120, 0.8);
   background: rgba(50, 38, 22, 0.7);
 }
-.slot-emoji {
-  font-size: 1.8rem;
-  line-height: 1;
+.slot-icon-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
 }
 .slot-num {
@@ -341,9 +359,10 @@ function close() {
   border-color: rgba(200, 170, 110, 0.7);
   background: rgba(40, 32, 20, 0.7);
 }
-.card-emoji {
-  font-size: 1.4rem;
-  line-height: 1;
+.card-icon-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 .card-name {
   font-size: 13px;

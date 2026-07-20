@@ -135,8 +135,11 @@ function treasureEffectText(t) {
   const e = t?.effects || {}
   return Object.keys(e).map((k) => `${EFFECT_LABEL[k] || k}+${e[k]}${EFFECT_UNIT[k] || ''}`).join(' ')
 }
+const TREASURE_FALLBACK = '/icon/technique/bw-001.png'
 function treasureIconUrl(t) {
-  return t?.icon || '💎'
+  const id = t?.item_id
+  if (id && id.startsWith('bw-')) return `/icon/technique/${id}.png`
+  return TREASURE_FALLBACK
 }
 
 /** 卸下宝物：调后端 unequip → 返回最新 player → emit PLAYER_UPDATE 整体刷新 */
@@ -465,7 +468,12 @@ function close() {
               @pointerenter="onTreasureEnter($event, t)"
               @pointerleave="onTreasureLeave"
             >
-              <span class="treasure-emoji">{{ treasureIconUrl(t) }}</span>
+              <img
+                class="treasure-icon"
+                :src="treasureIconUrl(t)"
+                :alt="t.name || ''"
+                @error="onIconError"
+              >
               <span class="technique-name">{{ t.name }}</span>
               <span class="technique-level">{{ t.category }}</span>
               <button
@@ -933,9 +941,10 @@ function close() {
 .treasure-item {
   position: relative;
 }
-.treasure-emoji {
-  font-size: 1.4rem;
-  line-height: 1;
+.treasure-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
 }
 .treasure-unequip-btn {

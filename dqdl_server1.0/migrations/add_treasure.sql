@@ -24,16 +24,16 @@ CREATE TABLE IF NOT EXISTS `treasure` (
 -- 宝物定义
 INSERT INTO `treasure` (`name`, `icon`, `description`, `category`, `rank`, `stats`, `effects`, `unique_cat_max`, `item_id`) VALUES
 ('玄铁戒指', '💍', '以玄铁铸就的戒指，坚固耐用，能少量提升体质与生命，并加快修炼效率。', '戒指', 43,
- '{"stamina":5,"hp":50}', '{"cultivation_efficiency":5}', 2, 'bw-xthj'),
+ '{"stamina":5,"hp":50}', '{"cultivation_efficiency":5}', 2, 'bw-001'),
 ('凌风靴', '👢', '轻若无物的灵靴，穿戴者步履如风，大幅提升敏捷。', '靴', 43,
- '{"quick":10}', NULL, 1, 'bw-lfxz'),
+ '{"quick":10}', NULL, 1, 'bw-002'),
 ('聚灵镜', '🪞', '能汇聚天地灵气的古镜，提升智力与斗气上限。', '镜', 42,
- '{"intelligence":8,"energy":30}', NULL, 1, 'bw-jlj')
+ '{"intelligence":8,"energy":30}', NULL, 1, 'bw-003')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
 
 -- 对应 item 物品形态（type='宝物', ref_type='treasure', ref_id=宝物id, usable=1）
 INSERT INTO `item` (`item_id`, `name`, `type`, `icon`, `price`, `description`, `usable`, `use_effect`, `ref_type`, `ref_id`) VALUES
-('bw-xthj', '玄铁戒指', '宝物', '💍', 500, '以玄铁铸就的戒指，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-xthj')),
-('bw-lfxz', '凌风靴', '宝物', '👢', 800, '轻若无物的灵靴，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-lfxz')),
-('bw-jlj', '聚灵镜', '宝物', '🪞', 1200, '能汇聚天地灵气的古镜，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-jlj'))
+('bw-001', '玄铁戒指', '宝物', '💍', 500, '以玄铁铸就的戒指，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-001')),
+('bw-002', '凌风靴', '宝物', '👢', 800, '轻若无物的灵靴，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-002')),
+('bw-003', '聚灵镜', '宝物', '🪞', 1200, '能汇聚天地灵气的古镜，使用即可装备。', 1, NULL, 'treasure', (SELECT id FROM treasure WHERE item_id='bw-003'))
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);

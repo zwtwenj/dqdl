@@ -336,8 +336,8 @@ function close() {
   justify-content: center;
 }
 .equip-slot {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   border: 1px solid rgba(150, 120, 70, 0.3);
   background: rgba(20, 16, 10, 0.5);
   border-radius: 6px;
@@ -356,8 +356,8 @@ function close() {
   background: rgba(50, 38, 22, 0.7);
 }
 .slot-icon-img {
-  width: 40px;
-  height: 40px;
+  width: 55px;
+  height: 55px;
   object-fit: contain;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
 }
@@ -374,8 +374,8 @@ function close() {
 }
 .inv-slot {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 55px;
+  height: 55px;
   border: 1px solid rgba(150, 120, 70, 0.35);
   background: rgba(20, 16, 10, 0.5);
   border-radius: 6px;
@@ -390,8 +390,8 @@ function close() {
   background: rgba(50, 38, 22, 0.7);
 }
 .inv-slot-icon {
-  width: 36px;
-  height: 36px;
+  width: 50px;
+  height: 50px;
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
 }

@@ -60,7 +60,9 @@ async function doArrive() {
     emit('arrived', res)
     emit('close')
   } catch (err) {
-    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '到达失败' })
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '到达失败，正在重试...' })
+    // 到达失败（如网络波动）：3 秒后自动重试，避免弹窗卡死在 0:00
+    setTimeout(() => doArrive(), 3000)
   }
 }
 

@@ -48,6 +48,18 @@ export class Item {
   @Column({ type: 'text', nullable: true, comment: '使用效果 JSON：{type,fn|buff,params|scope}' })
   use_effect: string | null;
 
+  /** 元素能量 JSON {木:10,火:5}（草药/材料/魔核用） */
+  @Column({ type: 'text', nullable: true })
+  element_energy: string | null;
+
+  /** 炼丹品阶(0=非炼丹物) */
+  @Column({ type: 'int', default: 0 })
+  alchemy_tier: number;
+
+  /** 丹炉规格 JSON {tier,slots,cap,max_durability}（type=丹炉用） */
+  @Column({ type: 'text', nullable: true })
+  furnace_spec: string | null;
+
   @Column({ type: 'varchar', length: 32, nullable: true, comment: '链接目标表名：alchemy/pill_recipe/furnace 等，null=无' })
   ref_type: string | null;
 

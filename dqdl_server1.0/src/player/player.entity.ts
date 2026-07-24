@@ -102,6 +102,15 @@ export class Player {
   @Column({ type: 'text', default: '[]', comment: '已习得功法及进度(JSON数组)' })
   technique: string;
 
+  @Column({ type: 'varchar', length: 2000, default: '[]', comment: '已习得丹方JSON [recipe_id,...]' })
+  recipes: string;
+
+  @Column({ type: 'varchar', length: 32, nullable: true, comment: '当前装备丹炉item_id' })
+  equipped_furnace: string | null;
+
+  @Column({ type: 'int', default: 0, comment: '当前丹炉耐久' })
+  furnace_durability: number;
+
   @Column({ type: 'text', default: '[]', comment: '已装备宝物(JSON):[{id,slot}]' })
   treasures: string;
 

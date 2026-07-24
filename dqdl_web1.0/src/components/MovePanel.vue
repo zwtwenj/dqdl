@@ -123,6 +123,7 @@ onUnmounted(stopTimer)
 <style scoped>
 .move-overlay {
   position: fixed;
+  width: 1200px;
   inset: 0;
   z-index: 300;
   display: flex;
@@ -130,6 +131,7 @@ onUnmounted(stopTimer)
   justify-content: center;
   background: rgba(5, 5, 12, 0.7);
   backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 .move-box {
   width: 360px;

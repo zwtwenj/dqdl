@@ -1121,6 +1121,7 @@ function backToStart() {
 /* ===== 移动确认弹窗（暗金风格） ===== */
 .move-confirm-overlay {
   position: fixed;
+  width: 1200px;
   inset: 0;
   z-index: 350;
   display: flex;
@@ -1128,6 +1129,7 @@ function backToStart() {
   justify-content: center;
   background: rgba(5, 5, 12, 0.7);
   backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 .move-confirm-box {
   width: 340px;

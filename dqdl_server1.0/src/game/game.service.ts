@@ -6,6 +6,7 @@ import { LocationService } from '../location/location.service';
 import { LocationNetService } from '../location_net/location-net.service';
 import { CultivationService } from '../cultivation/cultivation.service';
 import { ScriptTriggerService } from '../script/script-trigger.service';
+import { MoveSessionService } from '../move/move-session.service';
 import { Biz } from '../common/biz.exception';
 import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
 
@@ -30,6 +31,7 @@ export class GameService {
     private readonly locationNetService: LocationNetService,
     private readonly cultivationService: CultivationService,
     private readonly scriptTrigger: ScriptTriggerService,
+    private readonly moveService: MoveSessionService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -147,6 +149,16 @@ export class GameService {
       }
     } catch (e) {
       // 修炼恢复失败不阻断其它
+    }
+
+    // 3. 移动：查 active move_session（getActiveSession 内含 lazy arrive）
+    try {
+      const moveSession = await this.moveService.getActiveSession(playerId);
+      if (moveSession) {
+        states.push({ type: 'move', data: moveSession });
+      }
+    } catch (e) {
+      // 移动恢复失败不阻断其它
     }
 
     return states;

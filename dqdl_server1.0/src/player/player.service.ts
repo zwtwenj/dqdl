@@ -44,6 +44,7 @@ export const PLAYER_STATUS = {
   GATHERING: 6,
   BATTLE: 7,
   SCRIPT: 8, // 剧本演出中（锁定移动）
+  MOVING: 9, // 移动中（锁定其它操作）
 } as const;
 
 export const STATUS_LABEL: Record<number, string> = {
@@ -55,6 +56,7 @@ export const STATUS_LABEL: Record<number, string> = {
   6: '采集',
   7: '战斗',
   8: '剧本演出',
+  9: '移动中',
 };
 
 /** 修炼基础收益（后续可被宝物/功法效率加成放大） */

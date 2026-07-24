@@ -6,6 +6,7 @@ import { LocationModule } from '../location/location.module';
 import { LocationNetModule } from '../location_net/location-net.module';
 import { CultivationModule } from '../cultivation/cultivation.module';
 import { ScriptModule } from '../script/script.module';
+import { MoveModule } from '../move/move.module';
 import { GameService } from './game.service';
 import { GameController } from './game.controller';
 
@@ -22,6 +23,7 @@ import { GameController } from './game.controller';
     LocationNetModule,
     CultivationModule,
     ScriptModule,
+    MoveModule,
   ],
   providers: [GameService],
   controllers: [GameController],

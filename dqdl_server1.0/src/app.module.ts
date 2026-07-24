@@ -22,6 +22,7 @@ import { NpcModule } from './npc/npc.module';
 import { ShopModule } from './shop/shop.module';
 import { PillModule } from './pill/pill.module';
 import { TreasureModule } from './treasure/treasure.module';
+import { MoveModule } from './move/move.module';
 import { EncounterModule } from './encounter/encounter.module';
 import { DungeonModule } from './dungeon/dungeon.module';
 import { CultivationModule } from './cultivation/cultivation.module';
@@ -71,6 +72,7 @@ import { AppController } from './app.controller';
     ShopModule,
     PillModule,
     TreasureModule,
+    MoveModule,
     EncounterModule,
     DungeonModule,
     CultivationModule,

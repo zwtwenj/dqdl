@@ -112,7 +112,7 @@ export class Player {
   breakthrough_bonus: number;
 
   // ===== 活动状态（后端唯一权威） =====
-  @Column({ type: 'tinyint', default: 1, comment: '状态: 1=空闲 2=历练 3=副本 4=洞天 5=修炼室 6=采集 7=战斗 8=剧本演出' })
+  @Column({ type: 'tinyint', default: 1, comment: '状态: 1=空闲 2=历练 3=副本 4=洞天 5=修炼室 6=采集 7=战斗 8=剧本演出 9=移动中' })
   status: number;
 
   @CreateDateColumn()

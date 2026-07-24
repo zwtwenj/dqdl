@@ -16,6 +16,7 @@ import BagPanel from '../components/BagPanel.vue'
 import PlayerPanel from '../components/PlayerPanel.vue'
 import SkillPanel from '../components/SkillPanel.vue'
 import TreasurePanel from '../components/TreasurePanel.vue'
+import MovePanel from '../components/MovePanel.vue'
 import TaskPanel from '../components/TaskPanel.vue'
 import MiniMap from '../components/MiniMap.vue'
 import BattlePanel from '../components/BattlePanel.vue'
@@ -34,6 +35,7 @@ import {
   getNpcsByLocation,
   getPendingStates,
 } from '../api'
+import { previewMove, startMove } from '../api/move'
 import { scriptStreamUrl, getScriptNode } from '../api/script'
 import { dispatchSseEvent, sseEventNames } from '../utils/sseEventHandlers'
 import {
@@ -70,6 +72,11 @@ const skillPanelOpen = ref(false)
 
 // 宝物弹窗显隐
 const treasurePanelOpen = ref(false)
+
+// 移动弹窗（session 数据驱动，非 v-model）
+const moveSession = ref(null)
+// 移动确认弹窗（preview 数据，null=关闭）
+const moveConfirm = ref(null)
 
 // 任务弹窗显隐
 const taskPanelOpen = ref(false)
@@ -280,7 +287,10 @@ async function checkPendingStates() {
         }
       }
       // cultivation：现有机制（player.status===4 显示「修炼中」按钮）已覆盖，无需此处处理
-      // 未来新增事件类型在此加分支
+      // 移动：恢复移动弹窗
+      if (s.type === 'move' && s.data) {
+        moveSession.value = s.data
+      }
     }
   } catch (err) {
     console.warn('恢复进行中事件失败：', err)
@@ -396,22 +406,59 @@ watch(
   { immediate: true },
 )
 
-/** 移动到 ring1 对角邻居（探索 = 移动）。
- *  后端会并发调 agent 生成新位置的 ring1，可能耗时数秒，期间显示地图遮罩。 */
+/** 移动到 ring1 对角邻居（速度/时间机制）。
+ *  先 preview 算时间 → 显示确认弹窗 → 玩家点确认 → startMove → MovePanel 倒计时。 */
 async function moveTo(netId) {
-  if (!player.value || mapMoving.value) return
+  if (!player.value || moveSession.value || moveConfirm.value) return
   if (netId === view.value?.ring0?.id) return
-  mapMoving.value = true
   try {
-    await moveToNet(netId)
-    // 移动后重拉视野（后端会自动补齐新位置的 ring1）
-    await loadView()
-    if (player.value) player.value.location_id = netId
+    const preview = await previewMove(netId)
+    moveConfirm.value = { ...preview, netId }
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '预览失败' })
+  }
+}
+
+/** 确认移动弹窗：确认 → start */
+async function confirmMove() {
+  const c = moveConfirm.value
+  if (!c) return
+  moveConfirm.value = null
+  try {
+    const session = await startMove(c.netId)
+    moveSession.value = session
+    bus.emit(BusEvents.PLAYER_STATUS_CHANGE)
   } catch (err) {
     bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '移动失败' })
-  } finally {
-    mapMoving.value = false
   }
+}
+
+/** 确认移动弹窗：取消 */
+function cancelMoveConfirm() {
+  moveConfirm.value = null
+}
+
+/** MovePanel 到达回调 → 刷新视野 + player */
+async function onMoveArrived(res) {
+  moveSession.value = null
+  await loadView()
+  if (player.value && res?.to_net_id) player.value.location_id = res.to_net_id
+}
+
+/** MovePanel 关闭/取消回调 */
+function onMoveClose() {
+  moveSession.value = null
+  bus.emit(BusEvents.PLAYER_STATUS_CHANGE)
+}
+
+/** 右上角"移动中"按钮：拉当前 session 恢复弹窗 */
+async function reopenMovePanel() {
+  if (moveSession.value) return
+  try {
+    const { getCurrentMove } = await import('../api/move')
+    const session = await getCurrentMove()
+    if (session) moveSession.value = session
+  } catch { /* 忽略 */ }
 }
 
 /** 邻近之地（ring1）卡片点击 */
@@ -745,6 +792,16 @@ function backToStart() {
       >
         🧘 修炼中
       </button>
+      <!-- 移动中（status==9）：点此打开移动弹窗 -->
+      <button
+        v-if="player?.status === 9"
+        class="top-right-btn moving-btn"
+        type="button"
+        title="查看移动进度"
+        @click="reopenMovePanel()"
+      >
+        🚶 移动中
+      </button>
       <button
         class="top-right-btn"
         type="button"
@@ -794,6 +851,43 @@ function backToStart() {
       v-model="treasurePanelOpen"
       v-model:pos="treasurePos"
       :player="player"
+    />
+
+    <!-- 移动确认弹窗（暗金风格，非浏览器 confirm） -->
+    <Teleport to="body">
+      <div
+        v-if="moveConfirm"
+        class="move-confirm-overlay"
+      >
+        <div class="move-confirm-box">
+          <div class="move-confirm-title">🚶 确认前往</div>
+          <div class="move-confirm-dest">{{ moveConfirm.to_name }}</div>
+          <div class="move-confirm-info">
+            距离 {{ moveConfirm.distance }} 里 · 速度 {{ moveConfirm.speed }}<br>
+            预计耗时 <span class="move-confirm-time">{{ moveConfirm.duration_min }} 分钟</span>
+          </div>
+          <div class="move-confirm-actions">
+            <button
+              class="move-confirm-btn move-confirm-no"
+              type="button"
+              @click="cancelMoveConfirm"
+            >取消</button>
+            <button
+              class="move-confirm-btn move-confirm-yes"
+              type="button"
+              @click="confirmMove"
+            >出发</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 移动弹窗（session 驱动，非 v-model） -->
+    <MovePanel
+      v-if="moveSession"
+      :session="moveSession"
+      @close="onMoveClose"
+      @arrived="onMoveArrived"
     />
 
     <!-- 任务弹窗（功能栏上方，可拖拽，动态层级） -->
@@ -1022,5 +1116,83 @@ function backToStart() {
 @keyframes map-moving-fade {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
+}
+
+/* ===== 移动确认弹窗（暗金风格） ===== */
+.move-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 350;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 5, 12, 0.7);
+  backdrop-filter: blur(3px);
+}
+.move-confirm-box {
+  width: 340px;
+  padding: 28px 32px;
+  background: linear-gradient(160deg, rgba(28, 22, 16, 0.97), rgba(14, 11, 8, 0.98));
+  border: 1px solid rgba(180, 150, 90, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  color: #e8e2d0;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  text-align: center;
+}
+.move-confirm-title {
+  font-size: 15px;
+  color: rgba(200, 170, 110, 0.6);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+.move-confirm-dest {
+  font-size: 22px;
+  font-weight: bold;
+  color: #e8d5a0;
+  margin-bottom: 12px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+.move-confirm-info {
+  font-size: 13px;
+  color: rgba(180, 160, 130, 0.7);
+  line-height: 1.8;
+  margin-bottom: 20px;
+}
+.move-confirm-time {
+  color: #ffd97a;
+  font-weight: bold;
+}
+.move-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.move-confirm-btn {
+  padding: 8px 28px;
+  border-radius: 6px;
+  font-size: 15px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s ease;
+}
+.move-confirm-no {
+  border: 1px solid rgba(150, 120, 70, 0.4);
+  background: rgba(40, 30, 18, 0.6);
+  color: rgba(200, 180, 150, 0.6);
+}
+.move-confirm-no:hover {
+  background: rgba(60, 40, 20, 0.7);
+  color: rgba(220, 200, 160, 0.8);
+}
+.move-confirm-yes {
+  border: 1px solid rgba(200, 170, 110, 0.5);
+  background: rgba(80, 60, 30, 0.5);
+  color: #e8d5a0;
+}
+.move-confirm-yes:hover {
+  background: rgba(120, 90, 40, 0.5);
+  border-color: rgba(220, 190, 120, 0.7);
+  color: #fff5dc;
 }
 </style>

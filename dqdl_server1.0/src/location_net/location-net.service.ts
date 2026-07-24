@@ -986,8 +986,8 @@ export class LocationNetService implements OnApplicationBootstrap {
   async movePlayer(playerId: number, toNetId: number) {
     const player = await this.playerRepo.findOneBy({ id: playerId });
     if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
-    if (player.status === PLAYER_STATUS.SCRIPT) {
-      throw Biz.conflict('剧本演出中，无法移动');
+    if (player.status === PLAYER_STATUS.SCRIPT || player.status === PLAYER_STATUS.MOVING) {
+      throw Biz.conflict('当前状态无法移动');
     }
     const target = await this.netRepo.findOneBy({ id: toNetId });
     if (!target) throw Biz.notFound(`地图节点 ${toNetId} 不存在`);
@@ -1026,8 +1026,8 @@ export class LocationNetService implements OnApplicationBootstrap {
   async enterScene(playerId: number, netId: number, sceneType: string) {
     const player = await this.playerRepo.findOneBy({ id: playerId });
     if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
-    if (player.status === PLAYER_STATUS.SCRIPT) {
-      throw Biz.conflict('剧本演出中，无法进入场景');
+    if (player.status === PLAYER_STATUS.SCRIPT || player.status === PLAYER_STATUS.MOVING) {
+      throw Biz.conflict('当前状态无法进入场景');
     }
     if (player.location_id !== netId) {
       throw Biz.conflict('必须先到达该地图才能进入其场景');
@@ -1072,8 +1072,8 @@ export class LocationNetService implements OnApplicationBootstrap {
   async exitScene(playerId: number) {
     const player = await this.playerRepo.findOneBy({ id: playerId });
     if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
-    if (player.status === PLAYER_STATUS.SCRIPT) {
-      throw Biz.conflict('剧本演出中，无法退出场景');
+    if (player.status === PLAYER_STATUS.SCRIPT || player.status === PLAYER_STATUS.MOVING) {
+      throw Biz.conflict('当前状态无法退出场景');
     }
     if (player.scene_id == null) throw Biz.conflict('当前不在任何场景中');
     player.scene_id = null;

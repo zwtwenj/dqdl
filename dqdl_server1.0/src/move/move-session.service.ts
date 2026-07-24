@@ -108,10 +108,14 @@ export class MoveSessionService {
 
   /**
    * 到达结算：校验 end_at 已过 → 更新 location_id → status=IDLE → session=arrived。
-   * 复用 locationNetService.movePlayer 的核心逻辑（ensureRing1 由 controller 调）。
+   * 不走 getActiveSession（它含 lazy arrive 会先消费 session），直接查 active。
    */
   async arrive(playerId: number): Promise<{ session: MoveSession; to_net_id: number }> {
-    const session = await this.getActiveSession(playerId);
+    // 直接查 active session（不走 getActiveSession，避免 lazy arrive 冲突）
+    const session = await this.repo.findOne({
+      where: { player_id: playerId, status: 'active' },
+      order: { id: 'DESC' },
+    });
     if (!session) throw Biz.notFound('无进行中的移动');
 
     const now = new Date();
@@ -140,7 +144,11 @@ export class MoveSessionService {
    * 玩家保持在 from_net_id（不移动到目标）。
    */
   async cancelMove(playerId: number): Promise<void> {
-    const session = await this.getActiveSession(playerId);
+    // 直接查 active session（不走 getActiveSession，避免 lazy arrive 冲突）
+    const session = await this.repo.findOne({
+      where: { player_id: playerId, status: 'active' },
+      order: { id: 'DESC' },
+    });
     if (!session) throw Biz.notFound('无进行中的移动');
 
     const player = await this.playerRepo.findOneBy({ id: playerId });

@@ -17,6 +17,7 @@ const emit = defineEmits(['close', 'arrived'])
 const remainSec = ref(0)
 let timer = null
 const cancelling = ref(false)
+const showCancelConfirm = ref(false) // 中止二次确认
 
 const remainText = computed(() => {
   const s = Math.max(0, remainSec.value)
@@ -63,7 +64,15 @@ async function doArrive() {
   }
 }
 
+/** 点中止 → 先弹二次确认 */
+function onCancelClick() {
+  if (cancelling.value) return
+  showCancelConfirm.value = true
+}
+
+/** 确认中止 → 调后端 cancel */
 async function doCancel() {
+  showCancelConfirm.value = false
   if (cancelling.value) return
   cancelling.value = true
   try {
@@ -111,10 +120,31 @@ onUnmounted(stopTimer)
           class="move-cancel-btn"
           type="button"
           :disabled="cancelling"
-          @click="doCancel"
+          @click="onCancelClick"
         >
           中止移动
         </button>
+
+        <!-- 中止二次确认 -->
+        <div
+          v-if="showCancelConfirm"
+          class="move-confirm-inline"
+        >
+          <span class="move-confirm-text">确定要中止移动吗？</span>
+          <div class="move-confirm-actions">
+            <button
+              class="move-confirm-no"
+              type="button"
+              @click="showCancelConfirm = false"
+            >继续移动</button>
+            <button
+              class="move-confirm-yes"
+              type="button"
+              :disabled="cancelling"
+              @click="doCancel"
+            >确认中止</button>
+          </div>
+        </div>
       </div>
     </div>
   </Teleport>
@@ -199,6 +229,55 @@ onUnmounted(stopTimer)
   color: #e8a0a0;
 }
 .move-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 中止二次确认（弹窗内内联） */
+.move-confirm-inline {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(60, 20, 15, 0.4);
+  border: 1px solid rgba(200, 80, 60, 0.3);
+  border-radius: 6px;
+  text-align: center;
+}
+.move-confirm-text {
+  font-size: 13px;
+  color: rgba(220, 180, 160, 0.8);
+  margin-bottom: 10px;
+  display: block;
+}
+.move-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.move-confirm-no,
+.move-confirm-yes {
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.move-confirm-no {
+  border: 1px solid rgba(150, 120, 70, 0.4);
+  background: rgba(40, 30, 18, 0.6);
+  color: rgba(200, 180, 150, 0.7);
+}
+.move-confirm-no:hover {
+  background: rgba(60, 40, 20, 0.7);
+}
+.move-confirm-yes {
+  border: 1px solid rgba(200, 80, 60, 0.5);
+  background: rgba(80, 30, 20, 0.5);
+  color: #e8a0a0;
+}
+.move-confirm-yes:hover:not(:disabled) {
+  background: rgba(120, 40, 25, 0.6);
+}
+.move-confirm-yes:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

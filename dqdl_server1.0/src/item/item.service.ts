@@ -14,6 +14,11 @@ export class ItemService {
     private readonly repo: Repository<Item>,
   ) {}
 
+  /** 查全部（供炼丹材料目录/商店用） */
+  async findAll(): Promise<Item[]> {
+    return this.repo.find();
+  }
+
   /** 按 item_id 查单个 */
   async findByItemId(itemId: string): Promise<Item | null> {
     return this.repo.findOneBy({ item_id: itemId });

@@ -17,6 +17,7 @@ import PlayerPanel from '../components/PlayerPanel.vue'
 import SkillPanel from '../components/SkillPanel.vue'
 import TreasurePanel from '../components/TreasurePanel.vue'
 import MovePanel from '../components/MovePanel.vue'
+import AlchemyPanel from '../components/AlchemyPanel.vue'
 import TaskPanel from '../components/TaskPanel.vue'
 import MiniMap from '../components/MiniMap.vue'
 import BattlePanel from '../components/BattlePanel.vue'
@@ -72,6 +73,10 @@ const skillPanelOpen = ref(false)
 
 // 宝物弹窗显隐
 const treasurePanelOpen = ref(false)
+
+// 炼丹弹窗显隐
+const alchemyPanelOpen = ref(false)
+const alchemyPos = ref(null)
 
 // 移动弹窗（session 数据驱动，非 v-model）
 const moveSession = ref(null)
@@ -616,6 +621,11 @@ function onIconSelect(key) {
     treasurePanelOpen.value = !treasurePanelOpen.value
     return
   }
+  // 炼丹
+  if (key === 'pill') {
+    alchemyPanelOpen.value = !alchemyPanelOpen.value
+    return
+  }
   console.log('选中功能：', key)
 }
 
@@ -850,6 +860,13 @@ function backToStart() {
     <TreasurePanel
       v-model="treasurePanelOpen"
       v-model:pos="treasurePos"
+      :player="player"
+    />
+
+    <!-- 炼丹弹窗（功能栏上方，可拖拽，动态层级） -->
+    <AlchemyPanel
+      v-model="alchemyPanelOpen"
+      v-model:pos="alchemyPos"
       :player="player"
     />
 

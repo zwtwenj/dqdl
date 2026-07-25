@@ -235,7 +235,7 @@ function close() { emit('update:modelValue', false) }
               <div class="flame mid"></div>
               <div class="flame inner"></div>
             </div>
-            <img src="/furnace_orig.png" class="furnace-img" alt="丹炉">
+            <img src="/furnace.png" class="furnace-img" alt="丹炉">
           </div>
         </div>
 
@@ -346,7 +346,8 @@ function close() { emit('update:modelValue', false) }
 <style scoped>
 .alchemy-panel {
   position: absolute;
-  right: 14px; bottom: 84px;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
   width: 900px; height: 600px;
   background: linear-gradient(160deg, rgba(28,22,16,0.97), rgba(14,11,8,0.98));
   border: 1px solid rgba(180,150,90,0.45);

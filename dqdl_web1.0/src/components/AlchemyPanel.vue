@@ -185,7 +185,7 @@ function close() { emit('update:modelValue', false) }
     v-if="modelValue"
     ref="panelRef"
     class="alchemy-panel"
-    :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto', zIndex: z } : { zIndex: z }"
+    :style="pos ? { left: pos.x + 'px', top: pos.y + 'px', right: 'auto', bottom: 'auto', transform: 'none', zIndex: z } : { zIndex: z }"
     @pointerdown="focus"
   >
     <div class="drag-handle" @pointerdown.stop="onHandlePointerDown">

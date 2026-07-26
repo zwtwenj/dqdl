@@ -1,8 +1,9 @@
 import http from './request'
 
 /**
- * 网状地图 + 场景 接口（对应后端 /api/location_net/*，用测试玩家）。
- * 无需登录。
+ * 网状地图 + 场景 接口（对应后端 /api/location_net/*）。
+ * 需登录：玩家身份由 JWT 推导（后端 Controller 类级 @UseGuards(JwtAuthGuard)，
+ * 每个 handler 调 verifyOwnershipByUser(req.user.id) 取当前账号的 player）。
  */
 
 /** 全图：节点 + 边（4 对角邻接） */

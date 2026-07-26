@@ -9,7 +9,7 @@ const routes = [
   {
     path: '/game',
     name: 'game',
-    component: () => import('../views/GameView.vue'),
+    component: () => import('../views/GameView/index.vue'),
   },
   {
     path: '/mapdemo',

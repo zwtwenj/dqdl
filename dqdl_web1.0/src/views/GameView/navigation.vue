@@ -14,14 +14,14 @@
 <style lang="less" scoped>
 .game-view-navigation {
     width: 100%;
-    background: url("/static/top-bar.gif") bottom repeat-x;;
+    background: var(--img-top-bar) bottom repeat-x;;
     height: 28px;
     display: flex;
     justify-content: space-between;
     padding: 0 10px;
     .navigation-left, .navigation-right{
-        color: #e9e5dc;
-        font-size: 12px;
+        color: var(--text-light);
+        font-size: var(--fs-sm);
         line-height: 20px;
         padding: 4px 0;
     }

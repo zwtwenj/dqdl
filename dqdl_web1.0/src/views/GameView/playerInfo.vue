@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import playerBox from '@/components1/playerBox.vue'
 import quickButton from '@/components1/quickButton.vue'
+import FloatingTooltip from '@/components/FloatingTooltip.vue'
 import { getPlayer } from '@/api'
 import { useGameStore } from '@/stores/game'
 import { bus, BusEvents } from '@/utils/eventBus'
@@ -23,9 +24,40 @@ function pct(cur, max) {
 }
 
 // 三条进度条宽度（绑定到 :style）
-const hpPct = computed(() => pct(player.value?.hp, player.value?.max_hp))
-const energyPct = computed(() => pct(player.value?.energy, player.value?.max_energy))
+// 注意：气血/斗气上限必须用 final_attrs 里的值（含功法+宝物加成），
+// 顶层 max_hp/max_energy 只是基础值（stamina*10 / level*20），不含加成，
+// 用错会出现 hp > max_hp 的倒挂（如 370/270）。
+const finalAttrs = computed(() => player.value?.final_attrs || {})
+const maxHp = computed(() => finalAttrs.value.max_hp ?? player.value?.max_hp ?? 0)
+const maxEnergy = computed(() => finalAttrs.value.max_energy ?? player.value?.max_energy ?? 0)
+
+const hpPct = computed(() => pct(player.value?.hp, maxHp.value))
+const energyPct = computed(() => pct(player.value?.energy, maxEnergy.value))
 const cultPct = computed(() => pct(player.value?.cultivation, player.value?.level_cultivation))
+
+// —— 进度条 tooltip（三条共用一个 FloatingTooltip）——
+// tipKey 标记当前悬停的是哪条；hoveredEl 传给 FloatingTooltip 做定位参考
+const tipOpen = ref(false)
+const tipKey = ref('')                 // 'cult' | 'hp' | 'energy'
+const hoveredEl = ref(null)
+
+// 各条 tooltip 文案
+const tipText = computed(() => {
+  const p = player.value || {}
+  if (tipKey.value === 'cult') return `当前修为：${p.cultivation ?? 0} / ${p.level_cultivation ?? 0}`
+  if (tipKey.value === 'hp') return `当前气血：${p.hp ?? 0} / ${maxHp.value}`
+  if (tipKey.value === 'energy') return `当前斗气：${p.energy ?? 0} / ${maxEnergy.value}`
+  return ''
+})
+
+function onBarEnter(key, e) {
+  tipKey.value = key
+  hoveredEl.value = e.currentTarget
+  tipOpen.value = true
+}
+function onBarLeave() {
+  tipOpen.value = false
+}
 
 onMounted(async () => {
   // 优先用 query 的 playerId，没有则用 store 兜底（刷新场景）
@@ -69,19 +101,25 @@ onMounted(async () => {
         <div class="player-hp-mp-cult" v-if="player">
             <div class="player-cult">
                 <div class="player-cult-left">修为：</div>
-                <div class="player-cult-point-bg">
+                <div class="player-cult-point-bg"
+                    @pointerenter="onBarEnter('cult', $event)"
+                    @pointerleave="onBarLeave">
                     <div class="player-cult-point" :style="{ width: cultPct + '%' }"></div>
                 </div>
             </div>
             <div class="player-hp">
                 <div class="player-hp-left">气血：</div>
-                <div class="player-hp-point-bg">
+                <div class="player-hp-point-bg"
+                    @pointerenter="onBarEnter('hp', $event)"
+                    @pointerleave="onBarLeave">
                     <div class="player-hp-point" :style="{ width: hpPct + '%' }"></div>
                 </div>
             </div>
             <div class="player-energy">
                 <div class="player-energy-left">斗气：</div>
-                <div class="player-energy-point-bg">
+                <div class="player-energy-point-bg"
+                    @pointerenter="onBarEnter('energy', $event)"
+                    @pointerleave="onBarLeave">
                     <div class="player-energy-point" :style="{ width: energyPct + '%' }"></div>
                 </div>
             </div>
@@ -94,6 +132,16 @@ onMounted(async () => {
             <div class="player-money-left">金钱：</div>
             <div class="player-money-value">{{ player?.money ?? 0 }}</div>
         </div>
+
+        <!-- 进度条 tooltip：三条共用一个浮层，外壳样式覆盖为 titlebox 风格 -->
+        <FloatingTooltip
+            v-model:open="tipOpen"
+            :reference="hoveredEl"
+            placement="top"
+            skin-class="titlebox-skin"
+        >
+            <span class="titlebox-span">{{ tipText }}</span><br />
+        </FloatingTooltip>
     </playerBox >
 </template>
 
@@ -125,15 +173,15 @@ onMounted(async () => {
     display: flex;
     justify-content: space-between;
     .player-name{
-        font-size: 14px;
+        font-size: var(--fs-lg);
         text-decoration: underline;
         cursor: pointer;
     }
     .player-name:hover{
-        color: #c80000;
+        color: var(--danger);
     }
     .player-level{
-        font-size: 14px;
+        font-size: var(--fs-lg);
     }
 }
 .quick-botton-list{
@@ -147,7 +195,7 @@ onMounted(async () => {
 .player-hp-mp-cult{
     .player-cult-left, .player-hp-left, .player-energy-left{
         width: 40px;
-        font-size: 12px;
+        font-size: var(--fs-sm);
         line-height: 20px;
     }
     .player-cult, .player-hp, .player-energy{
@@ -190,15 +238,15 @@ onMounted(async () => {
     align-items: center;
     .player-status-left{
         width: 40px;
-        font-size: 12px;
+        font-size: var(--fs-sm);
         line-height: 20px;
     }
     .player-status-value{
-        font-size: 12px;
+        font-size: var(--fs-sm);
         line-height: 20px;
     }
     .player-status-1{
-        color: #2F7B3F;
+        color: var(--status-ok);
     }
 }
 .player-money{
@@ -206,16 +254,36 @@ onMounted(async () => {
     align-items: center;
     .player-money-left{
         width: 40px;
-        font-size: 12px;
+        font-size: var(--fs-sm);
         line-height: 20px;
     }
     .player-money-value{
-        font-size: 12px;
+        font-size: var(--fs-sm);
         line-height: 20px;
-        border: 1px solid #e9e5dc;
+        border: 1px solid var(--panel-bg);
         flex: 1;
-        background: #dbd5cf;
+        background: var(--input-bg);
         padding: 0 5px;
     }
+}
+
+/* —— 进度条 tooltip：浮层外壳样式（.ft-floating 由 FloatingTooltip Teleport 到 body，
+   scoped 的 :deep 无法穿透 Teleport，故用 skinClass 传入 + 非 scoped 样式块覆盖）—— */
+.titlebox-span{
+    color: var(--tooltip-border);
+}
+</style>
+
+<!-- 非 scoped：通过 skinClass 覆盖 FloatingTooltip 浮层外壳为 titlebox 风格 -->
+<style lang="less">
+.titlebox-skin{
+    width: auto !important;
+    padding: 3px 8px 2px 8px !important;
+    background: var(--tooltip-bg) !important;
+    border: 1px solid var(--tooltip-border) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-family: inherit !important;
+    text-align: center;
 }
 </style>

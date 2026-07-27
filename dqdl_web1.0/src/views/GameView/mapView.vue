@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { getPlayerView } from '@/api/mapdemo'
+import { ref, computed, onMounted, watch } from 'vue'
+import { getPlayerView, getMapScenes } from '@/api/mapdemo'
 import { bus, BusEvents } from '@/utils/eventBus'
 
 const view = ref(null)          // getPlayerView 返回：{ ring0, ring1, nodes, edges, fog }
@@ -8,34 +8,36 @@ const selected = ref(null)      // 右侧展示的节点（默认 ring0）
 const loading = ref(false)
 const error = ref('')
 
-// —— 坐标映射：把节点的 gx/gy 线性映射到画布像素坐标 ——
-const PAD = 26                  // 画布四周留白
-const CANVAS_W = 358 - PAD * 2  // .map-view-left 宽 360 减边框/留白后的可用宽
-const CANVAS_H = 290 - PAD * 2  // .map-view-left-location 高 290 减留白
+// —— 以 ring0 为中心的固定步长布局 ——
+// 方向是 4 对角（NE/NW/SE/SW），每个网格步长固定 70px。
+// 节点像素坐标 = 画布中心 + (gx - ring0.gx) * STEP / (gy - ring0.gy) * STEP。
+// 这样当前点居中、4 个对角邻居对称散开，两格内（ring0+ring1+ring2）必然在画布内。
+const STEP = 70
+const CENTER_X = 179            // 画布宽 358 的中心
+const CENTER_Y = 145            // 画布高 290 的中心
 
-const bounds = computed(() => {
-  const nodes = view.value?.nodes || []
-  if (!nodes.length) return null
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-  for (const n of nodes) {
-    if (n.gx < minX) minX = n.gx
-    if (n.gx > maxX) maxX = n.gx
-    if (n.gy < minY) minY = n.gy
-    if (n.gy > maxY) maxY = n.gy
-  }
-  return { minX, maxX, minY, maxY, spanX: Math.max(1, maxX - minX), spanY: Math.max(1, maxY - minY) }
-})
+const ring0 = computed(() => view.value?.ring0 || null)
 
-/** 节点坐标 → 画布像素 { left, top }（已含 PAD 偏移） */
+/** 节点 → 画布像素 { left, top }（以 ring0 为原点）。
+ *  注意：left/top 必须带 'px' 单位，否则 Vue 渲染成纯数字会被浏览器忽略，
+ *  节点全部塌缩到左上角(0,0)。 */
 function nodePos(node) {
-  const b = bounds.value
-  if (!b) return { left: 0, top: 0 }
-  const x = ((node.gx - b.minX) / b.spanX) * CANVAS_W + PAD
-  const y = ((node.gy - b.minY) / b.spanY) * CANVAS_H + PAD
-  return { left: x, top: y }
+  const c = ring0.value
+  if (!c || node.gx == null || node.gy == null || c.gx == null || c.gy == null) {
+    return { left: CENTER_X + 'px', top: CENTER_Y + 'px' }
+  }
+  const dx = (node.gx - c.gx) * STEP
+  const dy = (node.gy - c.gy) * STEP
+  const left = CENTER_X + dx
+  const top = CENTER_Y + dy
+  // 防御 NaN/Infinity：异常时回退到中心
+  if (!Number.isFinite(left) || !Number.isFinite(top)) {
+    return { left: CENTER_X + 'px', top: CENTER_Y + 'px' }
+  }
+  return { left: left + 'px', top: top + 'px' }
 }
 
-// 节点 id → 坐标，便于画边
+// 节点 id → 节点对象，便于画边时取坐标
 const nodeMap = computed(() => {
   const map = {}
   for (const n of view.value?.nodes || []) map[n.id] = n
@@ -43,8 +45,6 @@ const nodeMap = computed(() => {
 })
 
 const edges = computed(() => {
-  const b = bounds.value
-  if (!b) return []
   const map = nodeMap.value
   return (view.value?.edges || []).map((e, i) => {
     const a = map[e.from_id ?? e.fromId ?? e.from]
@@ -56,7 +56,18 @@ const edges = computed(() => {
   }).filter(Boolean)
 })
 
-const ring0Id = computed(() => view.value?.ring0?.id)
+const ring0Id = computed(() => ring0.value?.id)
+
+// 节点 loc_type → 图标路径（后端取值：wild/city/sect/secret，与 public/icon/location 一一对应）
+const LOC_ICON = {
+  city: '/icon/location/city.png',
+  sect: '/icon/location/sect.png',
+  secret: '/icon/location/secret.png',
+  wild: '/icon/location/wild.png',
+}
+function locIcon(node) {
+  return LOC_ICON[node?.loc_type] || LOC_ICON.wild
+}
 
 function isCurrent(node) {
   return ring0Id.value != null && node.id === ring0Id.value
@@ -65,6 +76,43 @@ function isCurrent(node) {
 function onSelectNode(node) {
   selected.value = node
 }
+
+// —— 场景列表：跟随选中节点变化重新拉取 ——
+const scenes = ref([])
+const scenesLoading = ref(false)
+const scenesError = ref('')
+
+// 场景类型 → 中文标签（后端 scene_type: market/guild/alchemy/auction/cultivation）
+const SCENE_TYPE_LABEL = {
+  market: '坊市',
+  guild: '公会',
+  alchemy: '炼药',
+  auction: '拍卖',
+  cultivation: '修炼',
+}
+function sceneTypeLabel(t) {
+  return SCENE_TYPE_LABEL[t] || t || ''
+}
+
+async function loadScenes(node) {
+  if (!node?.id) {
+    scenes.value = []
+    return
+  }
+  scenesLoading.value = true
+  scenesError.value = ''
+  try {
+    scenes.value = await getMapScenes(node.id)
+  } catch (err) {
+    scenes.value = []
+    scenesError.value = err.message || '场景加载失败'
+  } finally {
+    scenesLoading.value = false
+  }
+}
+
+// 选中节点变化时自动拉场景（含 onMounted 后 selected 初始化触发）
+watch(selected, (node) => loadScenes(node))
 
 onMounted(async () => {
   loading.value = true
@@ -92,11 +140,11 @@ onMounted(async () => {
                 <div class="map-view-left-title-right"></div>
             </div>
             <div class="map-view-left-location">
-                <!-- 网状地图：SVG 连线 + 绝对定位节点 -->
-                <svg class="map-edges" v-if="bounds">
+                <!-- 网状地图：SVG 连线层 + 绝对定位节点 -->
+                <svg class="map-edges" v-if="ring0">
                     <line v-for="e in edges" :key="e.id"
                         :x1="e.x1" :y1="e.y1" :x2="e.x2" :y2="e.y2"
-                        stroke="#8a7a5a" stroke-width="1.5" />
+                        stroke="#8a7a5a" stroke-width="2" />
                 </svg>
                 <div
                     v-for="node in view?.nodes"
@@ -106,7 +154,14 @@ onMounted(async () => {
                     :style="nodePos(node)"
                     :title="node.name"
                     @click="onSelectNode(node)"
-                ></div>
+                >
+                    <div class="map-node-icon-wrap">
+                        <img class="map-node-icon" :src="locIcon(node)" :alt="node.name">
+                        <!-- 玩家当前位置标记：覆盖在地点图标上 -->
+                        <img v-if="isCurrent(node)" class="map-node-marker" src="/static/1.gif" alt="你在这">
+                    </div>
+                    <span class="map-node-label">{{ node.name }}</span>
+                </div>
                 <div v-if="error" class="map-empty">{{ error }}</div>
                 <div v-else-if="!loading && !view" class="map-empty">无地图数据</div>
             </div>
@@ -123,9 +178,23 @@ onMounted(async () => {
             <div class="location-description">
                 {{ selected?.description || '（暂无描述）' }}
             </div>
-            <!-- 场景列表等其它内容暂不接入 -->
+            <!-- 场景列表：跟随选中节点 -->
             <div class="scene-list">
-                <div class="scene-empty">场景待接入</div>
+                <div class="scene-list-title">场景</div>
+                <div v-if="scenesLoading" class="scene-empty">加载中...</div>
+                <div v-else-if="scenesError" class="scene-empty">{{ scenesError }}</div>
+                <template v-else-if="scenes.length">
+                    <div
+                        v-for="sc in scenes"
+                        :key="sc.id"
+                        class="scene-item"
+                    >
+                        <img src="/icon/icon-exit.gif">
+                        <span class="scene-name">{{ sc.name }}</span>
+                        <span v-if="sc.scene_type" class="scene-type">{{ sceneTypeLabel(sc.scene_type) }}</span>
+                    </div>
+                </template>
+                <div v-else class="scene-empty">此地无可入场景</div>
             </div>
         </div>
     </div>
@@ -138,7 +207,7 @@ onMounted(async () => {
     gap: 10px;
 }
 .map-view-left{
-    border: 1px solid #847375;
+    border: 1px solid var(--border-dark);
     width: 360px;
 }
 .map-view-left-title{
@@ -147,7 +216,7 @@ onMounted(async () => {
     .map-view-left-title-text{
         flex: 1;
         text-align: center;
-        color: #e9e5dc;
+        color: var(--text-light);
     }
     .map-view-left-title-left{
         background: url("/static/field-title-left.gif") no-repeat;
@@ -163,9 +232,10 @@ onMounted(async () => {
 .map-view-left-location{
     position: relative;          /* 节点绝对定位的参照 */
     height: 290px;
-    border: 1px solid #847375;
+    border: 1px solid var(--border-dark);
     margin: 1px;
-    background: #efe9df;         /* 网格底色，让节点更清晰 */
+    background: url("/static/field-bg.gif") no-repeat center center;
+    background-size: 100% 100%;  /* 拉伸铺满画布 */
     overflow: hidden;
 }
 /* SVG 连线层：铺满画布，置于节点之下 */
@@ -176,30 +246,59 @@ onMounted(async () => {
     height: 100%;
     pointer-events: none;
 }
-/* 网状节点 */
+/* 网状节点：以坐标点为中心，loc_type 图标 + 名字标签 */
 .map-node{
     position: absolute;
-    width: 14px;
-    height: 14px;
-    margin-left: -7px;          /* 以坐标点为中心 */
-    margin-top: -7px;
-    background: #6a5a3a;
-    border: 1px solid #3a2f1a;
-    border-radius: 2px;
+    transform: translate(-50%, -50%);   /* 以坐标点为中心 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
 }
-.map-node:hover{
-    transform: scale(1.25);
+/* 图标容器：相对定位，供玩家位置标记绝对覆盖 */
+.map-node-icon-wrap{
+    position: relative;
+    line-height: 0;
 }
-.map-node.selected{
-    background: #a08040;
-    box-shadow: 0 0 0 2px rgba(240, 192, 64, 0.6);
+.map-node-icon{
+    width: 32px;
+    height: 32px;
+    display: block;
+    object-fit: contain;
+    /* 用 drop-shadow 做悬停/选中/当前的光晕（图标本身是 png 图案，改背景色无意义） */
+    transition: filter 0.15s, transform 0.15s;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4));
 }
-.map-node.current{
-    background: #f0c040;
-    border-color: #c80000;
-    box-shadow: 0 0 8px 2px rgba(240, 192, 64, 0.9);
+/* 玩家当前位置标记：覆盖在地点图标上，与图标同尺寸 */
+.map-node-marker{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;            /* 不挡住节点点击 */
+}
+.map-node:hover .map-node-icon{
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 4px rgba(240, 192, 64, 0.9));
+}
+.map-node.selected .map-node-icon{
+    filter: drop-shadow(0 0 5px rgba(240, 192, 64, 0.95));
+}
+/* 当前所在节点：金色强光晕 + 红描边圈，最醒目 */
+.map-node.current .map-node-icon{
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 6px rgba(240, 192, 64, 1)) drop-shadow(0 0 3px rgba(200, 0, 0, 0.8));
+}
+.map-node-label{
+    font-size: var(--fs-xs);
+    color: var(--text-dark);
+    background: rgba(233, 229, 220, 0.85);
+    padding: 0 3px;
+    border-radius: 2px;
+    white-space: nowrap;
+    line-height: 1.4;
 }
 .map-empty{
     position: absolute;
@@ -207,13 +306,13 @@ onMounted(async () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #8a7a5a;
-    font-size: 13px;
+    color: var(--text-dim);
+    font-size: var(--fs-md);
 }
 .map-view-right{
     flex: 1;
-    border: 1px solid #c3b8b1;
-    background: #f5f2ea url("/static/field-box-bg.gif") repeat-x;
+    border: 1px solid var(--border);
+    background: var(--panel-bg-tint) url("/static/field-box-bg.gif") repeat-x;
     padding: 7px;
     line-height: 20px;
     .location-title{
@@ -226,7 +325,7 @@ onMounted(async () => {
         }
         .location-right{
             .map-button{
-                color: #eb37a1;
+                color: var(--link);
                 cursor: pointer;
                 text-decoration: underline;
             }
@@ -236,8 +335,38 @@ onMounted(async () => {
         margin-bottom: 10px;
     }
     .scene-list{
+        .scene-list-title{
+            font-weight: bolder;
+            margin-bottom: 6px;
+        }
+        .scene-item{
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            text-decoration: underline;
+            cursor: pointer;
+            img{
+                width: 16px;
+                height: 16px;
+            }
+            .scene-name{
+                line-height: 22px;
+            }
+            .scene-type{
+                color: var(--text-dim);
+                font-size: var(--fs-xs);
+                text-decoration: none;
+                border: 1px solid var(--border);
+                padding: 0 4px;
+                border-radius: 2px;
+                line-height: 16px;
+            }
+        }
+        .scene-item:hover{
+            color: var(--link);
+        }
         .scene-empty{
-            color: #b0a89e;
+            color: var(--text-faint);
             font-style: italic;
         }
     }

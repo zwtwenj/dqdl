@@ -34,12 +34,12 @@
     .module-top-left{
         width: 14px;
         height: 14px;
-        background: #c2bdb9 url("/static/stage-top-left.gif") left top no-repeat;
+        background: var(--panel-bg-deep) url("/static/stage-top-left.gif") left top no-repeat;
     }
     .module-top-right{
         width: 14px;
         height: 14px;
-        background: #c2bdb9 url("/static/stage-top-right.gif") right top no-repeat;
+        background: var(--panel-bg-deep) url("/static/stage-top-right.gif") right top no-repeat;
     }
 }
 .module-bottom{
@@ -51,17 +51,17 @@
     .module-bottom-left{
         width: 14px;
         height: 14px;
-        background: #c2bdb9 url("/static/stage-bottom-left.gif") left bottom no-repeat;
+        background: var(--panel-bg-deep) url("/static/stage-bottom-left.gif") left bottom no-repeat;
     }
     .module-bottom-right{
         width: 14px;
         height: 14px;
-        background: #c2bdb9 url("/static/stage-bottom-right.gif") right bottom no-repeat;
+        background: var(--panel-bg-deep) url("/static/stage-bottom-right.gif") right bottom no-repeat;
     }
 }
 .module-content{
     display: flex;
-    background: #e9e5dc;
+    background: var(--panel-bg);
     .module-content-center{
         flex: 1;
     }

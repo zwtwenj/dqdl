@@ -16,6 +16,8 @@
  * Props:
  *   reference (HTMLElement|null) - 触发元素（定位参考）
  *   placement (string)           - 初始方位，默认 'top'
+ *   skinClass (string)           - 浮层外壳附加类名（用于覆盖默认浮层样式，
+ *                                  因 Teleport 到 body，scoped 样式无法穿透）
  * Slot:
  *   default - 浮层内容
  * Emits:
@@ -28,6 +30,7 @@ const props = defineProps({
   reference: { type: Object, default: null },
   placement: { type: String, default: 'top' },
   open: { type: Boolean, default: false },
+  skinClass: { type: String, default: '' },
 })
 const emit = defineEmits(['update:open'])
 
@@ -71,6 +74,7 @@ function cancelClose() {
       v-if="open"
       ref="floatingRef"
       class="ft-floating"
+      :class="skinClass"
       :style="floatingStyles"
       :data-placement="placement"
       @pointerenter="cancelClose"

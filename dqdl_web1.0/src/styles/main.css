@@ -1,11 +1,56 @@
-/* 斗气大陆 · 全局基础样式 */
+/* ============================================================
+   斗气大陆 · 全局基础样式 + 主题令牌
+   主题色取自实际在用的复古纸质武侠风：
+   浅米底 + 棕色字 + 暗红强调。改主题只动这里的变量。
+   ============================================================ */
 
 :root {
-  --bg-base: #0a0a0f;
-  --text: #e8e0d0;
-  --text-muted: #a09888;
-  --gold: #d4af6a;
-  --gold-bright: #e8d5a0;
+  /* —— 底色（面板/内容区/弹框）—— */
+  --panel-bg: #e9e5dc;          /* 面板/模块内容主底色 */
+  --panel-bg-soft: #dfd9cd;     /* 弹框外框/抬高层 */
+  --panel-bg-deep: #c2bdb9;     /* 模块角块底色 */
+  --panel-bg-tint: #f5f2ea;     /* 更浅的面板底色（地图信息区） */
+  --page-bg: #0a0a0f;           /* 页面最底层底色（body） */
+
+  /* —— 文字 —— */
+  --text: #7f5644;              /* 主文字色（棕色） */
+  --text-dark: #3a2f1a;         /* 深棕文字（地图节点标签，对比度更高） */
+  --text-light: #e9e5dc;        /* 浅色文字（用于深色/图片背景上：按钮、导航、页脚） */
+  --text-dim: #8a7a5a;          /* 次要文字/类型标签 */
+  --text-faint: #b0a89e;        /* 更弱文字/空态占位 */
+  --link: #eb37a1;              /* 可点击链接/文字按钮粉色 */
+
+  /* —— 强调语义色 —— */
+  --accent: #ac2100;            /* 主强调（标题、链接、品牌红） */
+  --accent-hover: #aa0000;      /* 强调 hover（按钮 hover 文字） */
+  --danger: #c80000;            /* 危险/警告红 */
+  --error: #e74c3c;             /* 错误提示红 */
+  --gold: #f0c040;              /* 金色（高亮/当前位置光晕） */
+  --status-ok: #2F7B3F;         /* 正常/成功状态绿 */
+  --input-bg: #dbd5cf;          /* 输入框/数值框底色 */
+  --tooltip-bg: #4e413a;        /* 悬浮提示框底色（深棕） */
+  --tooltip-border: #d9d0c2;    /* 悬浮提示框描边/文字（浅米） */
+
+  /* —— 边框 —— */
+  --border: #c3b8b1;            /* 普通边框 */
+  --border-mid: #938c8a;        /* 弹框边框 */
+  --border-dark: #847375;       /* 地图框等深边框 */
+
+  /* —— 字号 —— */
+  --fs-xs: 11px;                /* 标签/类型标 */
+  --fs-sm: 12px;                /* 正文（全局基准） */
+  --fs-md: 13px;                /* 略大正文/按钮 */
+  --fs-lg: 14px;                /* 标题/重要文字 */
+
+  /* —— 静态资源路径（背景图统一出口，改目录只动这里）—— */
+  --img-btn: url("/static/button-bg.gif");
+  --img-btn-hover: url("/static/button-bg-highlight.gif");
+  --img-quick-btn: url("/static/quick-button.gif");
+  --img-quick-btn-hover: url("/static/quick-button-hover.gif");
+  --img-top-bar: url("/static/top-bar.gif");
+  --img-bottom-bar: url("/static/bottom-bar-bg.gif");
+  --img-caption: url("/static/caption-bg.gif");
+  --img-close: url("/icon/icon-close.gif");
 }
 
 * {
@@ -14,7 +59,7 @@
   box-sizing: border-box;
   font-family: verdana;
   word-break: break-all;
-  color: #7f5644;
+  color: var(--text);
 }
 
 html,
@@ -23,7 +68,7 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 body{
@@ -35,7 +80,7 @@ body{
 }
 
 body {
-  background: var(--bg-base);
+  background: var(--page-bg);
   color: var(--text);
   font-family: 'PingFang SC', 'Microsoft YaHei', 'STKaiti', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -44,4 +89,10 @@ body {
 
 button {
   font-family: inherit;
+}
+
+.highlight{
+  /* color: #d9d0c2; */
+  /* background: #4e413a; */
+  /* border: 1px solid #d9d0c2; */
 }

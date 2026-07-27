@@ -9,16 +9,16 @@
 
 <style lang="less" scoped>
 .quick-button{
-    background: url("/static/quick-button.gif") no-repeat;
+    background: var(--img-quick-btn) no-repeat;
     background-size: 100% 100%;
     text-align: center;
-    color: #e9e5dc;
-    font-size: 12px;
+    color: var(--text-light);
+    font-size: var(--fs-sm);
     padding: 4px 0 7px 0;
     cursor: pointer;
 }
 .quick-button:hover{
-    background: url("/static/quick-button-hover.gif") no-repeat;
+    background: var(--img-quick-btn-hover) no-repeat;
     background-size: 100% 100%;
 }
 </style>

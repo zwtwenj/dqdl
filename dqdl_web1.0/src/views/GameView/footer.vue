@@ -13,10 +13,10 @@
 .game-view-footer {
     width: 100%;
     height: 33px;
-    background: url("/static/bottom-bar-bg.gif") repeat-x;
+    background: var(--img-bottom-bar) repeat-x;
     .footer-button{
-        color: #e9e5dc;
-        font-size: 14px;
+        color: var(--text-light);
+        font-size: var(--fs-lg);
         line-height: 25px;
         padding: 4px 10px;
     }

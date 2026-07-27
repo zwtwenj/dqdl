@@ -4,6 +4,11 @@ import PlayerInfo from './playerInfo.vue'
 import Footer from './footer.vue'
 import ModuleBox from '@/components1/moduleBox.vue'
 import MapView from './mapView.vue'
+import Dlg from '@/components1/dlg.vue'
+import Button from '@/components1/button.vue'
+import { ref } from 'vue'
+
+const show = ref(false)
 </script>
 
 <template>
@@ -22,6 +27,18 @@ import MapView from './mapView.vue'
 
     <!--底部功能栏-->
     <Footer></Footer>
+
+    <Dlg v-if="show" @close="show=false">
+        <div>
+          <div class="dlg-content">
+            弹窗21333333333333333333333adsa
+            13123dqwquuuuuuuuuuuuuuuuuh
+          </div>
+          <div class="dlg-actions" style="margin-top: 10px;">
+            <Button>确定</Button>
+          </div>
+        </div>
+    </Dlg>
   </div>
 </template>
 

@@ -1,8 +1,13 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { getPlayerView, getMapScenes, moveToNet } from '@/api/mapdemo'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { getPlayerView, getMapScenes } from '@/api/mapdemo'
+import { startMove, cancelMove as apiCancelMove, getCurrentMove, arriveMove } from '@/api/move'
+import { usePlayerStore } from '@/stores/player'
 import Dlg from '@/components1/dlg.vue'
+import Button from '@/components1/button.vue'
 import { bus, BusEvents } from '@/utils/eventBus'
+
+const playerStore = usePlayerStore()
 
 const view = ref(null)          // getPlayerView 返回：{ ring0, ring1, nodes, edges, fog }
 const selected = ref(null)      // 右侧展示的节点（默认 ring0）
@@ -10,32 +15,38 @@ const loading = ref(false)
 const error = ref('')
 
 // —— 以 ring0 为中心的固定步长布局 ——
-// 方向是 4 对角（NE/NW/SE/SW），每个网格步长固定 70px。
+// 方向是 4 对角（NE/NW/SE/SW），每个网格步长固定像素值。
 // 节点像素坐标 = 画布中心 + (gx - ring0.gx) * STEP / (gy - ring0.gy) * STEP。
 // 这样当前点居中、4 个对角邻居对称散开，两格内（ring0+ring1+ring2）必然在画布内。
+// 注意：STEP 是渲染像素，与后端 MOVE_DISTANCE（里）无关，只是恰好数值相同。
 const STEP = 70
 const CENTER_X = 179            // 画布宽 358 的中心
 const CENTER_Y = 145            // 画布高 290 的中心
 
 const ring0 = computed(() => view.value?.ring0 || null)
 
-/** 节点 → 画布像素 { left, top }（以 ring0 为原点）。
- *  注意：left/top 必须带 'px' 单位，否则 Vue 渲染成纯数字会被浏览器忽略，
- *  节点全部塌缩到左上角(0,0)。 */
-function nodePos(node) {
+/** 节点 → 画布像素坐标（以 ring0 为原点）。
+ *  返回纯数字，供两处使用：
+ *  - 节点定位：模板里拼成 '179px'（CSS left/top 必须带单位，否则被忽略导致塌缩到左上角）
+ *  - SVG 连线：直接用纯数字（SVG x1/y1 不接受 'px' 单位，只接受用户单位） */
+function nodeXY(node) {
   const c = ring0.value
   if (!c || node.gx == null || node.gy == null || c.gx == null || c.gy == null) {
-    return { left: CENTER_X + 'px', top: CENTER_Y + 'px' }
+    return { x: CENTER_X, y: CENTER_Y }
   }
-  const dx = (node.gx - c.gx) * STEP
-  const dy = (node.gy - c.gy) * STEP
-  const left = CENTER_X + dx
-  const top = CENTER_Y + dy
+  const x = CENTER_X + (node.gx - c.gx) * STEP
+  const y = CENTER_Y + (node.gy - c.gy) * STEP
   // 防御 NaN/Infinity：异常时回退到中心
-  if (!Number.isFinite(left) || !Number.isFinite(top)) {
-    return { left: CENTER_X + 'px', top: CENTER_Y + 'px' }
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return { x: CENTER_X, y: CENTER_Y }
   }
-  return { left: left + 'px', top: top + 'px' }
+  return { x, y }
+}
+
+/** 节点定位样式（带 px 单位，供 CSS left/top） */
+function nodePos(node) {
+  const { x, y } = nodeXY(node)
+  return { left: x + 'px', top: y + 'px' }
 }
 
 // 节点 id → 节点对象，便于画边时取坐标
@@ -51,9 +62,9 @@ const edges = computed(() => {
     const a = map[e.from_id ?? e.fromId ?? e.from]
     const c = map[e.to_id ?? e.toId ?? e.to]
     if (!a || !c) return null
-    const pa = nodePos(a)
-    const pc = nodePos(c)
-    return { id: i, x1: pa.left, y1: pa.top, x2: pc.left, y2: pc.top }
+    const pa = nodeXY(a)
+    const pc = nodeXY(c)
+    return { id: i, x1: pa.x, y1: pa.y, x2: pc.x, y2: pc.y }
   }).filter(Boolean)
 })
 
@@ -75,50 +86,172 @@ function isCurrent(node) {
 }
 
 /** 节点是否为当前所在节点的对角邻居（ring1，可移动目标）。
- *  与后端 movePlayer 的校验一致：|dx|==1 && |dy|==1 */
+ *  与后端 move-session 的邻接校验一致：|dx|==1 && |dy|==1 */
 function isMovable(node) {
   const c = ring0.value
   if (!c || node.gx == null || node.gy == null) return false
   return Math.abs(node.gx - c.gx) === 1 && Math.abs(node.gy - c.gy) === 1
 }
 
-// 点击节点：对角邻居 → 弹移动确认；其他（自身/远点）→ 仅选中查看
+// 点击节点：对角邻居 → 弹移动预览；其他（自身/远点）→ 仅选中查看
 function onSelectNode(node) {
   selected.value = node
-  if (isMovable(node)) {
-    moveTarget.value = node
-    moveDlgVisible.value = true
+  if (isMovable(node) && !moveSession.value) {
+    // 正在移动中时不允许发起新移动
+    openMovePreview(node)
   }
 }
 
-// —— 移动确认弹窗 ——
+// —— 移动弹窗（两阶段：preview 预览态 / moving 移动中态）——
 const moveDlgVisible = ref(false)
-const moveTarget = ref(null)       // 待移动的目标节点
-const moving = ref(false)          // 移动中（防重复点击）
+const moveTarget = ref(null)        // 目标节点（地图节点对象）
+const moveSession = ref(null)       // 进行中的移动 session（start/atRestore 填充）
 const moveError = ref('')
+const remainingSec = ref(0)         // 移动中剩余秒数（倒计时）
+let tickTimer = null                // 倒计时定时器
 
+// 移动距离常量（里），与后端 move-session.service 的 MOVE_DISTANCE 对齐
+const MOVE_DISTANCE = 70
+
+// 弹窗阶段：有 session 就是「移动中」，否则是「预览确认」
+const isMoving = computed(() => !!moveSession.value)
+
+/** 秒数 → 时长 HH:MM:SS（如 180 → 00:03:00）。
+ *  前后端时长算法一致（距离×60/speed），前端纯展示格式化，不依赖后端时间点。 */
+function fmtDuration(sec) {
+  const s = Math.max(0, Math.floor(Number(sec) || 0))
+  const pad = (n) => String(n).padStart(2, '0')
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const r = s % 60
+  return `${pad(h)}:${pad(m)}:${pad(r)}`
+}
+
+/** 前端自算单格移动耗时（秒）：ceil(距离×60/speed)，与后端 move-session 算法一致。
+ *  speed 用 player.quick（顶层，与后端一致，不用 final_attrs.quick）。 */
+const previewDurationSec = computed(() => {
+  const speed = Math.max(1, playerStore.quick)
+  return Math.ceil((MOVE_DISTANCE * 60) / speed)
+})
+
+/** 打开预览弹窗：不再调接口，耗时由前端按敏捷自算 */
+function openMovePreview(node) {
+  moveTarget.value = node
+  moveDlgVisible.value = true
+  moveError.value = ''
+}
+
+/** 确认移动：startMove 建 session → 进入倒计时态 */
 async function confirmMove() {
   const target = moveTarget.value
-  if (!target?.id || moving.value) return
-  moving.value = true
+  if (!target?.id || moveSession.value) return
   moveError.value = ''
   try {
-    await moveToNet(target.id)
-    moveDlgVisible.value = false
-    // 移动成功：后端会补齐新位置的 ring1，重新拉视野刷新整张地图
-    await refreshView()
-    bus.emit(BusEvents.TOAST, { type: 'success', message: `已到达 ${target.name}` })
+    const session = await startMove(target.id)
+    moveSession.value = session
+    startTick(session)
+    // 刷新玩家状态（status → MOVING），状态栏同步显示「移动中」
+    playerStore.load()
+    bus.emit(BusEvents.TOAST, { type: 'info', message: `开始前往 ${session.to_name}` })
   } catch (err) {
     moveError.value = err.message || '移动失败'
-  } finally {
-    moving.value = false
   }
 }
 
-function cancelMove() {
+/** 启动倒计时：每秒更新 remainingSec，到点自动 arrive */
+function startTick(session) {
+  stopTick()
+  const tick = () => {
+    const now = Date.now()
+    const end = new Date(session.end_at).getTime()
+    const left = Math.max(0, Math.ceil((end - now) / 1000))
+    remainingSec.value = left
+    if (left <= 0) {
+      stopTick()
+      doArrive()
+    }
+  }
+  tick()
+  tickTimer = setInterval(tick, 1000)
+}
+
+function stopTick() {
+  if (tickTimer) {
+    clearInterval(tickTimer)
+    tickTimer = null
+  }
+}
+
+/** 到达结算：arriveMove → 刷新地图 → 关弹窗。
+ *  失败时保留弹窗 + 提示，让用户重试（避免玩家卡在 MOVING 状态却关了弹窗）。 */
+async function doArrive() {
+  try {
+    const res = await arriveMove()
+    bus.emit(BusEvents.TOAST, { type: 'success', message: `已到达 ${res?.session?.to_name || moveTarget.value?.name || ''}` })
+  } catch (err) {
+    moveError.value = err.message || '到达结算失败，请重试'
+    return
+  }
+  closeMoveDlg()
+  await refreshView()
+  // 刷新玩家状态（status 从 MOVING 恢复 IDLE 等）
+  await playerStore.load()
+}
+
+/** 取消移动（仅移动中态可用）：cancelMove → 停原地 */
+async function doCancelMove() {
+  if (!moveSession.value) return
+  try {
+    await apiCancelMove()
+    bus.emit(BusEvents.TOAST, { type: 'info', message: '已取消移动' })
+  } catch (err) {
+    moveError.value = err.message || '取消失败'
+    return
+  }
+  closeMoveDlg()
+  // 刷新玩家状态（status → IDLE），状态栏同步
+  playerStore.load()
+}
+
+/** 彻底关闭弹窗并清理移动状态（到达/取消时用）：停倒计时 + 清空 session */
+function closeMoveDlg() {
+  stopTick()
   moveDlgVisible.value = false
   moveTarget.value = null
+  moveSession.value = null
   moveError.value = ''
+  remainingSec.value = 0
+}
+
+/** 仅隐藏弹窗 UI，保留移动状态与倒计时（点 X 或状态栏切换时用）：
+ *  移动仍在后台进行，可通过状态栏重新打开弹窗查看 */
+function hideMoveDlg() {
+  moveDlgVisible.value = false
+}
+
+/** 弹窗关闭按钮（右上角 X）：
+ *  预览态：直接清理（没开始移动）；移动中态：仅隐藏，移动继续后台进行 */
+function onDlgClose() {
+  if (isMoving.value) {
+    hideMoveDlg()
+  } else {
+    closeMoveDlg()
+  }
+}
+
+/** 恢复进行中的移动（页面刷新/onMounted 时调） */
+async function restoreMove() {
+  try {
+    const session = await getCurrentMove()
+    if (session) {
+      // 移动中态用 moveSession 渲染（to_name 等），无需设 moveTarget
+      moveSession.value = session
+      moveDlgVisible.value = true
+      startTick(session)
+    }
+  } catch {
+    // lazy arrive 已在后端处理，这里静默
+  }
 }
 
 /** 重新拉取玩家视野（移动后刷新地图），并重置选中为新的当前位置 */
@@ -131,6 +264,22 @@ async function refreshView() {
     error.value = err.message || '地图刷新失败'
   }
 }
+
+// 监听「打开移动弹窗」事件（玩家状态栏点击「移动中」触发）：
+// 若正在移动但弹窗被隐藏，则重新显示
+let offMoveDialogOpen = null
+onMounted(() => {
+  offMoveDialogOpen = bus.on(BusEvents.MOVE_DIALOG_OPEN, () => {
+    if (moveSession.value && !moveDlgVisible.value) {
+      moveDlgVisible.value = true
+    }
+  })
+})
+
+onUnmounted(() => {
+  stopTick()
+  offMoveDialogOpen?.()
+})
 
 // —— 场景列表：跟随选中节点变化重新拉取 ——
 const scenes = ref([])
@@ -170,6 +319,9 @@ async function loadScenes(node) {
 watch(selected, (node) => loadScenes(node))
 
 onMounted(async () => {
+  // 先加载玩家数据：移动耗时依赖 player.quick，必须先就绪，
+  // 否则用户在 player 加载完前点邻居会看到错误的耗时
+  await playerStore.load()
   loading.value = true
   try {
     const data = await getPlayerView()
@@ -181,6 +333,8 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  // 恢复进行中的移动（刷新页面场景）
+  await restoreMove()
 })
 </script>
 
@@ -253,21 +407,43 @@ onMounted(async () => {
             </div>
         </div>
 
-        <!-- 移动确认弹窗（点击对角邻居时弹出） -->
-        <Dlg v-if="moveDlgVisible" @close="cancelMove">
-            <div class="move-dlg">
-                <p class="move-dlg-text">是否前往 <span class="move-target-name">{{ moveTarget?.name }}</span>？</p>
-                <p v-if="moveTarget?.danger_level" class="move-dlg-tip">
-                    ⚠ 危险等级 {{ moveTarget.danger_level }}
+        <!-- 移动弹窗：预览态(显示预计时间) / 移动中态(倒计时进度条) -->
+        <Dlg v-if="moveDlgVisible" title="移动" @close="onDlgClose">
+            <!-- 预览态：确认是否前往 -->
+            <div v-if="!isMoving" class="move-dlg">
+                <p class="move-dlg-text">
+                    是否前往 <span class="move-target-name">{{ moveTarget?.name }}</span>
+                    <span v-if="moveTarget?.danger_level" class="move-dlg-tip">
+                        （危险等级 {{ moveTarget.danger_level }}）
+                    </span>？
+                </p>
+                <p class="move-dlg-meta">
+                    预计需要 <span class="move-time">{{ fmtDuration(previewDurationSec) }}</span>
+                    <span class="move-dlg-speed">（敏捷 {{ playerStore.quick }}）</span>
                 </p>
                 <p v-if="moveError" class="move-dlg-error">{{ moveError }}</p>
                 <div class="move-dlg-actions">
-                    <button class="move-btn move-btn--ok"
-                        :disabled="moving"
-                        @click="confirmMove">{{ moving ? '移动中...' : '前往' }}</button>
-                    <button class="move-btn move-btn--cancel"
-                        :disabled="moving"
-                        @click="cancelMove">取消</button>
+                    <Button class="move-btn" @click="confirmMove">
+                        前往
+                    </Button>
+                    <Button class="move-btn" @click="closeMoveDlg">取消</Button>
+                </div>
+            </div>
+            <!-- 移动中态：倒计时 + 可取消 -->
+            <div v-else class="move-dlg">
+                <p class="move-dlg-text">
+                    正在前往 <span class="move-target-name">{{ moveSession?.to_name }}</span>
+                </p>
+                <p class="move-dlg-meta">
+                    <span v-if="remainingSec > 0">
+                        剩余 <span class="move-time">{{ fmtDuration(remainingSec) }}</span>
+                    </span>
+                    <span v-else>已到达，结算中...</span>
+                </p>
+                <p v-if="moveError" class="move-dlg-error">{{ moveError }}</p>
+                <div class="move-dlg-actions">
+                    <Button v-if="remainingSec <= 0" class="move-btn" @click="doArrive">到达</Button>
+                    <Button class="move-btn" @click="doCancelMove">取消移动</Button>
                 </div>
             </div>
         </Dlg>
@@ -406,7 +582,6 @@ onMounted(async () => {
         }
         .location-right{
             .map-button{
-                color: var(--link);
                 cursor: pointer;
                 text-decoration: underline;
             }
@@ -444,7 +619,7 @@ onMounted(async () => {
             }
         }
         .scene-item:hover{
-            color: var(--link);
+            /* 仅保留下划线，不变色 */
         }
         .scene-empty{
             color: var(--text-faint);
@@ -464,7 +639,8 @@ onMounted(async () => {
     font-size: var(--fs-lg);
     color: var(--text);
     .move-target-name{
-        color: var(--accent);
+        /* 地名：下划线强调，不变色 */
+        text-decoration: underline;
         font-weight: bold;
     }
 }
@@ -472,38 +648,32 @@ onMounted(async () => {
     font-size: var(--fs-sm);
     color: var(--danger);
 }
+.move-dlg-meta{
+    font-size: var(--fs-sm);
+    color: var(--text-dim);
+    .move-dlg-speed{
+        color: var(--text-faint);
+    }
+}
+/* 时间数值：强调色，醒目 */
+.move-time{
+    color: var(--accent);
+    font-weight: bold;
+}
 .move-dlg-error{
     font-size: var(--fs-sm);
     color: var(--error);
 }
 .move-dlg-actions{
     display: flex;
+    justify-content: center;
     gap: 12px;
     margin-top: 4px;
 }
-.move-btn{
-    padding: 5px 18px;
-    font-size: var(--fs-md);
-    cursor: pointer;
-    border: 1px solid var(--border-mid);
-    background: var(--panel-bg);
-    color: var(--text);
-    border-radius: 2px;
-    transition: background 0.15s;
-}
-.move-btn:hover:not(:disabled){
-    background: var(--panel-bg-soft);
-}
-.move-btn:disabled{
+/* Button 组件自带背景图/尺寸，这里只补禁用态（移动中防重复点击） */
+.move-btn.is-disabled{
     opacity: 0.5;
     cursor: not-allowed;
-}
-.move-btn--ok{
-    background: var(--accent);
-    color: var(--text-light);
-    border-color: var(--accent-hover);
-}
-.move-btn--ok:hover:not(:disabled){
-    background: var(--accent-hover);
+    pointer-events: none;       /* 禁用时彻底不响应点击 */
 }
 </style>

@@ -2,9 +2,13 @@
 import { defineProps, computed, defineEmits } from 'vue';
 
 const props = defineProps({
+    title: {
+        type: String,
+        default: ''
+    },
     contentStyleProp: {
-        default: Object,
-        default: {}
+        type: Object,
+        default: () => ({})
     }
 })
 
@@ -31,7 +35,7 @@ const closeDlg = () => {
             <div class="dlg-frame-top-right"></div>
             <div class="dlg-frame-bottom-left"></div>
             <div class="dlg-frame-bottom-right"></div>
-            <div class="dlg-title">历练中</div>
+            <div class="dlg-title">{{ title }}</div>
             <div class="dlg-close" @click="closeDlg"></div>
             <div class="dlg-frame-content" :style="contentStyle">
                 <slot></slot>
@@ -81,6 +85,7 @@ const closeDlg = () => {
     width: 20px;
     height: 21px;
     cursor: pointer;
+    z-index: 10;
 }
 .dlg-frame-content{
     padding: 20px 15px 15px 15px;

@@ -53,6 +53,9 @@ export const BusEvents = {
    *  由 SSE script_trigger handler 调完 getScriptNode 接口后 emit，
    *  携带完整节点数据（lines/choices/actors 等），SceneBranchDialog 接收并渲染演出。 */
   SCRIPT_NODE_READY: 'script-node-ready',
+  /** 打开移动弹窗：无载荷。
+   *  玩家状态栏点击「移动中」时触发，mapView 监听后恢复显示移动中弹窗。 */
+  MOVE_DIALOG_OPEN: 'move-dialog-open',
 }
 
 const listeners = new Map()

@@ -2,6 +2,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useGameStore } from '../stores/game'
 import { createCharacter, enterCharacter, deleteCharacter } from '../api'
 import { bus, BusEvents } from '../utils/eventBus'
 import LoginPanel from '../components/LoginPanel.vue'
@@ -9,6 +10,7 @@ import CharacterSelectDialog from '../components/CharacterSelectDialog.vue'
 import CreatePlayerDialog from '../components/CreatePlayerDialog.vue'
 
 const auth = useAuthStore()
+const game = useGameStore()
 const router = useRouter()
 const loading = ref(false)
 
@@ -106,6 +108,9 @@ async function onCharacterDelete(character) {
 
 /** 进入游戏主界面 */
 function enterGameView(character, player) {
+  // 持久化 playerId 到 game store（进入游戏的唯一数据源头），
+  // 后续 player store / 各组件都从这里取，刷新页面也能恢复
+  if (player?.id) game.setPlayerId(player.id)
   router.push({
     name: 'game',
     query: { playerId: player?.id },

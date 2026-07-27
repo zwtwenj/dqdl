@@ -1,19 +1,21 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
 import playerBox from '@/components1/playerBox.vue'
 import quickButton from '@/components1/quickButton.vue'
 import FloatingTooltip from '@/components/FloatingTooltip.vue'
-import { getPlayer } from '@/api'
-import { useGameStore } from '@/stores/game'
+import { usePlayerStore } from '@/stores/player'
 import { bus, BusEvents } from '@/utils/eventBus'
 
-const route = useRoute()
-const game = useGameStore()
+const playerStore = usePlayerStore()
+const player = computed(() => playerStore.player)
+const loading = computed(() => playerStore.loading)
 
-const player = ref(null)
-const loading = ref(false)
-const error = ref('')
+// 玩家是否移动中（status=9）：此时状态栏可点击，重新打开移动弹窗
+const isMoving = computed(() => player.value?.status === 9)
+
+function onStatusClick() {
+  if (isMoving.value) bus.emit(BusEvents.MOVE_DIALOG_OPEN)
+}
 
 /** 进度百分比：cur/max → 0~100，max 为 0 时返回 0（防除零） */
 function pct(cur, max) {
@@ -34,6 +36,8 @@ const maxEnergy = computed(() => finalAttrs.value.max_energy ?? player.value?.ma
 const hpPct = computed(() => pct(player.value?.hp, maxHp.value))
 const energyPct = computed(() => pct(player.value?.energy, maxEnergy.value))
 const cultPct = computed(() => pct(player.value?.cultivation, player.value?.level_cultivation))
+
+onMounted(() => playerStore.load())
 
 // —— 进度条 tooltip（三条共用一个 FloatingTooltip）——
 // tipKey 标记当前悬停的是哪条；hoveredEl 传给 FloatingTooltip 做定位参考
@@ -58,25 +62,6 @@ function onBarEnter(key, e) {
 function onBarLeave() {
   tipOpen.value = false
 }
-
-onMounted(async () => {
-  // 优先用 query 的 playerId，没有则用 store 兜底（刷新场景）
-  const id = route.query.playerId || game.playerId
-  if (!id) {
-    error.value = '缺少玩家 id'
-    return
-  }
-  game.setPlayerId(id)
-  loading.value = true
-  try {
-    player.value = await getPlayer(id)
-  } catch (err) {
-    error.value = err.message || '加载失败'
-    bus.emit(BusEvents.TOAST, { type: 'error', message: error.value })
-  } finally {
-    loading.value = false
-  }
-})
 </script>
 
 <template>
@@ -126,7 +111,11 @@ onMounted(async () => {
         </div>
         <div class="player-status">
             <div class="player-status-left">状态：</div>
-            <div class="player-status-value player-status-1">{{ player?.status_label || (loading ? '...' : '---') }}</div>
+            <div
+                class="player-status-value"
+                :class="{ 'player-status-moving': isMoving, 'player-status-1': !isMoving }"
+                @click="onStatusClick"
+            >{{ player?.status_label || (loading ? '...' : '---') }}</div>
         </div>
         <div class="player-money">
             <div class="player-money-left">金钱：</div>
@@ -247,6 +236,12 @@ onMounted(async () => {
     }
     .player-status-1{
         color: var(--status-ok);
+    }
+    /* 移动中：可点击，下划线提示 */
+    .player-status-moving{
+        color: var(--accent);
+        text-decoration: underline;
+        cursor: pointer;
     }
 }
 .player-money{

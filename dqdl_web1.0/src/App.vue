@@ -1,6 +1,7 @@
 <script setup>
-// 斗气大陆 · 根组件：承载路由出口 + 全局 toast + 全局 NPC 对话/商店/奇遇/秘境/修炼/任务接取/场景分支对话
+// 斗气大陆 · 根组件：承载路由出口 + 全局 toast + 全局确认框 + 全局 NPC 对话/商店/奇遇/秘境/修炼/任务接取/场景分支对话
 import ToastMessage from './components/ToastMessage.vue'
+import ConfirmBox from '@/components1/confirm.vue'
 import NpcDialog from './components/NpcDialog.vue'
 import NpcShopPanel from './components/NpcShopPanel.vue'
 import AdventureListPanel from './components/AdventureListPanel.vue'
@@ -13,6 +14,7 @@ import SceneBranchDialog from './components/SceneBranchDialog.vue'
 <template>
   <router-view />
   <ToastMessage />
+  <ConfirmBox />
   <NpcDialog />
   <NpcShopPanel />
   <AdventureListPanel />

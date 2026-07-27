@@ -5,6 +5,7 @@ import { startMove, cancelMove as apiCancelMove, getCurrentMove, arriveMove } fr
 import { usePlayerStore } from '@/stores/player'
 import Dlg from '@/components1/dlg.vue'
 import Button from '@/components1/button.vue'
+import { confirm } from '@/components1/confirm'
 import { bus, BusEvents } from '@/utils/eventBus'
 
 const playerStore = usePlayerStore()
@@ -198,9 +199,17 @@ async function doArrive() {
   await playerStore.load()
 }
 
-/** 取消移动（仅移动中态可用）：cancelMove → 停原地 */
+/** 取消移动（仅移动中态可用）：二次确认 → cancelMove → 停原地 */
 async function doCancelMove() {
   if (!moveSession.value) return
+  // 二次确认，避免误触中止移动
+  const ok = await confirm({
+    title: '取消移动',
+    content: `确定取消前往 ${moveSession.value?.to_name || ''}？将停留在原地。`,
+    okText: '取消移动',
+    cancelText: '继续移动',
+  })
+  if (!ok) return
   try {
     await apiCancelMove()
     bus.emit(BusEvents.TOAST, { type: 'info', message: '已取消移动' })

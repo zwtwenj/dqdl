@@ -1,5 +1,6 @@
 <script setup>
 import { defineProps, computed, defineEmits } from 'vue';
+import { nextZIndex } from '@/stores/ui'
 
 const props = defineProps({
     title: {
@@ -21,6 +22,10 @@ const contentStyle = computed(() => {
     return Object.assign(style, props.contentStyleProp)
 })
 
+// 组件实例创建时取递增 z-index，绑到最外层内联样式：
+// 后创建的弹窗 zIndex 更大，永远盖在先创建的之上
+const zIndex = nextZIndex()
+
 const emits = defineEmits(['close'])
 
 const closeDlg = () => {
@@ -29,7 +34,7 @@ const closeDlg = () => {
 </script>
 
 <template>
-    <div class="dlg-bg">
+    <div class="dlg-bg" :style="{ zIndex }">
         <div class="dlg-frame">
             <div class="dlg-frame-top-left"></div>
             <div class="dlg-frame-top-right"></div>
@@ -50,7 +55,7 @@ const closeDlg = () => {
     height: 100%;
     width: 100%;
     background: rgba(121, 114, 108, 0.5);
-    z-index: 100;
+    /* z-index 由内联样式注入（来自 ui store 的递增值），这里不写死 */
     top: 0;
     left: 0;
     display: flex;

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { getPlayerView, getMapScenes } from '@/api/mapdemo'
+import { getPlayerView, getMapScenes, moveToNet } from '@/api/mapdemo'
+import Dlg from '@/components1/dlg.vue'
 import { bus, BusEvents } from '@/utils/eventBus'
 
 const view = ref(null)          // getPlayerView 返回：{ ring0, ring1, nodes, edges, fog }
@@ -73,8 +74,62 @@ function isCurrent(node) {
   return ring0Id.value != null && node.id === ring0Id.value
 }
 
+/** 节点是否为当前所在节点的对角邻居（ring1，可移动目标）。
+ *  与后端 movePlayer 的校验一致：|dx|==1 && |dy|==1 */
+function isMovable(node) {
+  const c = ring0.value
+  if (!c || node.gx == null || node.gy == null) return false
+  return Math.abs(node.gx - c.gx) === 1 && Math.abs(node.gy - c.gy) === 1
+}
+
+// 点击节点：对角邻居 → 弹移动确认；其他（自身/远点）→ 仅选中查看
 function onSelectNode(node) {
   selected.value = node
+  if (isMovable(node)) {
+    moveTarget.value = node
+    moveDlgVisible.value = true
+  }
+}
+
+// —— 移动确认弹窗 ——
+const moveDlgVisible = ref(false)
+const moveTarget = ref(null)       // 待移动的目标节点
+const moving = ref(false)          // 移动中（防重复点击）
+const moveError = ref('')
+
+async function confirmMove() {
+  const target = moveTarget.value
+  if (!target?.id || moving.value) return
+  moving.value = true
+  moveError.value = ''
+  try {
+    await moveToNet(target.id)
+    moveDlgVisible.value = false
+    // 移动成功：后端会补齐新位置的 ring1，重新拉视野刷新整张地图
+    await refreshView()
+    bus.emit(BusEvents.TOAST, { type: 'success', message: `已到达 ${target.name}` })
+  } catch (err) {
+    moveError.value = err.message || '移动失败'
+  } finally {
+    moving.value = false
+  }
+}
+
+function cancelMove() {
+  moveDlgVisible.value = false
+  moveTarget.value = null
+  moveError.value = ''
+}
+
+/** 重新拉取玩家视野（移动后刷新地图），并重置选中为新的当前位置 */
+async function refreshView() {
+  try {
+    const data = await getPlayerView()
+    view.value = data
+    selected.value = data?.ring0 || null
+  } catch (err) {
+    error.value = err.message || '地图刷新失败'
+  }
 }
 
 // —— 场景列表：跟随选中节点变化重新拉取 ——
@@ -150,9 +205,9 @@ onMounted(async () => {
                     v-for="node in view?.nodes"
                     :key="node.id"
                     class="map-node"
-                    :class="{ current: isCurrent(node), selected: selected?.id === node.id }"
+                    :class="{ current: isCurrent(node), selected: selected?.id === node.id, movable: isMovable(node) }"
                     :style="nodePos(node)"
-                    :title="node.name"
+                    :title="isMovable(node) ? `前往 ${node.name}` : node.name"
                     @click="onSelectNode(node)"
                 >
                     <div class="map-node-icon-wrap">
@@ -197,6 +252,25 @@ onMounted(async () => {
                 <div v-else class="scene-empty">此地无可入场景</div>
             </div>
         </div>
+
+        <!-- 移动确认弹窗（点击对角邻居时弹出） -->
+        <Dlg v-if="moveDlgVisible" @close="cancelMove">
+            <div class="move-dlg">
+                <p class="move-dlg-text">是否前往 <span class="move-target-name">{{ moveTarget?.name }}</span>？</p>
+                <p v-if="moveTarget?.danger_level" class="move-dlg-tip">
+                    ⚠ 危险等级 {{ moveTarget.danger_level }}
+                </p>
+                <p v-if="moveError" class="move-dlg-error">{{ moveError }}</p>
+                <div class="move-dlg-actions">
+                    <button class="move-btn move-btn--ok"
+                        :disabled="moving"
+                        @click="confirmMove">{{ moving ? '移动中...' : '前往' }}</button>
+                    <button class="move-btn move-btn--cancel"
+                        :disabled="moving"
+                        @click="cancelMove">取消</button>
+                </div>
+            </div>
+        </Dlg>
     </div>
 </template>
 
@@ -291,6 +365,13 @@ onMounted(async () => {
     transform: scale(1.1);
     filter: drop-shadow(0 0 6px rgba(240, 192, 64, 1)) drop-shadow(0 0 3px rgba(200, 0, 0, 0.8));
 }
+/* 可移动节点（当前点的对角邻居）：绿色光晕提示可达 */
+.map-node.movable .map-node-icon{
+    filter: drop-shadow(0 0 3px rgba(80, 200, 120, 0.8));
+}
+.map-node.movable:hover .map-node-icon{
+    filter: drop-shadow(0 0 6px rgba(80, 200, 120, 1));
+}
 .map-node-label{
     font-size: var(--fs-xs);
     color: var(--text-dark);
@@ -370,5 +451,59 @@ onMounted(async () => {
             font-style: italic;
         }
     }
+}
+
+/* —— 移动确认弹窗内容 —— */
+.move-dlg{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.move-dlg-text{
+    font-size: var(--fs-lg);
+    color: var(--text);
+    .move-target-name{
+        color: var(--accent);
+        font-weight: bold;
+    }
+}
+.move-dlg-tip{
+    font-size: var(--fs-sm);
+    color: var(--danger);
+}
+.move-dlg-error{
+    font-size: var(--fs-sm);
+    color: var(--error);
+}
+.move-dlg-actions{
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+}
+.move-btn{
+    padding: 5px 18px;
+    font-size: var(--fs-md);
+    cursor: pointer;
+    border: 1px solid var(--border-mid);
+    background: var(--panel-bg);
+    color: var(--text);
+    border-radius: 2px;
+    transition: background 0.15s;
+}
+.move-btn:hover:not(:disabled){
+    background: var(--panel-bg-soft);
+}
+.move-btn:disabled{
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.move-btn--ok{
+    background: var(--accent);
+    color: var(--text-light);
+    border-color: var(--accent-hover);
+}
+.move-btn--ok:hover:not(:disabled){
+    background: var(--accent-hover);
 }
 </style>

@@ -35,16 +35,29 @@ const sseHandlers = {
   },
 
   /**
-   * 移动到达：后端 arrive 结算后推送（玩家 end_at 到期自动到达）。
-   * data 含 { to_net_id, to_name }。emit PLAYER_MOVE_ARRIVED 通知：
-   *   - playerStore.load() 刷新玩家状态（status 从 MOVING 恢复 IDLE）
-   *   - mapView 监听后刷新地图视野 + 关闭移动弹窗
-   * 前端不再需要靠倒计时到期主动调 arrive 接口。
+   * 移动到达一段（多段移动的中间段，非全程）：后端 arrive 走完一段后推送。
+   * data 含 { to_net_id, to_name }。emit PLAYER_MOVE_ARRIVED：
+   *   mapView 监听后刷新地图 + 用新 session 重启下一段倒计时；playerStore 刷新玩家位置。
    */
   move_arrived: (data) => {
     bus.emit(BusEvents.PLAYER_MOVE_ARRIVED, {
       to_net_id: data?.to_net_id,
       to_name: data?.to_name,
+    })
+  },
+
+  /** 移动全程结束（抵达 line 终点）：emit PLAYER_MOVE_FINISHED，mapView 关弹窗+刷新。 */
+  move_finished: (data) => {
+    bus.emit(BusEvents.PLAYER_MOVE_FINISHED, {
+      to_net_id: data?.to_net_id,
+      to_name: data?.to_name,
+    })
+  },
+
+  /** 移动被取消：emit PLAYER_MOVE_CANCELLED，mapView 关弹窗 + 刷新到停留点。 */
+  move_cancelled: (data) => {
+    bus.emit(BusEvents.PLAYER_MOVE_CANCELLED, {
+      stop_net_id: data?.stop_net_id,
     })
   },
 }

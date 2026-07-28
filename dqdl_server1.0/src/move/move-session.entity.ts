@@ -6,11 +6,12 @@ import {
 } from 'typeorm';
 
 /**
- * 移动实例表：玩家在网状地图上移动的一次记录。
+ * 移动实例表：玩家在网状地图上移动的一次记录（可能多段）。
  *
- * 速度 = 玩家 quick（final_attrs.quick，含功法/宝物加成）。
- * 时长(秒) = ceil(距离 × 60 / 速度)。例：quick=10 → 70×60/10 = 420秒 = 7分钟。
- * 生命周期：active(移动中) → arrived(到达) / cancelled(取消)。
+ * 速度 = base_quick + levelAttrBonus(level)（实时计算，纯基础敏捷）。
+ * 单段时长(秒) = ceil(距离 × 60 / 速度)。多段移动按 line 队列逐段走，每段独立计时。
+ * line 存完整路径（节点对象数组），大地图据此画路径；current_net_id 追踪当前走到哪。
+ * 生命周期：active(进行中) → finished(结束，走完或取消均算结束)。
  */
 @Entity('move_session')
 export class MoveSession {
@@ -26,11 +27,26 @@ export class MoveSession {
   @Column({ type: 'int' })
   to_net_id: number;
 
+  /** 玩家当前已到达的节点 id（多段移动实时追踪进度）。
+   *  startMove 时 = line[0]（起点）；arrive 走下一段时推进；cancel 时玩家停在此节点。 */
+  @Column({ type: 'int', comment: '当前已到达节点 id（多段移动进度）' })
+  current_net_id: number;
+
+  /** 当前正在走的段索引（0=第一段）。arrive 走完一段后 +1。 */
+  @Column({ type: 'int', default: 0, comment: '当前段索引（0起）' })
+  current_seg: number;
+
   @Column({ type: 'varchar', length: 64, nullable: true })
   from_name: string | null;
 
   @Column({ type: 'varchar', length: 64, nullable: true })
   to_name: string | null;
+
+  /** 移动路径：节点对象数组 JSON [{id,name,gx,gy}, ...]。
+   *  单步移动 = [起点, 终点]；后续寻路支持多段时 = 完整途经节点序列。
+   *  大地图据此画变色路径线（含坐标，无需再查节点）。 */
+  @Column({ type: 'text', nullable: true, comment: '移动路径 JSON:[{id,name,gx,gy}]' })
+  line: string | null;
 
   @Column({ type: 'int', default: 70 })
   distance: number;
@@ -48,7 +64,7 @@ export class MoveSession {
   end_at: Date;
 
   @Column({ type: 'varchar', length: 16, default: 'active' })
-  status: string; // active / arrived / cancelled
+  status: string; // active=进行中; finished=结束（走完或取消，不区分）
 
   @CreateDateColumn()
   created_at: Date;

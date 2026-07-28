@@ -9,6 +9,14 @@ import http from './request'
 /** 全图：节点 + 边（4 对角邻接） */
 export const getMapGraph = () => http.get('/location_net/graph')
 
+/** 矩形范围查询：大地图视口增量加载用。返回 { nodes, edges } */
+export const getNodesInBBox = (minGX, minGY, maxGX, maxGY) =>
+  http.get('/location_net/bbox', { params: { minGX, minGY, maxGX, maxGY } })
+
+/** 寻路：fromId → toId 的最短路径。返回 { path: [{id,name,gx,gy,...}] | null } */
+export const findPath = (fromId, toId) =>
+  http.get('/location_net/path', { params: { from: fromId, to: toId } })
+
 /** 玩家视野：ring0+ring1 可见 + ring2 迷雾（前端画地图主用这个） */
 export const getPlayerView = () => http.get('/location_net/view')
 

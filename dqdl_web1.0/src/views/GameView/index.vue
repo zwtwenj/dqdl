@@ -17,17 +17,22 @@ const playerStore = usePlayerStore()
 // 进入游戏页建立通用 SSE 长连接（剧本触发/移动到达等推送），离开时关闭
 const { open: openStream, close: closeStream } = useScriptStream()
 
-// 移动到达（SSE 推送）→ 刷新玩家状态（status 从 MOVING 恢复 IDLE，状态栏同步）
+// 移动事件（SSE 推送）→ 刷新玩家状态（位置/status 变化，状态栏同步）：
+//  走完一段/全程结束/取消，玩家数据都可能变，统一刷新
 let offMoveArrived = null
+let offMoveFinished = null
+let offMoveCancelled = null
 onMounted(() => {
   openStream()
-  offMoveArrived = bus.on(BusEvents.PLAYER_MOVE_ARRIVED, () => {
-    playerStore.load()
-  })
+  offMoveArrived = bus.on(BusEvents.PLAYER_MOVE_ARRIVED, () => playerStore.load())
+  offMoveFinished = bus.on(BusEvents.PLAYER_MOVE_FINISHED, () => playerStore.load())
+  offMoveCancelled = bus.on(BusEvents.PLAYER_MOVE_CANCELLED, () => playerStore.load())
 })
 onUnmounted(() => {
   closeStream()
   offMoveArrived?.()
+  offMoveFinished?.()
+  offMoveCancelled?.()
 })
 </script>
 

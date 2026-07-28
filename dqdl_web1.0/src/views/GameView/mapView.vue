@@ -1,14 +1,18 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
-import { getPlayerView, getMapScenes } from '@/api/mapdemo'
+import { getPlayerView, getMapScenes, findPath } from '@/api/mapdemo'
 import { startMove, cancelMove as apiCancelMove, getCurrentMove, arriveMove } from '@/api/move'
 import { usePlayerStore } from '@/stores/player'
 import Dlg from '@/components1/dlg.vue'
 import Button from '@/components1/button.vue'
+import WorldMap from './WorldMap.vue'
 import { confirm } from '@/components1/confirm'
 import { bus, BusEvents } from '@/utils/eventBus'
 
 const playerStore = usePlayerStore()
+
+// 大地图弹窗
+const showWorldMap = ref(false)
 
 const view = ref(null)          // getPlayerView 返回：{ ring0, ring1, nodes, edges, fog }
 const selected = ref(null)      // 右侧展示的节点（默认 ring0）
@@ -57,15 +61,31 @@ const nodeMap = computed(() => {
   return map
 })
 
+// 玩家移动轨迹涉及的边 key 集合（moveSession.line 段结构提取）。
+// 小地图据此把轨迹边变色（金色），区别于普通棕色边。
+const lineEdgeKeys = computed(() => {
+  const ln = moveSession.value?.line
+  if (!Array.isArray(ln)) return new Set()
+  const keys = new Set()
+  for (const seg of ln) {
+    if (!seg?.start?.id || !seg?.end?.id) continue
+    keys.add(`${Math.min(seg.start.id, seg.end.id)}-${Math.max(seg.start.id, seg.end.id)}`)
+  }
+  return keys
+})
+
 const edges = computed(() => {
   const map = nodeMap.value
+  const lineKeys = lineEdgeKeys.value
   return (view.value?.edges || []).map((e, i) => {
     const a = map[e.from_id ?? e.fromId ?? e.from]
     const c = map[e.to_id ?? e.toId ?? e.to]
     if (!a || !c) return null
     const pa = nodeXY(a)
     const pc = nodeXY(c)
-    return { id: i, x1: pa.x, y1: pa.y, x2: pc.x, y2: pc.y }
+    // 该边是否在玩家移动轨迹上（line 段涉及的节点对）
+    const key = `${Math.min(a.id, c.id)}-${Math.max(a.id, c.id)}`
+    return { id: i, x1: pa.x, y1: pa.y, x2: pc.x, y2: pc.y, onLine: lineKeys.has(key) }
   }).filter(Boolean)
 })
 
@@ -86,26 +106,52 @@ function isCurrent(node) {
   return ring0Id.value != null && node.id === ring0Id.value
 }
 
-/** 节点是否为当前所在节点的对角邻居（ring1，可移动目标）。
- *  与后端 move-session 的邻接校验一致：|dx|==1 && |dy|==1 */
+/** 节点是否可点击移动：3 格内（|dx|<=3 && |dy|<=3）、非自身、非当前移动中。
+ *  含直接邻居（1格，单步移动）和远点（2-3格，需寻路）。
+ *  视野已扩到 ring3，3 格内节点都可见可点。 */
 function isMovable(node) {
   const c = ring0.value
   if (!c || node.gx == null || node.gy == null) return false
-  return Math.abs(node.gx - c.gx) === 1 && Math.abs(node.gy - c.gy) === 1
+  if (node.id === c.id) return false            // 自身不可点
+  const dx = Math.abs(node.gx - c.gx)
+  const dy = Math.abs(node.gy - c.gy)
+  return dx <= 3 && dy <= 3
 }
 
-// 点击节点：仅触发移动（对角邻居 → 弹移动预览），不切换右侧选中信息。
-// selected 始终跟随当前所在地 ring0，右侧永远显示玩家所在地的信息。
-function onSelectNode(node) {
-  if (isMovable(node) && !moveSession.value) {
-    // 正在移动中时不允许发起新移动
-    openMovePreview(node)
+/** 点击节点处理移动（小地图/大地图统一入口）：
+ *  - 小地图(isMovable 限制 3 格内) / 大地图(不限制格数) 都走这里
+ *  - 统一调 findPath 寻路（邻居也走寻路，返回 2 节点 path），成功则弹预览
+ *  selected 始终跟随 ring0，右侧永远显示玩家所在地信息。 */
+async function handleSelectNode(node) {
+  if (!node || node.id === ring0.value?.id) return   // 自身不处理
+  if (moveSession.value || pathFinding.value) return  // 移动中/寻路中不处理
+  pathFinding.value = true
+  try {
+    const res = await findPath(ring0.value.id, node.id)
+    const path = res?.path
+    if (!Array.isArray(path) || path.length < 2) {
+      bus.emit(BusEvents.TOAST, { type: 'error', message: '无法到达该地点（路径不通）' })
+      return
+    }
+    openMovePreview(node, path)
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '寻路失败' })
+  } finally {
+    pathFinding.value = false
   }
+}
+
+// 小地图点击：3 格内的节点才可点（视野限制），其余交给 handleSelectNode
+function onSelectNode(node) {
+  if (!isMovable(node)) return
+  handleSelectNode(node)
 }
 
 // —— 移动弹窗（两阶段：preview 预览态 / moving 移动中态）——
 const moveDlgVisible = ref(false)
 const moveTarget = ref(null)        // 目标节点（地图节点对象）
+const premoveLine = ref(null)       // 待移动的寻路路径 [{id,name,gx,gy}]（点击远点寻路得到，多段时>2）
+const pathFinding = ref(false)      // 寻路中（点击远点调 findPath 时）
 const moveSession = ref(null)       // 进行中的移动 session（start/atRestore 填充）
 const moveError = ref('')
 const remainingSec = ref(0)         // 移动中剩余秒数（倒计时）
@@ -116,6 +162,15 @@ const MOVE_DISTANCE = 70
 
 // 弹窗阶段：有 session 就是「移动中」，否则是「预览确认」
 const isMoving = computed(() => !!moveSession.value)
+
+// 多段移动进度信息：当前段终点名、当前段号(1起)、总段数。单段时 totalSegs=1 不显示进度。
+const segLine = computed(() => moveSession.value?.line || [])
+const totalSegs = computed(() => segLine.value.length)
+const currentSegNo = computed(() => (moveSession.value?.current_seg ?? 0) + 1)
+const currentSegEndName = computed(() => {
+  const seg = segLine.value[moveSession.value?.current_seg ?? 0]
+  return seg?.end?.name || moveSession.value?.to_name || ''
+})
 
 /** 秒数 → 时长 HH:MM:SS（如 180 → 00:03:00）。
  *  前后端时长算法一致（距离×60/speed），前端纯展示格式化，不依赖后端时间点。 */
@@ -128,29 +183,33 @@ function fmtDuration(sec) {
   return `${pad(h)}:${pad(m)}:${pad(r)}`
 }
 
-/** 前端预估单格移动耗时（秒）：ceil(距离×60/speed)。
- *  speed 用 playerStore.quick（final_attrs.quick，含加成的面板敏捷）。
- *  注意：此为预览估算，后端 startMove 以 base_quick+levelAttrBonus 算实际时长，
- *  两者可能略有差异，以后端返回的 session.end_at 为准。 */
+/** 前端预估移动总耗时（秒）= 单段耗时 × 段数。
+ *  段数 = premoveLine.length - 1（寻路路径节点数-1）；单段 = ceil(距离×60/speed)。
+ *  speed 用 playerStore.quick（面板敏捷）。多段移动总时长为各段之和（每段等长）。
+ *  注意：预览估算，后端以 base_quick+levelAttrBonus 算实际单段时长，以后端 end_at 为准。 */
 const previewDurationSec = computed(() => {
   const speed = Math.max(1, playerStore.quick)
-  return Math.ceil((MOVE_DISTANCE * 60) / speed)
+  const segSec = Math.ceil((MOVE_DISTANCE * 60) / speed)
+  const segs = Math.max(1, (premoveLine.value?.length || 2) - 1)
+  return segSec * segs
 })
 
-/** 打开预览弹窗：不再调接口，耗时由前端按敏捷自算 */
-function openMovePreview(node) {
+/** 打开预览弹窗。
+ *  node: 目标节点；line: 寻路路径 [{id,name,gx,gy}]（单步=[from,to]，多段>2）。 */
+function openMovePreview(node, line) {
   moveTarget.value = node
+  premoveLine.value = line || null
   moveDlgVisible.value = true
   moveError.value = ''
 }
 
-/** 确认移动：startMove 建 session → 进入倒计时态 */
+/** 确认移动：把寻路得到的 premoveLine 传给 startMove → 建 session → 进入倒计时态 */
 async function confirmMove() {
-  const target = moveTarget.value
-  if (!target?.id || moveSession.value) return
+  const line = premoveLine.value
+  if (!Array.isArray(line) || line.length < 2 || moveSession.value) return
   moveError.value = ''
   try {
-    const session = await startMove(target.id)
+    const session = await startMove(line)
     moveSession.value = session
     arrivedHandled = false        // 新一轮移动，重置到达标志
     startTick(session)
@@ -196,32 +255,69 @@ function stopTick() {
 // 任一执行后置 true，另一个直接返回，避免重复 refreshView → 重复 loadScenes。
 let arrivedHandled = false
 
-/** 兜底到达结算（SSE 未送达时）：arriveMove → 刷新地图 → 关弹窗。
- *  正常情况下由 onMoveArrived（SSE 监听）处理，这里只在 SSE 异常时触发。 */
+/** 兜底到达结算（SSE 未送达时）：arriveMove → 按是否走完全程决定关弹窗或继续下一段。
+ *  正常情况下由 onMoveArrived/onMoveFinished（SSE 监听）处理，这里只在 SSE 异常时触发。 */
 async function doArrive() {
   if (arriveFallbackTimer) { clearTimeout(arriveFallbackTimer); arriveFallbackTimer = null }
   if (arrivedHandled) return        // SSE 已处理到达，兜底跳过
   arrivedHandled = true
+  let res
   try {
-    const res = await arriveMove()
-    bus.emit(BusEvents.TOAST, { type: 'success', message: `已到达 ${res?.session?.to_name || moveTarget.value?.name || ''}` })
+    res = await arriveMove()
   } catch (err) {
     moveError.value = err.message || '到达结算失败，请重试'
     arrivedHandled = false          // 失败则允许重试
     return
   }
-  // 到达后刷新地图（玩家状态由 GameView 的 SSE 监听刷新，这里不重复）
+  await refreshView()
+  if (res?.finished) {
+    // 走完全程：关弹窗
+    bus.emit(BusEvents.TOAST, { type: 'success', message: `已抵达 ${res?.session?.to_name || ''}` })
+    closeMoveDlg()
+  } else {
+    // 还有下一段：用新 session 重启倒计时
+    bus.emit(BusEvents.TOAST, { type: 'success', message: `已到达 ${res?.session?.to_name || ''}，继续前行` })
+    moveSession.value = res?.session || moveSession.value
+    arrivedHandled = false
+    if (moveSession.value) startTick(moveSession.value)
+  }
+}
+
+/** 收到 SSE「移动到达一段」（多段移动的中间段，非全程）：
+ *  刷新地图 + 用新 session（含下一段 end_at）重启倒计时，弹窗保持打开。
+ *  arrivedHandled 仅用于 arrive 互斥（防 SSE 与兜底重复），这里走完一段后重置以适配下一段。 */
+async function onMoveArrived(data) {
+  if (arriveFallbackTimer) { clearTimeout(arriveFallbackTimer); arriveFallbackTimer = null }
+  arrivedHandled = true
+  stopTick()
+  bus.emit(BusEvents.TOAST, { type: 'success', message: `已到达 ${data?.to_name || ''}` })
+  await refreshView()
+  // 拉最新 session（含下一段 end_at），重启倒计时；若已无 active（异常），则结束
+  const session = await getCurrentMove()
+  if (session) {
+    moveSession.value = session
+    arrivedHandled = false       // 重置：下一段到达时允许处理
+    startTick(session)
+  } else {
+    // 后端已无 active session（异常/已结束），按结束处理
+    closeMoveDlg()
+  }
+}
+
+/** 收到 SSE「移动全程结束」（抵达 line 终点）：关弹窗 + 刷新 */
+async function onMoveFinished(data) {
+  if (arriveFallbackTimer) { clearTimeout(arriveFallbackTimer); arriveFallbackTimer = null }
+  arrivedHandled = true
+  stopTick()
+  bus.emit(BusEvents.TOAST, { type: 'success', message: `已抵达 ${data?.to_name || ''}` })
   closeMoveDlg()
   await refreshView()
 }
 
-/** 收到 SSE 移动到达事件（权威路径）：取消兜底 → 关弹窗 → 刷新地图 */
-async function onMoveArrived(data) {
+/** 收到 SSE「移动被取消」：关弹窗 + 刷新到停留点 */
+async function onMoveCancelled() {
   if (arriveFallbackTimer) { clearTimeout(arriveFallbackTimer); arriveFallbackTimer = null }
-  if (arrivedHandled) return        // 兜底已处理到达，SSE 跳过
-  arrivedHandled = true
   stopTick()
-  bus.emit(BusEvents.TOAST, { type: 'success', message: `已到达 ${data?.to_name || ''}` })
   closeMoveDlg()
   await refreshView()
 }
@@ -256,6 +352,7 @@ function closeMoveDlg() {
   arrivedHandled = false       // 清理到达标志，下次移动可正常结算
   moveDlgVisible.value = false
   moveTarget.value = null
+  premoveLine.value = null     // 清理寻路路径
   moveSession.value = null
   moveError.value = ''
   remainingSec.value = 0
@@ -277,19 +374,19 @@ function onDlgClose() {
   }
 }
 
-/** 恢复进行中的移动（页面刷新/onMounted 时调） */
+/** 恢复进行中的移动（页面刷新/onMounted 时调）：
+ *  按 player_id+status=active 查 move_session，有就恢复弹窗+倒计时。 */
 async function restoreMove() {
   try {
     const session = await getCurrentMove()
     if (session) {
-      // 移动中态用 moveSession 渲染（to_name 等），无需设 moveTarget
       moveSession.value = session
-      arrivedHandled = false      // 恢复进行中的移动，重置到达标志
+      arrivedHandled = false
       moveDlgVisible.value = true
       startTick(session)
     }
   } catch {
-    // lazy arrive 已在后端处理，这里静默
+    // 无进行中移动属正常情况，静默
   }
 }
 
@@ -304,20 +401,24 @@ async function refreshView() {
   }
 }
 
-// 监听「打开移动弹窗」事件（玩家状态栏点击「移动中」触发）：
-// 若正在移动但弹窗被隐藏，则重新显示
-// 监听「移动到达」事件（后端 SSE 推送 move_arrived）：刷新地图 + 关弹窗
+// 监听移动相关事件（SSE 推送经 sseEventHandlers 转发）：
+//  - MOVE_DIALOG_OPEN：玩家状态栏点击「移动中」重新显示弹窗
+//  - PLAYER_MOVE_ARRIVED：走完一段（中间段），刷新+重启下一段倒计时
+//  - PLAYER_MOVE_FINISHED：走完全程，关弹窗+刷新
+//  - PLAYER_MOVE_CANCELLED：取消，关弹窗+刷新到停留点
 let offMoveDialogOpen = null
 let offMoveArrived = null
+let offMoveFinished = null
+let offMoveCancelled = null
 onMounted(() => {
   offMoveDialogOpen = bus.on(BusEvents.MOVE_DIALOG_OPEN, () => {
     if (moveSession.value && !moveDlgVisible.value) {
       moveDlgVisible.value = true
     }
   })
-  offMoveArrived = bus.on(BusEvents.PLAYER_MOVE_ARRIVED, (data) => {
-    onMoveArrived(data)
-  })
+  offMoveArrived = bus.on(BusEvents.PLAYER_MOVE_ARRIVED, (data) => onMoveArrived(data))
+  offMoveFinished = bus.on(BusEvents.PLAYER_MOVE_FINISHED, (data) => onMoveFinished(data))
+  offMoveCancelled = bus.on(BusEvents.PLAYER_MOVE_CANCELLED, () => onMoveCancelled())
 })
 
 onUnmounted(() => {
@@ -325,6 +426,8 @@ onUnmounted(() => {
   if (arriveFallbackTimer) clearTimeout(arriveFallbackTimer)
   offMoveDialogOpen?.()
   offMoveArrived?.()
+  offMoveFinished?.()
+  offMoveCancelled?.()
 })
 
 // —— 场景列表：跟随选中节点变化重新拉取 ——
@@ -408,11 +511,12 @@ onMounted(async () => {
                 <div class="map-view-left-title-right"></div>
             </div>
             <div class="map-view-left-location">
-                <!-- 网状地图：SVG 连线层 + 绝对定位节点 -->
+                <!-- 网状地图：SVG 连线层（移动轨迹段金色高亮） + 绝对定位节点 -->
                 <svg class="map-edges" v-if="ring0">
                     <line v-for="e in edges" :key="e.id"
                         :x1="e.x1" :y1="e.y1" :x2="e.x2" :y2="e.y2"
-                        stroke="#8a7a5a" stroke-width="2" />
+                        :stroke="e.onLine ? '#f0c040' : '#8a7a5a'"
+                        :stroke-width="e.onLine ? 3 : 2" />
                 </svg>
                 <div
                     v-for="node in view?.nodes"
@@ -440,7 +544,7 @@ onMounted(async () => {
                     {{ selected?.name || '---' }}
                 </div>
                 <div class="location-right">
-                    <div class="map-button">地图</div>
+                    <div class="map-button" @click="showWorldMap = true">地图</div>
                 </div>
             </div>
             <div class="location-description">
@@ -496,6 +600,12 @@ onMounted(async () => {
                     预计需要 <span class="move-time">{{ fmtDuration(previewDurationSec) }}</span>
                     <span class="move-dlg-speed">（敏捷 {{ playerStore.quick }}）</span>
                 </p>
+                <!-- 寻路路径：多段（>2节点）时显示途经序列，验证 BFS 寻路结果 -->
+                <p v-if="premoveLine && premoveLine.length > 2" class="move-dlg-path">
+                    途经：{{ premoveLine.slice(1, -1).map(n => n.name).join(' → ') }}
+                    <span class="move-dlg-speed">（{{ premoveLine.length - 1 }} 段）</span>
+                </p>
+                <p v-if="pathFinding" class="move-dlg-meta">寻路中...</p>
                 <p v-if="moveError" class="move-dlg-error">{{ moveError }}</p>
                 <div class="move-dlg-actions">
                     <Button class="move-btn" @click="confirmMove">
@@ -507,13 +617,14 @@ onMounted(async () => {
             <!-- 移动中态：倒计时 + 可取消 -->
             <div v-else class="move-dlg">
                 <p class="move-dlg-text">
-                    正在前往 <span class="move-target-name">{{ moveSession?.to_name }}</span>
+                    正在前往
+                    <span class="move-target-name">{{ currentSegEndName }}</span>
+                    <span v-if="totalSegs > 1" class="move-dlg-seg-progress">（{{ currentSegNo }}/{{ totalSegs }}）</span>
                 </p>
                 <p class="move-dlg-meta">
-                    <span v-if="remainingSec > 0">
+                    <span>
                         剩余 <span class="move-time">{{ fmtDuration(remainingSec) }}</span>
                     </span>
-                    <span v-else>已到达，结算中...</span>
                 </p>
                 <p v-if="moveError" class="move-dlg-error">{{ moveError }}</p>
                 <div class="move-dlg-actions">
@@ -522,6 +633,19 @@ onMounted(async () => {
                 </div>
             </div>
         </Dlg>
+
+        <!-- 大地图弹窗：玩家位置(ring0)为初始中心，移动中传 line 画路径 -->
+        <WorldMap
+            v-if="showWorldMap"
+            :player-g-x="ring0?.gx ?? 0"
+            :player-g-y="ring0?.gy ?? 0"
+            :player-net-id="ring0?.id ?? null"
+            :line="moveSession?.line ?? null"
+            :current-seg="moveSession?.current_seg ?? 0"
+            :moving="!!moveSession"
+            @close="showWorldMap = false"
+            @select-node="handleSelectNode"
+        />
     </div>
 </template>
 
@@ -762,6 +886,11 @@ onMounted(async () => {
         text-decoration: underline;
         font-weight: bold;
     }
+    .move-dlg-seg-progress{
+        font-size: var(--fs-sm);
+        color: var(--text-dim);
+        font-weight: normal;
+    }
 }
 .move-dlg-tip{
     font-size: var(--fs-sm);
@@ -769,6 +898,14 @@ onMounted(async () => {
 }
 .move-dlg-meta{
     font-size: var(--fs-sm);
+    color: var(--text-dim);
+    .move-dlg-speed{
+        color: var(--text-faint);
+    }
+}
+/* 寻路途经序列（多段移动时显示） */
+.move-dlg-path{
+    font-size: var(--fs-xs);
     color: var(--text-dim);
     .move-dlg-speed{
         color: var(--text-faint);

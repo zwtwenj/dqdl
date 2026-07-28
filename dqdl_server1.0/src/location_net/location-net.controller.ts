@@ -4,6 +4,7 @@ import {
   Post,
   Param,
   Body,
+  Query,
   Req,
   ParseIntPipe,
   UseGuards,
@@ -18,6 +19,7 @@ import { PlayerService } from '../player/player.service';
  *
  * 前缀 /api/location_net
  *   GET  /graph                      全图（节点 + 对角邻接边）
+ *   GET  /bbox?minGX&minGY&maxGX&maxGY  矩形范围查询（大地图视口增量加载）
  *   GET  /pos                        当前位置（地图 + 场景）
  *   GET  /view                       玩家视野：ring0+ring1 可见 + ring2 迷雾
  *   GET  /:id                        单节点
@@ -42,6 +44,36 @@ export class LocationNetController {
   @Get('graph')
   graph() {
     return this.svc.getGraph();
+  }
+
+  /** 矩形范围查询：大地图视口增量加载用。
+   *  单边跨度上限 50 格，防恶意请求拉全图。 */
+  @Get('bbox')
+  async bbox(
+    @Query('minGX', ParseIntPipe) minGX: number,
+    @Query('minGY', ParseIntPipe) minGY: number,
+    @Query('maxGX', ParseIntPipe) maxGX: number,
+    @Query('maxGY', ParseIntPipe) maxGY: number,
+  ) {
+    if (minGX > maxGX || minGY > maxGY) {
+      return { nodes: [], edges: [] };
+    }
+    // 跨度上限 50 格（50×50=2500 节点封顶，实际探索区域远小于此）
+    const SPAN_LIMIT = 50;
+    const maxGXc = Math.min(maxGX, minGX + SPAN_LIMIT);
+    const maxGYc = Math.min(maxGY, minGY + SPAN_LIMIT);
+    return this.svc.getNodesInBBox(minGX, minGY, maxGXc, maxGYc);
+  }
+
+  /** 寻路：GET /path?from=:fromId&to=:toId
+   *  返回 { path: [{id,name,gx,gy,...}, ...] | null }（null=不可达） */
+  @Get('path')
+  async path(
+    @Query('from', ParseIntPipe) fromId: number,
+    @Query('to', ParseIntPipe) toId: number,
+  ) {
+    const p = await this.svc.findPath(fromId, toId);
+    return { path: p };
   }
 
   @Get('pos')

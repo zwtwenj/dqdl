@@ -56,10 +56,16 @@ export const BusEvents = {
   /** 打开移动弹窗：无载荷。
    *  玩家状态栏点击「移动中」时触发，mapView 监听后恢复显示移动中弹窗。 */
   MOVE_DIALOG_OPEN: 'move-dialog-open',
-  /** 移动到达：{ to_net_id, to_name }
-   *  后端 arrive 结算后经通用 SSE 推送 move_arrived，sseEventHandlers 收到后 emit。
-   *  mapView 监听后刷新地图视野并关闭移动弹窗；playerStore 监听后刷新玩家状态。 */
+  /** 移动到达一段（非全程）：{ to_net_id, to_name }
+   *  多段移动中每走完一段，后端经 SSE 推 move_arrived。
+   *  mapView 监听后刷新地图 + 用新 session 重启下一段倒计时；playerStore 刷新玩家位置。 */
   PLAYER_MOVE_ARRIVED: 'player-move-arrived',
+  /** 移动全程结束（抵达终点）：{ to_net_id, to_name }
+   *  后端走完 line 末段经 SSE 推 move_finished。mapView 关弹窗 + 刷新；playerStore 刷新状态。 */
+  PLAYER_MOVE_FINISHED: 'player-move-finished',
+  /** 移动被取消：{ stop_net_id } 玩家停留点。
+   *  后端 cancelMove 经 SSE 推 move_cancelled。mapView 关弹窗 + 刷新到停留点。 */
+  PLAYER_MOVE_CANCELLED: 'player-move-cancelled',
 }
 
 const listeners = new Map()

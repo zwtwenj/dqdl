@@ -272,6 +272,41 @@ export class LocationNetService implements OnApplicationBootstrap {
     return { nodes: nodes.map((n) => this.toView(n)), edges };
   }
 
+  /**
+   * 矩形范围查询：返回 [minGX,maxGX] × [minGY,maxGY] 内的节点 + 边。
+   * 供大地图按视口增量加载。gx/gy 有联合唯一索引 uk_grid，范围查询高效。
+   * 边只返回两端节点都在结果集内的（避免引用未加载节点，导致前端画断线）。
+   */
+  async getNodesInBBox(minGX: number, minGY: number, maxGX: number, maxGY: number) {
+    const nodes = await this.netRepo
+      .createQueryBuilder('n')
+      .where('n.gx >= :minGX AND n.gx <= :maxGX', { minGX, maxGX })
+      .andWhere('n.gy >= :minGY AND n.gy <= :maxGY', { minGY, maxGY })
+      .orderBy('n.id', 'ASC')
+      .getMany();
+    const views = nodes.map((n) => this.toView(n));
+    const byId = new Map(views.map((v) => [v.id, v]));
+    const byGrid = new Map(nodes.map((n) => [`${n.gx},${n.gy}`, n]));
+    // 边：复用 EDGE_DIRS 去重逻辑，只取两端都在结果集内的
+    const edges: NetEdgeView[] = [];
+    for (const n of nodes) {
+      for (const dk of EDGE_DIRS) {
+        const d = DIR_MAP.get(dk)!;
+        const m = byGrid.get(`${n.gx + d.dx},${n.gy + d.dy}`);
+        if (!m) continue;
+        edges.push({
+          from_id: Math.min(n.id, m.id),
+          to_id: Math.max(n.id, m.id),
+          direction: d.key,
+          direction_cn: d.cn,
+          distance: 70,
+          travel_type: this.travelType(n, m),
+        });
+      }
+    }
+    return { nodes: views, edges };
+  }
+
   // ---------- 读：单节点 / 场景 / 出口 ----------
   async getNode(id: number): Promise<NetNodeView | null> {
     const n = await this.netRepo.findOneBy({ id });
@@ -393,36 +428,70 @@ export class LocationNetService implements OnApplicationBootstrap {
       });
     }
 
-    // ring2：每个 ring1 节点再往外的对角方向；若该位置已有节点则纳入可见（含边），
-    // 若为空则记为迷雾出口（仅方位，前端画雾）
+    // ring2 / ring3：逐层往外展开。每个外层节点的 4 对角方向：
+    //   若该位置已有节点 → 纳入可见 + 边（环形回连也可见）
+    //   若为空 → ring2 记迷雾出口（仅方位），ring3 不记（太远）
     const seenGrid = new Set<string>([`${center.gx},${center.gy}`]);
     for (const r1 of ring1) {
       seenGrid.add(`${r1.gx},${r1.gy}`);
     }
-    for (const r1 of ring1) {
-      for (const d of DIRS) {
-        const tx = r1.gx + d.dx;
-        const ty = r1.gy + d.dy;
-        const key = `${tx},${ty}`;
-        if (seenGrid.has(key)) continue; // 已在 ring0/ring1
-        const exist = byGrid.get(key);
-        if (exist) {
-          // ring2 处已有节点：可见 + 边（这会让环形回连变得可见）
-          if (!visibleNodes.has(exist.id)) visibleNodes.set(exist.id, this.toView(exist));
-          visibleEdges.push({
-            from_id: Math.min(r1.id, exist.id),
-            to_id: Math.max(r1.id, exist.id),
-            direction: d.key,
-            direction_cn: d.cn,
-            distance: 70,
-            travel_type: this.travelType(r1, exist),
-          });
-          seenGrid.add(key);
-        } else {
-          // ring2 迷雾出口：未生成
-          fogExits.push({ from_gx: r1.gx, from_gy: r1.gy, direction: d.key, direction_cn: d.cn });
-          seenGrid.add(key);
+    // 上一层的节点集合，用于往外展开（ring1→展开得 ring2，ring2→展开得 ring3）
+    let prevRing: LocationNet[] = ring1;
+    for (let ring = 2; ring <= 3; ring++) {
+      const nextRing: LocationNet[] = [];
+      for (const r of prevRing) {
+        for (const d of DIRS) {
+          const tx = r.gx + d.dx;
+          const ty = r.gy + d.dy;
+          const key = `${tx},${ty}`;
+          if (seenGrid.has(key)) continue; // 已在更内层
+          const exist = byGrid.get(key);
+          if (exist) {
+            // 已有节点：可见 + 边
+            if (!visibleNodes.has(exist.id)) visibleNodes.set(exist.id, this.toView(exist));
+            visibleEdges.push({
+              from_id: Math.min(r.id, exist.id),
+              to_id: Math.max(r.id, exist.id),
+              direction: d.key,
+              direction_cn: d.cn,
+              distance: 70,
+              travel_type: this.travelType(r, exist),
+            });
+            seenGrid.add(key);
+            nextRing.push(exist);
+          } else if (ring === 2) {
+            // 仅 ring2 记迷雾出口（ring3 太远不记）
+            fogExits.push({ from_gx: r.gx, from_gy: r.gy, direction: d.key, direction_cn: d.cn });
+            seenGrid.add(key);
+          }
         }
+      }
+      prevRing = nextRing;
+    }
+
+    // 补全可见节点之间缺失的边：网格模型下两节点对角相邻即有边，
+    // 但上面的展开只收集了"展开路径上"的边，两个分别从不同路径发现的可见节点之间的边会漏。
+    // 用 EDGE_DIRS 去重（只看 NE/NW，SE/SW 由对端补齐），遍历可见节点补全。
+    const visibleList = [...visibleNodes.values()];
+    const edgeKeys = new Set(visibleEdges.map((e) => `${e.from_id}-${e.to_id}`));
+    const visibleGrid = new Map<string, NetNodeView>();
+    for (const v of visibleList) visibleGrid.set(`${v.gx},${v.gy}`, v);
+    for (const v of visibleList) {
+      for (const dk of EDGE_DIRS) {
+        const d = DIR_MAP.get(dk)!;
+        const nb = visibleGrid.get(`${v.gx + d.dx},${v.gy + d.dy}`);
+        if (!nb) continue;
+        const k = `${Math.min(v.id, nb.id)}-${Math.max(v.id, nb.id)}`;
+        if (edgeKeys.has(k)) continue;
+        edgeKeys.add(k);
+        visibleEdges.push({
+          from_id: Math.min(v.id, nb.id),
+          to_id: Math.max(v.id, nb.id),
+          direction: d.key,
+          direction_cn: d.cn,
+          distance: 70,
+          travel_type: this.travelType(v as any, nb as any),
+        });
       }
     }
 
@@ -430,7 +499,7 @@ export class LocationNetService implements OnApplicationBootstrap {
       player_net_id: center.id,
       ring0: this.toView(center),
       ring1: ring1.map((n) => this.toView(n)),
-      nodes: [...visibleNodes.values()],
+      nodes: visibleList,
       edges: visibleEdges,
       fog: fogExits,
     };
@@ -1120,5 +1189,53 @@ export class LocationNetService implements OnApplicationBootstrap {
     const n = await this.netRepo.findOneBy({ gx: 0, gy: 0 });
     if (!n) throw Biz.notFound('起点节点（乌坦城 gx=0,gy=0）不存在，请先执行 migration');
     return n.id;
+  }
+
+  /**
+   * BFS 寻路：在已存在的节点（4 对角邻接）上找 fromId→toId 的最短路径。
+   * 4 对角邻接的稀疏图，分支因子仅 4，几格内寻路毫秒级。
+   * 路径上每个节点都必须已生成（玩家走过/可见），否则找不到（返回 null）。
+   * @returns 节点序列 [from, ..., to] 的 NetNodeView；不可达返回 null
+   */
+  async findPath(fromId: number, toId: number): Promise<NetNodeView[] | null> {
+    if (fromId === toId) {
+      const n = await this.netRepo.findOneBy({ id: fromId });
+      return n ? [this.toView(n)] : null;
+    }
+    // 全图节点按网格索引（地图懒生成，已生成节点总数有限，全量加载可接受）
+    const all = await this.netRepo.find();
+    const byId = new Map(all.map((n) => [n.id, n]));
+    const start = byId.get(fromId);
+    const target = byId.get(toId);
+    if (!start || !target) return null;
+    const byGrid = new Map(all.map((n) => [`${n.gx},${n.gy}`, n]));
+
+    // BFS
+    const prev = new Map<number, number | null>(); // nodeId → 前驱 nodeId
+    prev.set(fromId, null);
+    const queue: number[] = [fromId];
+    let found = false;
+    while (queue.length) {
+      const curId = queue.shift()!;
+      if (curId === toId) { found = true; break; }
+      const cur = byId.get(curId)!;
+      for (const d of DIRS) {
+        const nb = byGrid.get(`${cur.gx + d.dx},${cur.gy + d.dy}`);
+        if (!nb) continue;
+        if (prev.has(nb.id)) continue; // 已访问
+        prev.set(nb.id, curId);
+        queue.push(nb.id);
+      }
+    }
+    if (!found) return null;
+
+    // 回溯路径
+    const path: number[] = [];
+    let cur: number | null = toId;
+    while (cur != null) {
+      path.unshift(cur);
+      cur = prev.get(cur) ?? null;
+    }
+    return path.map((id) => this.toView(byId.get(id)!));
   }
 }

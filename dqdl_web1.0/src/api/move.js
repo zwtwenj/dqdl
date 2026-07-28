@@ -4,9 +4,10 @@ import http from './request'
 export const previewMove = (toNetId) =>
   http.get(`/move/preview/${toNetId}`)
 
-/** 开始移动 POST /api/move/start/:toNetId → session(含 end_at) */
-export const startMove = (toNetId) =>
-  http.post(`/move/start/${toNetId}`)
+/** 开始移动 POST /api/move/start  body:{line:[{id,name,gx,gy},...]} → session(含 end_at)
+ *  line 由前端 findPath 寻路得到（寻路/移动解耦：startMove 只接收路径落库）。 */
+export const startMove = (line) =>
+  http.post(`/move/start`, { line })
 
 /** 取消移动 POST /api/move/cancel */
 export const cancelMove = () =>

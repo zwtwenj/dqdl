@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
-import { getPlayerView, getMapScenes, findPath } from '@/api/mapdemo'
+import { getPlayerView, getMapScenes, findPath, enterScene, exitScene } from '@/api/mapdemo'
 import { startMove, cancelMove as apiCancelMove, getCurrentMove, arriveMove } from '@/api/move'
 import { usePlayerStore } from '@/stores/player'
 import Dlg from '@/components1/dlg.vue'
@@ -14,6 +14,42 @@ const playerStore = usePlayerStore()
 
 // 大地图弹窗
 const showWorldMap = ref(false)
+
+// —— 场景 ——
+// currentScene：当前进入的场景对象（null=在地图上，未进场景）
+const currentScene = ref(null)
+const sceneEntering = ref(false)    // 正在进入场景（防重复）
+
+/** 进入场景：调 enterScene → 设 currentScene */
+async function onEnterScene(sc) {
+  if (sceneEntering.value || currentScene.value) return
+  const netId = ring0.value?.id
+  if (!netId || !sc?.scene_type) return
+  sceneEntering.value = true
+  try {
+    await enterScene(netId, sc.scene_type)
+    currentScene.value = sc
+    playerStore.load()
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '进入场景失败' })
+  } finally {
+    sceneEntering.value = false
+  }
+}
+
+/** 退出场景：调 exitScene → 清 currentScene → 刷新地图 */
+async function onExitScene() {
+  if (!currentScene.value) return
+  try {
+    await exitScene()
+    currentScene.value = null
+    playerStore.load()
+    await refreshView()
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '退出场景失败' })
+  }
+}
+
 
 // —— 历练 ——
 // 玩家状态：2=历练中(PLAYER_STATUS.TRAINING)，用于按钮显示开始/停止
@@ -229,6 +265,28 @@ const LOC_ICON = {
 }
 function locIcon(node) {
   return LOC_ICON[node?.loc_type] || LOC_ICON.wild
+}
+
+/** NPC 图标：优先用 npc 自带 icon/avatar，没有则用通用 npc 占位图 */
+function npcIcon(npc) {
+  const icon = npc?.icon || npc?.avatar || npc?.info?.avatar
+  if (icon) return icon.startsWith('/') ? icon : `/icon/npc/${icon}`
+  return '/icon/npc/npc-001.png'
+}
+function onNpcIconError(e) {
+  e.target.src = '/icon/npc/npc-001.png'
+}
+
+/** 点击 NPC → 打开对话弹窗（NpcDialog 全局组件监听 NPC_DIALOG_OPEN）。
+ *  npcId：static 用 id，dynamic 用 npc_id；npcType 按 is_dynamic 区分（两表 id 会撞号）。 */
+function onNpcClick(npc) {
+  const npcId = npc.id ?? npc.npc_id
+  if (!npcId) return
+  bus.emit(BusEvents.NPC_DIALOG_OPEN, {
+    playerId: playerStore.player?.id,
+    npcId,
+    npcType: npc.is_dynamic ? 'dynamic' : 'static',
+  })
 }
 
 function isCurrent(node) {
@@ -503,6 +561,20 @@ function onDlgClose() {
   }
 }
 
+/** 恢复场景状态（页面刷新/onMounted 时调）：
+ *  playerStore.sceneId 有值说明玩家在场景内，从场景列表找到匹配项恢复 currentScene。 */
+async function restoreScene() {
+  if (!playerStore.sceneId || !ring0.value?.id) return
+  try {
+    const scenesList = await getMapScenes(ring0.value.id)
+    scenes.value = scenesList
+    const found = scenesList.find((s) => s.id === playerStore.sceneId)
+    if (found) currentScene.value = found
+  } catch {
+    // 场景列表拉取失败不影响主流程
+  }
+}
+
 /** 恢复进行中的移动（页面刷新/onMounted 时调）：
  *  按 player_id+status=active 查 move_session，有就恢复弹窗+倒计时。 */
 async function restoreMove() {
@@ -632,6 +704,8 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  // 恢复场景：player.scene_id 有值说明玩家在场景内，从场景列表找到匹配项恢复 currentScene
+  await restoreScene()
   // 恢复进行中的移动（刷新页面场景）
   await restoreMove()
 })
@@ -676,30 +750,76 @@ onMounted(async () => {
             </div>
         </div>
         <div class="map-view-right">
+            <!-- 面包屑：地点 > 场景。点地点名退出场景回地图 -->
             <div class="location-title">
-                <div class="location-name">
-                    {{ selected?.name || '---' }}
+                <div class="location-name breadcrumb">
+                    <span :class="{ 'crumb-link': currentScene }" @click="currentScene && onExitScene()">
+                        {{ ring0?.name || '---' }}
+                    </span>
+                    <template v-if="currentScene">
+                        <span class="crumb-sep">›</span>
+                        <span>{{ currentScene.name }}</span>
+                    </template>
                 </div>
                 <div class="location-right">
                     <div class="map-button" @click="showWorldMap = true">地图</div>
                 </div>
             </div>
-            <div class="location-description">
-                {{ selected?.description || '（暂无描述）' }}
-            </div>
-            <!-- 场景列表：跟随选中节点 -->
-            <div class="scene-list" v-if="scenes.length">
-                <div class="scene-list-title">场景</div>
-                <div
-                    v-for="sc in scenes"
-                    :key="sc.id"
-                    class="scene-item"
-                >
-                    <img src="/icon/icon-exit.gif">
-                    <span class="scene-name">{{ sc.name }}</span>
-                    <span v-if="sc.scene_type" class="scene-type">{{ sceneTypeLabel(sc.scene_type) }}</span>
+
+            <!-- 地图态：地点描述 + 场景列表 -->
+            <template v-if="!currentScene">
+                <div class="location-description">
+                    {{ selected?.description || '（暂无描述）' }}
                 </div>
-            </div>
+                <!-- 场景列表：点击进入场景 -->
+                <div class="scene-list" v-if="scenes.length">
+                    <div class="scene-list-title">场景</div>
+                    <div
+                        v-for="sc in scenes"
+                        :key="sc.id"
+                        class="scene-item"
+                        @click="onEnterScene(sc)"
+                    >
+                        <img src="/icon/icon-exit.gif">
+                        <span class="scene-name">{{ sc.name }}</span>
+                        <span v-if="sc.scene_type" class="scene-type">{{ sceneTypeLabel(sc.scene_type) }}</span>
+                    </div>
+                </div>
+            </template>
+
+            <!-- 场景态：场景描述 + NPC 列表 -->
+            <template v-else>
+                <div class="location-description">
+                    {{ currentScene.description || '（暂无描述）' }}
+                </div>
+                <div class="npc-list" v-if="currentScene.npcs?.length">
+                    <div class="npc-list-title">人物</div>
+                    <div class="npc-list-flex">
+                        <div
+                            v-for="npc in currentScene.npcs"
+                            :key="npc.id || npc.npc_id"
+                            class="npc-item"
+                            v-tooltip="npc.name"
+                            @click="onNpcClick(npc)"
+                        >
+                            <img :src="npcIcon(npc)" class="npc-item-icon" @error="onNpcIconError($event)">
+                            <div class="npc-item-name-role">
+                                <div class="npc-item-name-icon">
+                                  <span class="npm-name">{{ npc.name }}</span>
+                                  <img src="/icon/icon-talk.gif">
+                                </div>
+                                <div class="npc-role">
+                                  {{ npc.role_name || '未知身份' }}
+                                  <span v-if="npc.is_dynamic" class="npc-dynamic-tag">动态</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div v-else class="info-empty" style="padding:20px 0;text-align:center;color:var(--text-faint);">
+                    此处无人
+                </div>
+            </template>
             <!-- 常见怪物：common_mobs 有内容才显示（野外节点才有）。
                  图标加载失败时显示 mob_id 文字占位，名字走 v-tooltip 悬浮提示。 -->
             <div class="location-mobs" v-if="selected?.common_mobs?.length">
@@ -941,7 +1061,21 @@ onMounted(async () => {
         margin-bottom: 10px;
         .location-name{
             font-weight: bolder;
-            text-decoration: underline;
+            &.breadcrumb{
+                text-decoration: none;       /* 面包屑整体不下划线，由 crumb-link 控制 */
+            }
+            .crumb-link{
+                text-decoration: underline;
+                cursor: pointer;
+            }
+            .crumb-link:hover{
+                color: var(--link);
+            }
+            .crumb-sep{
+                margin: 0 4px;
+                color: var(--text-dim);
+                font-weight: normal;
+            }
         }
         .location-right{
             .map-button{
@@ -990,6 +1124,43 @@ onMounted(async () => {
             color: var(--text-faint);
             font-style: italic;
         }
+    }
+    .npc-list{
+      margin-top: 10px;
+      margin-bottom: 10px;
+      .npc-list-title{
+        font-weight: bolder;
+        margin-bottom: 6px;
+      }
+      .npc-list-flex{
+        display: flex;
+        gap: 10px;
+        .npc-item{
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          cursor: pointer;
+          .npc-item-icon{
+            width: 50px;
+            height: 50px;
+          }
+          .npc-item-name-role{
+            img{
+              vertical-align: -1px;
+            }
+            .npc-dynamic-tag{
+              display: inline-block;
+              font-size: 9px;
+              color: var(--purple);
+              border: 1px solid var(--border);
+              padding: 0 3px;
+              border-radius: 2px;
+              margin-left: 3px;
+              vertical-align: 1px;
+            }
+          }
+        }
+      }
     }
     .location-mobs{
       margin-top: 10px;

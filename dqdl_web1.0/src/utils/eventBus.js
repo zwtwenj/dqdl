@@ -56,6 +56,10 @@ export const BusEvents = {
   /** 打开移动弹窗：无载荷。
    *  玩家状态栏点击「移动中」时触发，mapView 监听后恢复显示移动中弹窗。 */
   MOVE_DIALOG_OPEN: 'move-dialog-open',
+  /** 移动到达：{ to_net_id, to_name }
+   *  后端 arrive 结算后经通用 SSE 推送 move_arrived，sseEventHandlers 收到后 emit。
+   *  mapView 监听后刷新地图视野并关闭移动弹窗；playerStore 监听后刷新玩家状态。 */
+  PLAYER_MOVE_ARRIVED: 'player-move-arrived',
 }
 
 const listeners = new Map()

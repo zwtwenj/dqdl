@@ -114,6 +114,7 @@ export class PlayerService {
     const bonus = levelAttrBonus(level);
     // 基础属性（创建固定，与旧项目 newGame 默认值一致）
     const base = { power: 10, intelligence: 8, quick: 7, stamina: 9, lucky: 6 };
+    // stamina 当前值（base + bonus）用于初始化血量上限；当前属性不再持久化存储
     const stamina = base.stamina + bonus;
 
     const player = this.repo.create({
@@ -126,11 +127,6 @@ export class PlayerService {
       base_quick: base.quick,
       base_stamina: base.stamina,
       base_lucky: base.lucky,
-      power: base.power + bonus,
-      intelligence: base.intelligence + bonus,
-      quick: base.quick + bonus,
-      stamina,
-      lucky: base.lucky + bonus,
       hp: stamina * 10,
       max_hp: stamina * 10,
       energy: level * 20,
@@ -172,13 +168,16 @@ export class PlayerService {
 
     // 对齐老版本语义：max_hp = 含功法加成的 stamina × 10 + 功法 hp 加成 + 宝物 hp 加成(固定值)；
     // max_energy = level × 20 + 功法 energy 加成 + 宝物 energy 加成(固定值)。
-    const finalStamina = player.stamina + techBonus.stamina + (trStats.stamina || 0);
+    // 当前属性 = base_* + levelAttrBonus(level)（实时计算，不再读取存储的当前字段）。
+    const bonus = levelAttrBonus(player.level);
+    const curStamina = player.base_stamina + bonus;
+    const finalStamina = curStamina + techBonus.stamina + (trStats.stamina || 0);
     const finalAttrs = {
-      power: player.power + techBonus.power + (trStats.power || 0),
-      intelligence: player.intelligence + techBonus.intelligence + (trStats.intelligence || 0),
-      quick: player.quick + techBonus.quick + (trStats.quick || 0),
+      power: player.base_power + bonus + techBonus.power + (trStats.power || 0),
+      intelligence: player.base_intelligence + bonus + techBonus.intelligence + (trStats.intelligence || 0),
+      quick: player.base_quick + bonus + techBonus.quick + (trStats.quick || 0),
       stamina: finalStamina,
-      lucky: player.lucky + techBonus.lucky + (trStats.lucky || 0),
+      lucky: player.base_lucky + bonus + techBonus.lucky + (trStats.lucky || 0),
       max_hp: finalStamina * 10 + techBonus.hp + (trStats.hp || 0),
       max_energy: (player.level || 1) * 20 + techBonus.energy + (trStats.energy || 0),
     };
@@ -223,12 +222,15 @@ export class PlayerService {
    * 对齐 final_attrs.max_hp / max_energy 公式。
    */
   async computeMaxHpEnergy(player: Player): Promise<{ maxHp: number; maxEnergy: number }> {
-    const bonus = await this.computeTechBonus(player.technique);
+    const techBonus = await this.computeTechBonus(player.technique);
     const trStats = await this.sumEquippedTreasureStats(player);
-    const finalStamina = player.stamina + bonus.stamina + (trStats.stamina || 0);
+    // 当前 stamina = base + levelAttrBonus（实时计算）
+    const levelBonus = levelAttrBonus(player.level);
+    const curStamina = player.base_stamina + levelBonus;
+    const finalStamina = curStamina + techBonus.stamina + (trStats.stamina || 0);
     return {
-      maxHp: finalStamina * 10 + bonus.hp + (trStats.hp || 0),
-      maxEnergy: (player.level || 1) * 20 + bonus.energy + (trStats.energy || 0),
+      maxHp: finalStamina * 10 + techBonus.hp + (trStats.hp || 0),
+      maxEnergy: (player.level || 1) * 20 + techBonus.energy + (trStats.energy || 0),
     };
   }
 
@@ -813,12 +815,8 @@ export class PlayerService {
     if (success) {
       player.level += 1;
       const bonus = levelAttrBonus(player.level);
-      player.power = player.base_power + bonus;
-      player.intelligence = player.base_intelligence + bonus;
-      player.quick = player.base_quick + bonus;
-      player.stamina = player.base_stamina + bonus;
-      player.lucky = player.base_lucky + bonus;
-      player.max_hp = player.stamina * 10;
+      // 当前属性实时计算（= base + bonus），不再持久化；仅血/气上限仍存储，需重算
+      player.max_hp = (player.base_stamina + bonus) * 10;
       player.max_energy = player.level * 20;
       player.hp = player.max_hp;
       player.energy = player.max_energy;

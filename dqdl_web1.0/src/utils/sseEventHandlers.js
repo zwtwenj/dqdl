@@ -34,8 +34,19 @@ const sseHandlers = {
     }
   },
 
-  // 未来事件示例（本轮不实现）：
-  // chat_message: (data) => { ... },
+  /**
+   * 移动到达：后端 arrive 结算后推送（玩家 end_at 到期自动到达）。
+   * data 含 { to_net_id, to_name }。emit PLAYER_MOVE_ARRIVED 通知：
+   *   - playerStore.load() 刷新玩家状态（status 从 MOVING 恢复 IDLE）
+   *   - mapView 监听后刷新地图视野 + 关闭移动弹窗
+   * 前端不再需要靠倒计时到期主动调 arrive 接口。
+   */
+  move_arrived: (data) => {
+    bus.emit(BusEvents.PLAYER_MOVE_ARRIVED, {
+      to_net_id: data?.to_net_id,
+      to_name: data?.to_name,
+    })
+  },
 }
 
 /**

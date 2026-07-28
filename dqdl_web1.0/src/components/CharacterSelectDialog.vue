@@ -130,7 +130,6 @@ function fmtTime(ts) {
 <style scoped>
 .overlay {
   position: fixed;
-  width: 1200px;
   inset: 0;
   z-index: 100;
   display: flex;

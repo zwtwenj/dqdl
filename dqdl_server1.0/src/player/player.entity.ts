@@ -6,7 +6,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
  *
  * 属性系统：status 由后端统一处理。
  * - base_* 为创建时固定的基础属性（永不变）。
- * - power 等当前属性 = base + levelAttrBonus(level)，突破时重算并持久化。
+ * - 当前属性（power/quick/...）不存储，读取时实时计算 = base_* + levelAttrBonus(level)。
+ *   改 base_* 或 level 立即生效，无需重算持久化（消除 base 与当前值漂移）。
  * - max_hp = stamina * 10，max_energy = level * 20（突破时重算持久化）。
  * - final_attrs 由 findOne 实时聚合（当前 + 功法/宝物加成，后者后续接入）。
  */
@@ -48,22 +49,6 @@ export class Player {
 
   @Column({ type: 'int', default: 0, comment: '基础运气(创建固定，不含等级成长)' })
   base_lucky: number;
-
-  // ===== 当前属性 = base + levelAttrBonus（突破时重算持久化） =====
-  @Column({ type: 'int', default: 5, comment: '力量' })
-  power: number;
-
-  @Column({ type: 'int', default: 5, comment: '智力' })
-  intelligence: number;
-
-  @Column({ type: 'int', default: 5, comment: '敏捷' })
-  quick: number;
-
-  @Column({ type: 'int', default: 5, comment: '体质' })
-  stamina: number;
-
-  @Column({ type: 'int', default: 5, comment: '运气' })
-  lucky: number;
 
   // ===== 生命 / 斗气 =====
   @Column({ type: 'int', default: 50, comment: '当前生命值' })

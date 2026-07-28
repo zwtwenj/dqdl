@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { getPlayerView, getMapScenes } from '@/api/mapdemo'
 import { startMove, cancelMove as apiCancelMove, getCurrentMove, arriveMove } from '@/api/move'
 import { usePlayerStore } from '@/stores/player'
@@ -94,9 +94,9 @@ function isMovable(node) {
   return Math.abs(node.gx - c.gx) === 1 && Math.abs(node.gy - c.gy) === 1
 }
 
-// 点击节点：对角邻居 → 弹移动预览；其他（自身/远点）→ 仅选中查看
+// 点击节点：仅触发移动（对角邻居 → 弹移动预览），不切换右侧选中信息。
+// selected 始终跟随当前所在地 ring0，右侧永远显示玩家所在地的信息。
 function onSelectNode(node) {
-  selected.value = node
   if (isMovable(node) && !moveSession.value) {
     // 正在移动中时不允许发起新移动
     openMovePreview(node)
@@ -128,8 +128,10 @@ function fmtDuration(sec) {
   return `${pad(h)}:${pad(m)}:${pad(r)}`
 }
 
-/** 前端自算单格移动耗时（秒）：ceil(距离×60/speed)，与后端 move-session 算法一致。
- *  speed 用 player.quick（顶层，与后端一致，不用 final_attrs.quick）。 */
+/** 前端预估单格移动耗时（秒）：ceil(距离×60/speed)。
+ *  speed 用 playerStore.quick（final_attrs.quick，含加成的面板敏捷）。
+ *  注意：此为预览估算，后端 startMove 以 base_quick+levelAttrBonus 算实际时长，
+ *  两者可能略有差异，以后端返回的 session.end_at 为准。 */
 const previewDurationSec = computed(() => {
   const speed = Math.max(1, playerStore.quick)
   return Math.ceil((MOVE_DISTANCE * 60) / speed)
@@ -150,6 +152,7 @@ async function confirmMove() {
   try {
     const session = await startMove(target.id)
     moveSession.value = session
+    arrivedHandled = false        // 新一轮移动，重置到达标志
     startTick(session)
     // 刷新玩家状态（status → MOVING），状态栏同步显示「移动中」
     playerStore.load()
@@ -159,7 +162,11 @@ async function confirmMove() {
   }
 }
 
-/** 启动倒计时：每秒更新 remainingSec，到点自动 arrive */
+let arriveFallbackTimer = null    // 倒计时到期后的兜底定时器（SSE 未送达时主动 arrive）
+
+/** 启动倒计时：每秒更新 remainingSec。
+ *  到期后不立即 arrive——优先等后端 SSE 推送 move_arrived（权威信号），
+ *  若 SSE 迟迟未到（连接异常），延迟 3s 兜底主动调 arrive。 */
 function startTick(session) {
   stopTick()
   const tick = () => {
@@ -169,7 +176,9 @@ function startTick(session) {
     remainingSec.value = left
     if (left <= 0) {
       stopTick()
-      doArrive()
+      // 到期：显示"结算中"，启动兜底（SSE 正常的话会在 3s 内先收到 move_arrived）
+      if (arriveFallbackTimer) clearTimeout(arriveFallbackTimer)
+      arriveFallbackTimer = setTimeout(() => doArrive(), 3000)
     }
   }
   tick()
@@ -183,20 +192,38 @@ function stopTick() {
   }
 }
 
-/** 到达结算：arriveMove → 刷新地图 → 关弹窗。
- *  失败时保留弹窗 + 提示，让用户重试（避免玩家卡在 MOVING 状态却关了弹窗）。 */
+// 到达互斥标志：onMoveArrived（SSE）与 doArrive（兜底）可能因竞态同时触发，
+// 任一执行后置 true，另一个直接返回，避免重复 refreshView → 重复 loadScenes。
+let arrivedHandled = false
+
+/** 兜底到达结算（SSE 未送达时）：arriveMove → 刷新地图 → 关弹窗。
+ *  正常情况下由 onMoveArrived（SSE 监听）处理，这里只在 SSE 异常时触发。 */
 async function doArrive() {
+  if (arriveFallbackTimer) { clearTimeout(arriveFallbackTimer); arriveFallbackTimer = null }
+  if (arrivedHandled) return        // SSE 已处理到达，兜底跳过
+  arrivedHandled = true
   try {
     const res = await arriveMove()
     bus.emit(BusEvents.TOAST, { type: 'success', message: `已到达 ${res?.session?.to_name || moveTarget.value?.name || ''}` })
   } catch (err) {
     moveError.value = err.message || '到达结算失败，请重试'
+    arrivedHandled = false          // 失败则允许重试
     return
   }
+  // 到达后刷新地图（玩家状态由 GameView 的 SSE 监听刷新，这里不重复）
   closeMoveDlg()
   await refreshView()
-  // 刷新玩家状态（status 从 MOVING 恢复 IDLE 等）
-  await playerStore.load()
+}
+
+/** 收到 SSE 移动到达事件（权威路径）：取消兜底 → 关弹窗 → 刷新地图 */
+async function onMoveArrived(data) {
+  if (arriveFallbackTimer) { clearTimeout(arriveFallbackTimer); arriveFallbackTimer = null }
+  if (arrivedHandled) return        // 兜底已处理到达，SSE 跳过
+  arrivedHandled = true
+  stopTick()
+  bus.emit(BusEvents.TOAST, { type: 'success', message: `已到达 ${data?.to_name || ''}` })
+  closeMoveDlg()
+  await refreshView()
 }
 
 /** 取消移动（仅移动中态可用）：二次确认 → cancelMove → 停原地 */
@@ -222,9 +249,11 @@ async function doCancelMove() {
   playerStore.load()
 }
 
-/** 彻底关闭弹窗并清理移动状态（到达/取消时用）：停倒计时 + 清空 session */
+/** 彻底关闭弹窗并清理移动状态（到达/取消时用）：停倒计时 + 清空 session + 重置到达标志 */
 function closeMoveDlg() {
   stopTick()
+  if (arriveFallbackTimer) { clearTimeout(arriveFallbackTimer); arriveFallbackTimer = null }
+  arrivedHandled = false       // 清理到达标志，下次移动可正常结算
   moveDlgVisible.value = false
   moveTarget.value = null
   moveSession.value = null
@@ -255,6 +284,7 @@ async function restoreMove() {
     if (session) {
       // 移动中态用 moveSession 渲染（to_name 等），无需设 moveTarget
       moveSession.value = session
+      arrivedHandled = false      // 恢复进行中的移动，重置到达标志
       moveDlgVisible.value = true
       startTick(session)
     }
@@ -276,24 +306,35 @@ async function refreshView() {
 
 // 监听「打开移动弹窗」事件（玩家状态栏点击「移动中」触发）：
 // 若正在移动但弹窗被隐藏，则重新显示
+// 监听「移动到达」事件（后端 SSE 推送 move_arrived）：刷新地图 + 关弹窗
 let offMoveDialogOpen = null
+let offMoveArrived = null
 onMounted(() => {
   offMoveDialogOpen = bus.on(BusEvents.MOVE_DIALOG_OPEN, () => {
     if (moveSession.value && !moveDlgVisible.value) {
       moveDlgVisible.value = true
     }
   })
+  offMoveArrived = bus.on(BusEvents.PLAYER_MOVE_ARRIVED, (data) => {
+    onMoveArrived(data)
+  })
 })
 
 onUnmounted(() => {
   stopTick()
+  if (arriveFallbackTimer) clearTimeout(arriveFallbackTimer)
   offMoveDialogOpen?.()
+  offMoveArrived?.()
 })
 
 // —— 场景列表：跟随选中节点变化重新拉取 ——
 const scenes = ref([])
 const scenesLoading = ref(false)
 const scenesError = ref('')
+
+// 怪物图标加载失败标记：{ mob_id: true }。失败时改显示 mob_id 文字占位。
+// 用 reactive 才能在 @error 回调里动态加属性触发更新。
+const mobImgError = reactive({})
 
 // 场景类型 → 中文标签（后端 scene_type: market/guild/alchemy/auction/cultivation）
 const SCENE_TYPE_LABEL = {
@@ -307,11 +348,19 @@ function sceneTypeLabel(t) {
   return SCENE_TYPE_LABEL[t] || t || ''
 }
 
+// 当前正在加载/已加载的节点 id，用于去重：同一节点的并发请求只发一次
+let loadingSceneNodeId = null
+
 async function loadScenes(node) {
   if (!node?.id) {
     scenes.value = []
+    loadingSceneNodeId = null
     return
   }
+  // 去重：仅在请求 in-flight 期间跳过同一节点的并发调用（防 SSE 到达与兜底竞态重复请求）。
+  // 请求完成后必须清空标志，否则同节点永不再加载。
+  if (loadingSceneNodeId === node.id) return
+  loadingSceneNodeId = node.id
   scenesLoading.value = true
   scenesError.value = ''
   try {
@@ -321,6 +370,7 @@ async function loadScenes(node) {
     scenesError.value = err.message || '场景加载失败'
   } finally {
     scenesLoading.value = false
+    loadingSceneNodeId = null      // 请求结束，允许下次重载
   }
 }
 
@@ -328,7 +378,7 @@ async function loadScenes(node) {
 watch(selected, (node) => loadScenes(node))
 
 onMounted(async () => {
-  // 先加载玩家数据：移动耗时依赖 player.quick，必须先就绪，
+  // 先加载玩家数据：移动耗时依赖 final_attrs.quick，必须先就绪，
   // 否则用户在 player 加载完前点邻居会看到错误的耗时
   await playerStore.load()
   loading.value = true
@@ -397,22 +447,38 @@ onMounted(async () => {
                 {{ selected?.description || '（暂无描述）' }}
             </div>
             <!-- 场景列表：跟随选中节点 -->
-            <div class="scene-list">
+            <div class="scene-list" v-if="scenes.length">
                 <div class="scene-list-title">场景</div>
-                <div v-if="scenesLoading" class="scene-empty">加载中...</div>
-                <div v-else-if="scenesError" class="scene-empty">{{ scenesError }}</div>
-                <template v-else-if="scenes.length">
-                    <div
-                        v-for="sc in scenes"
-                        :key="sc.id"
-                        class="scene-item"
+                <div
+                    v-for="sc in scenes"
+                    :key="sc.id"
+                    class="scene-item"
+                >
+                    <img src="/icon/icon-exit.gif">
+                    <span class="scene-name">{{ sc.name }}</span>
+                    <span v-if="sc.scene_type" class="scene-type">{{ sceneTypeLabel(sc.scene_type) }}</span>
+                </div>
+            </div>
+            <!-- 常见怪物：common_mobs 有内容才显示（野外节点才有）。
+                 图标加载失败时显示 mob_id 文字占位，名字走 v-tooltip 悬浮提示。 -->
+            <div class="location-mobs" v-if="selected?.common_mobs?.length">
+              <div class="location-mobs-title">常见怪物</div>
+              <div class="location-mobs-list">
+                <div
+                    v-for="mob in selected.common_mobs"
+                    :key="mob.mob_id"
+                    v-tooltip="mob.name"
+                    class="location-mob-item"
+                >
+                    <img
+                        v-if="!mobImgError[mob.mob_id]"
+                        :src="`/icon/mob/${mob.mob_id}.png`"
+                        :alt="mob.name"
+                        @error="mobImgError[mob.mob_id] = true"
                     >
-                        <img src="/icon/icon-exit.gif">
-                        <span class="scene-name">{{ sc.name }}</span>
-                        <span v-if="sc.scene_type" class="scene-type">{{ sceneTypeLabel(sc.scene_type) }}</span>
-                    </div>
-                </template>
-                <div v-else class="scene-empty">此地无可入场景</div>
+                    <span v-else class="location-mob-fallback">{{ mob.mob_id }}</span>
+                </div>
+              </div>
             </div>
         </div>
 
@@ -593,6 +659,7 @@ onMounted(async () => {
             .map-button{
                 cursor: pointer;
                 text-decoration: underline;
+                color: var(--link);
             }
         }
     }
@@ -600,6 +667,7 @@ onMounted(async () => {
         margin-bottom: 10px;
     }
     .scene-list{
+        margin-bottom: 10px;
         .scene-list-title{
             font-weight: bolder;
             margin-bottom: 6px;
@@ -634,6 +702,48 @@ onMounted(async () => {
             color: var(--text-faint);
             font-style: italic;
         }
+    }
+    .location-mobs{
+      margin-top: 10px;
+      .location-mobs-title{
+        font-weight: bolder;
+        margin-bottom: 6px;
+      }
+      .location-mobs-list{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .location-mob-item{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 50px;
+        cursor: pointer;
+        img{
+            width: 34px;
+            height: 34px;
+            border-radius: 4px;
+            object-fit: contain;
+        }
+        /* 图标加载失败时的文字占位（与图标同区域） */
+        .location-mob-fallback{
+            width: 34px;
+            height: 34px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            color: var(--text-dim);
+            font-size: 9px;
+            line-height: 32px;
+            text-align: center;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+      }
     }
 }
 

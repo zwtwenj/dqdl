@@ -5,7 +5,8 @@ import { MoveSession } from './move-session.entity';
 import { Player } from '../player/player.entity';
 import { LocationNet } from '../location_net/location-net.entity';
 import { Biz } from '../common/biz.exception';
-import { PLAYER_STATUS } from '../player/player.service';
+import { PLAYER_STATUS, levelAttrBonus } from '../player/player.service';
+import { ScriptSseService } from '../script/script-sse.service';
 
 /** 移动距离常量（里），对齐 location-net.service 里的硬编码 70 */
 export const MOVE_DISTANCE = 70;
@@ -13,7 +14,8 @@ export const MOVE_DISTANCE = 70;
 /**
  * 移动服务：基于速度的移动系统。
  *
- * 速度 = 玩家 quick（final_attrs.quick）。
+ * 速度 = base_quick + levelAttrBonus(level)（实时计算，纯基础敏捷决定，
+ *   不含功法/宝物加成——敏捷是角色天赋，移动快慢由天赋+等级成长决定）。
  * 时长(秒) = ceil(距离 × 60 / 速度)。
  *
  * 流程：start(建session+锁status) → 前端倒计时 → arrive(改location_id+解锁)。
@@ -30,6 +32,7 @@ export class MoveSessionService {
     private readonly playerRepo: Repository<Player>,
     @InjectRepository(LocationNet)
     private readonly netRepo: Repository<LocationNet>,
+    private readonly sse: ScriptSseService,
   ) {}
 
   /**
@@ -47,7 +50,8 @@ export class MoveSessionService {
     // 校验邻接
     this.assertAdjacent(from, to);
 
-    const speed = player.quick;
+    // 速度 = base_quick + levelAttrBonus（实时计算当前敏捷，不依赖存储的当前字段）
+    const speed = player.base_quick + levelAttrBonus(player.level);
     const durationSec = Math.ceil((MOVE_DISTANCE * 60) / Math.max(1, speed));
 
     return {
@@ -76,7 +80,8 @@ export class MoveSessionService {
     if (!to) throw Biz.notFound(`地图节点 ${toNetId} 不存在`);
     this.assertAdjacent(from, to);
 
-    const speed = player.quick;
+    // 速度 = base_quick + levelAttrBonus（实时计算当前敏捷）
+    const speed = player.base_quick + levelAttrBonus(player.level);
     const durationSec = Math.ceil((MOVE_DISTANCE * 60) / Math.max(1, speed));
     const now = new Date();
     const endAt = new Date(now.getTime() + durationSec * 1000);
@@ -134,6 +139,13 @@ export class MoveSessionService {
     // 更新 session
     session.status = 'arrived';
     await this.repo.save(session);
+
+    // 推送到达事件给前端（通用 SSE 通道）：前端据此刷新玩家状态/地图，
+    // 无需前端倒计时到期再主动 arrive。连接不存在则静默（不影响结算主流程）。
+    this.sse.push(playerId, 'move_arrived', {
+      to_net_id: session.to_net_id,
+      to_name: session.to_name,
+    });
 
     this.logger.log(`玩家 ${playerId} 到达 ${session.to_name}(${session.to_net_id})`);
     return { session, to_net_id: session.to_net_id };

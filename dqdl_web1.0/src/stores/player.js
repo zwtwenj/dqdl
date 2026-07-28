@@ -22,8 +22,9 @@ export const usePlayerStore = defineStore('player', () => {
   const loading = ref(false)
   const error = ref('')
 
-  // 敏捷：移动速度用顶层 quick（与后端 move-session.service 一致，不含功法/宝物 final 加成）
-  const quick = computed(() => player.value?.quick ?? 0)
+  // 敏捷：用 final_attrs.quick（含功法/宝物加成的面板值）。
+  // 后端当前属性不再存储，顶层已无 quick 字段，统一读 final_attrs。
+  const quick = computed(() => player.value?.final_attrs?.quick ?? 0)
 
   /** 从服务器拉取玩家数据并覆盖到 store。
    *  无条件重新拉取——初始化、用物品后、移动到达后等任意需要刷新的时机都可调用。 */

@@ -97,3 +97,22 @@ button {
   /* background: #4e413a; */
   /* border: 1px solid #d9d0c2; */
 }
+
+/* v-tooltip 指令的浮层（跟随鼠标，行为同原生 title）。
+   浮层由指令 appendChild 到 body，故必须放全局样式。
+   不规定宽度，由内容撑开；调用方可在内容里用 <br/> 换行。 */
+.v-tooltip{
+  position: fixed;
+  z-index: 10002;                 /* 高于普通弹窗，低于 toast */
+  padding: 3px 8px 2px 8px;
+  background: var(--tooltip-bg);
+  border: 1px solid var(--tooltip-border);
+  border-radius: 0;
+  color: var(--tooltip-border);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  text-align: left;               /* 左对齐，多行内容自然换行 */
+  max-width: none;                /* 不限宽度，由内容撑开 */
+  pointer-events: none;           /* 浮层不挡住鼠标事件 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}

@@ -6,9 +6,29 @@ import ModuleBox from '@/components1/moduleBox.vue'
 import MapView from './mapView.vue'
 import Dlg from '@/components1/dlg.vue'
 import Button from '@/components1/button.vue'
-import { ref } from 'vue'
+import { useScriptStream } from '@/composables/useScriptStream'
+import { usePlayerStore } from '@/stores/player'
+import { bus, BusEvents } from '@/utils/eventBus'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 const show = ref(false)
+const playerStore = usePlayerStore()
+
+// 进入游戏页建立通用 SSE 长连接（剧本触发/移动到达等推送），离开时关闭
+const { open: openStream, close: closeStream } = useScriptStream()
+
+// 移动到达（SSE 推送）→ 刷新玩家状态（status 从 MOVING 恢复 IDLE，状态栏同步）
+let offMoveArrived = null
+onMounted(() => {
+  openStream()
+  offMoveArrived = bus.on(BusEvents.PLAYER_MOVE_ARRIVED, () => {
+    playerStore.load()
+  })
+})
+onUnmounted(() => {
+  closeStream()
+  offMoveArrived?.()
+})
 </script>
 
 <template>

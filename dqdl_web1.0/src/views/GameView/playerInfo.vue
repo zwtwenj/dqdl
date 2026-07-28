@@ -2,7 +2,6 @@
 import { ref, computed, onMounted } from 'vue'
 import playerBox from '@/components1/playerBox.vue'
 import quickButton from '@/components1/quickButton.vue'
-import FloatingTooltip from '@/components/FloatingTooltip.vue'
 import { usePlayerStore } from '@/stores/player'
 import { bus, BusEvents } from '@/utils/eventBus'
 
@@ -39,29 +38,19 @@ const cultPct = computed(() => pct(player.value?.cultivation, player.value?.leve
 
 onMounted(() => playerStore.load())
 
-// —— 进度条 tooltip（三条共用一个 FloatingTooltip）——
-// tipKey 标记当前悬停的是哪条；hoveredEl 传给 FloatingTooltip 做定位参考
-const tipOpen = ref(false)
-const tipKey = ref('')                 // 'cult' | 'hp' | 'energy'
-const hoveredEl = ref(null)
-
-// 各条 tooltip 文案
-const tipText = computed(() => {
+// —— 进度条 tooltip 文案（每条一个，供 v-tooltip 直接绑定）——
+const cultTip = computed(() => {
   const p = player.value || {}
-  if (tipKey.value === 'cult') return `当前修为：${p.cultivation ?? 0} / ${p.level_cultivation ?? 0}`
-  if (tipKey.value === 'hp') return `当前气血：${p.hp ?? 0} / ${maxHp.value}`
-  if (tipKey.value === 'energy') return `当前斗气：${p.energy ?? 0} / ${maxEnergy.value}`
-  return ''
+  return `当前修为：${p.cultivation ?? 0} / ${p.level_cultivation ?? 0}`
 })
-
-function onBarEnter(key, e) {
-  tipKey.value = key
-  hoveredEl.value = e.currentTarget
-  tipOpen.value = true
-}
-function onBarLeave() {
-  tipOpen.value = false
-}
+const hpTip = computed(() => {
+  const p = player.value || {}
+  return `当前气血：${p.hp ?? 0} / ${maxHp.value}`
+})
+const energyTip = computed(() => {
+  const p = player.value || {}
+  return `当前斗气：${p.energy ?? 0} / ${maxEnergy.value}`
+})
 </script>
 
 <template>
@@ -86,25 +75,19 @@ function onBarLeave() {
         <div class="player-hp-mp-cult" v-if="player">
             <div class="player-cult">
                 <div class="player-cult-left">修为：</div>
-                <div class="player-cult-point-bg"
-                    @pointerenter="onBarEnter('cult', $event)"
-                    @pointerleave="onBarLeave">
+                <div class="player-cult-point-bg" v-tooltip="cultTip">
                     <div class="player-cult-point" :style="{ width: cultPct + '%' }"></div>
                 </div>
             </div>
             <div class="player-hp">
                 <div class="player-hp-left">气血：</div>
-                <div class="player-hp-point-bg"
-                    @pointerenter="onBarEnter('hp', $event)"
-                    @pointerleave="onBarLeave">
+                <div class="player-hp-point-bg" v-tooltip="hpTip">
                     <div class="player-hp-point" :style="{ width: hpPct + '%' }"></div>
                 </div>
             </div>
             <div class="player-energy">
                 <div class="player-energy-left">斗气：</div>
-                <div class="player-energy-point-bg"
-                    @pointerenter="onBarEnter('energy', $event)"
-                    @pointerleave="onBarLeave">
+                <div class="player-energy-point-bg" v-tooltip="energyTip">
                     <div class="player-energy-point" :style="{ width: energyPct + '%' }"></div>
                 </div>
             </div>
@@ -122,15 +105,6 @@ function onBarLeave() {
             <div class="player-money-value">{{ player?.money ?? 0 }}</div>
         </div>
 
-        <!-- 进度条 tooltip：三条共用一个浮层，外壳样式覆盖为 titlebox 风格 -->
-        <FloatingTooltip
-            v-model:open="tipOpen"
-            :reference="hoveredEl"
-            placement="top"
-            skin-class="titlebox-skin"
-        >
-            <span class="titlebox-span">{{ tipText }}</span><br />
-        </FloatingTooltip>
     </playerBox >
 </template>
 
@@ -262,23 +236,5 @@ function onBarLeave() {
     }
 }
 
-/* —— 进度条 tooltip：浮层外壳样式（.ft-floating 由 FloatingTooltip Teleport 到 body，
-   scoped 的 :deep 无法穿透 Teleport，故用 skinClass 传入 + 非 scoped 样式块覆盖）—— */
-.titlebox-span{
-    color: var(--tooltip-border);
-}
-</style>
-
-<!-- 非 scoped：通过 skinClass 覆盖 FloatingTooltip 浮层外壳为 titlebox 风格 -->
-<style lang="less">
-.titlebox-skin{
-    width: auto !important;
-    padding: 3px 8px 2px 8px !important;
-    background: var(--tooltip-bg) !important;
-    border: 1px solid var(--tooltip-border) !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    font-family: inherit !important;
-    text-align: center;
-}
+/* tooltip 由全局 v-tooltip 指令 + .v-tooltip 样式处理，本组件无需额外样式 */
 </style>

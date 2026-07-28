@@ -584,6 +584,17 @@ onMounted(async () => {
                 </div>
               </div>
             </div>
+            <div class="player-actions">
+              <div class="location-actions-title">行动</div>
+              <div class="player-actions-list">
+                <div class="player-action">
+                  修炼<img src="/icon/icon-fight-pk-multi.gif" class="player-action-img">
+                </div>
+                <div class="player-action">
+                  采集<img src="/icon/icon-collect.gif" class="player-action-img">
+                </div>
+              </div>
+            </div>
         </div>
 
         <!-- 移动弹窗：预览态(显示预计时间) / 移动中态(倒计时进度条) -->
@@ -829,6 +840,7 @@ onMounted(async () => {
     }
     .location-mobs{
       margin-top: 10px;
+      margin-bottom: 10px;
       .location-mobs-title{
         font-weight: bolder;
         margin-bottom: 6px;
@@ -866,6 +878,32 @@ onMounted(async () => {
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
+        }
+      }
+    }
+    .player-actions{
+      .location-actions-title{
+        font-weight: bolder;
+        margin-bottom: 6px;
+      }
+      .player-actions-list{
+        display: flex;
+        gap: 10px;
+        .player-action{
+          line-height: 16px;
+          font-size: 14px;
+          margin-right: 5px;
+          display: flex;
+          align-items: center;
+          text-decoration: underline;
+          cursor: pointer;
+          .player-action-img{
+            width: 16px;
+            height: 16px;
+          }
+        }
+        .player-action:hover{
+          color: var(--link);
         }
       }
     }

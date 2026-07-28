@@ -10,8 +10,8 @@ import { useScriptStream } from '@/composables/useScriptStream'
 import { usePlayerStore } from '@/stores/player'
 import { bus, BusEvents } from '@/utils/eventBus'
 import { ref, onMounted, onUnmounted } from 'vue'
+import Information from './information.vue'
 
-const show = ref(false)
 const playerStore = usePlayerStore()
 
 // 进入游戏页建立通用 SSE 长连接（剧本触发/移动到达等推送），离开时关闭
@@ -47,23 +47,12 @@ onUnmounted(() => {
         </div>
         <ModuleBox class="game-view-right">
             <MapView></MapView>
+            <Information></Information>
         </ModuleBox>
     </div>
 
     <!--底部功能栏-->
     <Footer></Footer>
-
-    <Dlg v-if="show" @close="show=false">
-        <div>
-          <div class="dlg-content">
-            弹窗21333333333333333333333adsa
-            13123dqwquuuuuuuuuuuuuuuuuh
-          </div>
-          <div class="dlg-actions" style="margin-top: 10px;">
-            <Button>确定</Button>
-          </div>
-        </div>
-    </Dlg>
   </div>
 </template>
 

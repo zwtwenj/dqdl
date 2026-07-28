@@ -163,6 +163,17 @@ export class TrainingService {
     });
   }
 
+  /** 增量查询：返回指定历练中 id > afterLogId 的日志（按 id 升序）。
+   *  前端轮询用：初始化拉全量，之后只拉增量，避免重复传输已有日志。 */
+  async getTrainingLogsAfter(trainingId: number, afterLogId: number): Promise<TrainingLog[]> {
+    return this.logRepo
+      .createQueryBuilder('log')
+      .where('log.training_id = :trainingId', { trainingId })
+      .andWhere('log.id > :afterLogId', { afterLogId })
+      .orderBy('log.id', 'ASC')
+      .getMany();
+  }
+
   /** 启动定时器：每 10s 生成一条日志 */
   private startTimer(
     playerId: number,

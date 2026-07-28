@@ -12,10 +12,10 @@
 
 // ============ 历练 ============
 export const TRAINING = {
-  /** 历练总时长（毫秒）。默认 60s；.env 的 TRAINING_MAX_DURATION 可覆盖（当前=180000=3分钟） */
-  durationMs: 60_000,
-  /** 日志生成间隔（毫秒）。.env 的 TRAINING_INTERVAL 可覆盖（当前=10000=10秒） */
-  logIntervalMs: 10_000,
+  /** 历练总时长（毫秒）。默认 30 分钟；.env 的 TRAINING_MAX_DURATION 可覆盖 */
+  durationMs: 30 * 60 * 1000,
+  /** 日志生成间隔（毫秒）。默认 1 分钟打怪一次；.env 的 TRAINING_INTERVAL 可覆盖 */
+  logIntervalMs: 60 * 1000,
   /** 历练战斗胜率（0~1） */
   winRate: 0.7,
 };

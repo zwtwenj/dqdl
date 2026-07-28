@@ -7,12 +7,141 @@ import Dlg from '@/components1/dlg.vue'
 import Button from '@/components1/button.vue'
 import WorldMap from './WorldMap.vue'
 import { confirm } from '@/components1/confirm'
+import { startTraining, stopTraining, getActiveTraining } from '@/api/training'
 import { bus, BusEvents } from '@/utils/eventBus'
 
 const playerStore = usePlayerStore()
 
 // 大地图弹窗
 const showWorldMap = ref(false)
+
+// —— 历练 ——
+// 玩家状态：2=历练中(PLAYER_STATUS.TRAINING)，用于按钮显示开始/停止
+const isTraining = computed(() => playerStore.player?.status === 2)
+const trainingStarting = ref(false)   // 正在发起历练（防重复）
+
+/** 当前地点是否野外（只有野外能历练/采集） */
+const isWild = computed(() => selected.value?.loc_type === 'wild')
+
+/** 历练按钮：野外+空闲 → 二次确认 → startTraining */
+async function onTraining() {
+  if (isTraining.value) {
+    // 历练中：二次确认后停止
+    const ok = await confirm({
+      title: '停止历练',
+      content: '确定停止历练？将结束本次历练。',
+      okText: '停止历练',
+      cancelText: '继续历练',
+    })
+    if (!ok) return
+    try {
+      await stopTraining()
+      bus.emit(BusEvents.TOAST, { type: 'info', message: '已停止历练' })
+      playerStore.load()
+      bus.emit(BusEvents.TRAINING_TOGGLE, { active: false })
+      closeTrainingDlg()   // 行动按钮停止也要关弹窗
+    } catch (err) {
+      bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '停止失败' })
+    }
+    return
+  }
+  // 空闲：二次确认
+  const ok = await confirm({
+    title: '历练',
+    content: '是否进行历练？将持续 30 分钟，期间每分钟遭遇一次战斗。',
+    okText: '开始历练',
+    cancelText: '取消',
+  })
+  if (!ok) return
+  trainingStarting.value = true
+  try {
+    await startTraining()
+    bus.emit(BusEvents.TOAST, { type: 'success', message: '开始历练' })
+    playerStore.load()
+    bus.emit(BusEvents.TRAINING_TOGGLE, { active: true })  // 通知日志区开始轮询
+    openTrainingDlg()   // 打开历练弹窗
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '历练失败' })
+  } finally {
+    trainingStarting.value = false
+  }
+}
+
+// —— 历练弹窗（倒计时 + 停止）——
+const trainingDlgVisible = ref(false)
+const trainingSession = ref(null)    // { start_time, end_time, ... }
+const trainingRemainingSec = ref(0)  // 剩余秒数
+let trainingTickTimer = null
+
+/** 打开历练弹窗：拉当前历练 session + 启动倒计时 */
+async function openTrainingDlg() {
+  try {
+    const data = await getActiveTraining()
+    if (data) {
+      trainingSession.value = data
+      trainingDlgVisible.value = true
+      startTrainingTick(data)
+    }
+  } catch { /* ignore */ }
+}
+
+/** 历练倒计时：按 end_time 算剩余，到点自动关闭 */
+function startTrainingTick(session) {
+  stopTrainingTick()
+  const tick = () => {
+    const end = new Date(session.end_time).getTime()
+    const left = Math.max(0, Math.ceil((end - Date.now()) / 1000))
+    trainingRemainingSec.value = left
+    if (left <= 0) {
+      stopTrainingTick()
+      bus.emit(BusEvents.TOAST, { type: 'success', message: '历练结束' })
+      closeTrainingDlg()
+    }
+  }
+  tick()
+  trainingTickTimer = setInterval(tick, 1000)
+}
+function stopTrainingTick() {
+  if (trainingTickTimer) { clearInterval(trainingTickTimer); trainingTickTimer = null }
+}
+function closeTrainingDlg() {
+  stopTrainingTick()
+  trainingDlgVisible.value = false
+  trainingSession.value = null
+  trainingRemainingSec.value = 0
+}
+
+/** 历练弹窗里点停止：二次确认 → stopTraining → 关弹窗 */
+async function onTrainingStop() {
+  const ok = await confirm({
+    title: '停止历练',
+    content: '确定停止历练？将结束本次历练。',
+    okText: '停止历练',
+    cancelText: '继续历练',
+  })
+  if (!ok) return
+  try {
+    await stopTraining()
+    bus.emit(BusEvents.TOAST, { type: 'info', message: '已停止历练' })
+    playerStore.load()
+    bus.emit(BusEvents.TRAINING_TOGGLE, { active: false })
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '停止失败' })
+    return
+  }
+  closeTrainingDlg()
+}
+
+function onTrainingDlgClose() {
+  // 点 X 只隐藏弹窗（历练继续后台进行），可通过状态栏重新打开
+  trainingDlgVisible.value = false
+  stopTrainingTick()
+}
+
+/** 采集按钮（占位，后续接入） */
+function onGather() {
+  bus.emit(BusEvents.TOAST, { type: 'info', message: '采集功能待接入' })
+}
 
 const view = ref(null)          // getPlayerView 返回：{ ring0, ring1, nodes, edges, fog }
 const selected = ref(null)      // 右侧展示的节点（默认 ring0）
@@ -410,6 +539,7 @@ let offMoveDialogOpen = null
 let offMoveArrived = null
 let offMoveFinished = null
 let offMoveCancelled = null
+let offTrainingDialogOpen = null
 onMounted(() => {
   offMoveDialogOpen = bus.on(BusEvents.MOVE_DIALOG_OPEN, () => {
     if (moveSession.value && !moveDlgVisible.value) {
@@ -419,14 +549,21 @@ onMounted(() => {
   offMoveArrived = bus.on(BusEvents.PLAYER_MOVE_ARRIVED, (data) => onMoveArrived(data))
   offMoveFinished = bus.on(BusEvents.PLAYER_MOVE_FINISHED, (data) => onMoveFinished(data))
   offMoveCancelled = bus.on(BusEvents.PLAYER_MOVE_CANCELLED, () => onMoveCancelled())
+  // 状态栏点击「历练中」重新打开历练弹窗
+  offTrainingDialogOpen = bus.on(BusEvents.TRAINING_DIALOG_OPEN, () => {
+    if (isTraining.value && !trainingDlgVisible.value) openTrainingDlg()
+  })
 })
 
 onUnmounted(() => {
   stopTick()
+  stopTrainingTick()
   if (arriveFallbackTimer) clearTimeout(arriveFallbackTimer)
   offMoveDialogOpen?.()
   offMoveArrived?.()
   offMoveFinished?.()
+  offMoveCancelled?.()
+  offTrainingDialogOpen?.()
   offMoveCancelled?.()
 })
 
@@ -584,13 +721,14 @@ onMounted(async () => {
                 </div>
               </div>
             </div>
-            <div class="player-actions">
+            <div class="player-actions" v-if="isWild">
               <div class="location-actions-title">行动</div>
               <div class="player-actions-list">
-                <div class="player-action">
-                  修炼<img src="/icon/icon-fight-pk-multi.gif" class="player-action-img">
+                <div class="player-action" :class="{ 'is-active': isTraining }" @click="onTraining">
+                  {{ isTraining ? '停止历练' : '历练' }}
+                  <img src="/icon/icon-fight-pk-multi.gif" class="player-action-img">
                 </div>
-                <div class="player-action">
+                <div class="player-action" @click="onGather">
                   采集<img src="/icon/icon-collect.gif" class="player-action-img">
                 </div>
               </div>
@@ -657,6 +795,21 @@ onMounted(async () => {
             @close="showWorldMap = false"
             @select-node="handleSelectNode"
         />
+
+        <!-- 历练弹窗：倒计时 + 停止 -->
+        <Dlg v-if="trainingDlgVisible" title="历练中" @close="onTrainingDlgClose">
+            <div class="move-dlg">
+                <p class="move-dlg-text">
+                    正在<span class="move-target-name">历练</span>
+                </p>
+                <p class="move-dlg-meta">
+                    剩余 <span class="move-time">{{ fmtDuration(trainingRemainingSec) }}</span>
+                </p>
+                <div class="move-dlg-actions">
+                    <Button class="move-btn" @click="onTrainingStop">停止历练</Button>
+                </div>
+            </div>
+        </Dlg>
     </div>
 </template>
 

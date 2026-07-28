@@ -9,11 +9,13 @@ const playerStore = usePlayerStore()
 const player = computed(() => playerStore.player)
 const loading = computed(() => playerStore.loading)
 
-// 玩家是否移动中（status=9）：此时状态栏可点击，重新打开移动弹窗
+// 玩家是否移动中（status=9）/ 历练中（status=2）：状态栏可点击重新打开对应弹窗
 const isMoving = computed(() => player.value?.status === 9)
+const isTraining = computed(() => player.value?.status === 2)
 
 function onStatusClick() {
   if (isMoving.value) bus.emit(BusEvents.MOVE_DIALOG_OPEN)
+  else if (isTraining.value) bus.emit(BusEvents.TRAINING_DIALOG_OPEN)
 }
 
 /** 进度百分比：cur/max → 0~100，max 为 0 时返回 0（防除零） */
@@ -96,7 +98,10 @@ const energyTip = computed(() => {
             <div class="player-status-left">状态：</div>
             <div
                 class="player-status-value"
-                :class="{ 'player-status-moving': isMoving, 'player-status-1': !isMoving }"
+                :class="{
+                    'player-status-active': isMoving || isTraining,
+                    'player-status-1': !isMoving && !isTraining
+                }"
                 @click="onStatusClick"
             >{{ player?.status_label || (loading ? '...' : '---') }}</div>
         </div>
@@ -211,8 +216,8 @@ const energyTip = computed(() => {
     .player-status-1{
         color: var(--status-ok);
     }
-    /* 移动中：可点击，下划线提示 */
-    .player-status-moving{
+    /* 移动中/历练中：可点击，下划线提示 */
+    .player-status-active{
         color: var(--accent);
         text-decoration: underline;
         cursor: pointer;

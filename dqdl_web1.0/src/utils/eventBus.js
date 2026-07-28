@@ -66,6 +66,11 @@ export const BusEvents = {
   /** 移动被取消：{ stop_net_id } 玩家停留点。
    *  后端 cancelMove 经 SSE 推 move_cancelled。mapView 关弹窗 + 刷新到停留点。 */
   PLAYER_MOVE_CANCELLED: 'player-move-cancelled',
+  /** 历练状态切换：{ active: boolean } 开始/停止历练时触发，日志区据此启停轮询 */
+  TRAINING_TOGGLE: 'training-toggle',
+  /** 打开历练弹窗：无载荷。
+   *  玩家状态栏点击「历练中」时触发，mapView 监听后显示历练弹窗。 */
+  TRAINING_DIALOG_OPEN: 'training-dialog-open',
 }
 
 const listeners = new Map()

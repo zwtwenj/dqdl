@@ -11,6 +11,8 @@ import { usePlayerStore } from '@/stores/player'
 import { bus, BusEvents } from '@/utils/eventBus'
 import { ref, onMounted, onUnmounted } from 'vue'
 import Information from './information.vue'
+import mainContainer from './mainContainer.vue'
+import MainContainer from './mainContainer.vue'
 
 const playerStore = usePlayerStore()
 
@@ -34,6 +36,14 @@ onUnmounted(() => {
   offMoveFinished?.()
   offMoveCancelled?.()
 })
+
+const mainContainerShow = ref(false)
+const mainContainerTab = ref('player')
+
+const openContainer = (tab) => {
+  mainContainerTab.value = tab
+  mainContainerShow.value = true
+}
 </script>
 
 <template>
@@ -43,11 +53,16 @@ onUnmounted(() => {
 
     <div class="game-view-content">
         <div class="game-view-left">
-            <PlayerInfo></PlayerInfo>
+            <PlayerInfo @openContainer="openContainer"></PlayerInfo>
         </div>
         <ModuleBox class="game-view-right">
             <MapView></MapView>
             <Information></Information>
+            <MainContainer 
+            v-if="mainContainerShow"
+            :defaultTab="mainContainerTab"
+            @close="mainContainerShow=false">
+            </MainContainer>
         </ModuleBox>
     </div>
 
@@ -74,6 +89,8 @@ onUnmounted(() => {
     margin: auto;
     .game-view-right{
         width: 1000px;
+        position: relative;
+        align-self: flex-start;   /* 高度由内容撑开，不被 flex 拉伸到容器满高 */
     }
   }
 }

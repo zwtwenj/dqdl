@@ -34,6 +34,12 @@ export const usePlayerStore = defineStore('player', () => {
   const sceneId = computed(() => player.value?.scene_id ?? null)
   const inScene = computed(() => sceneId.value != null)
 
+  // 气血/斗气上限：必须用 final_attrs 里的值（含功法+宝物加成），
+  // 顶层 max_hp/max_energy 只是基础值（stamina*10 / level*20），不含加成。
+  const finalAttrs = computed(() => player.value?.final_attrs || {})
+  const maxHp = computed(() => finalAttrs.value.max_hp ?? player.value?.max_hp ?? 0)
+  const maxEnergy = computed(() => finalAttrs.value.max_energy ?? player.value?.max_energy ?? 0)
+
   /** 从服务器拉取玩家数据并覆盖到 store。
    *  无条件重新拉取——初始化、用物品后、移动到达后等任意需要刷新的时机都可调用。 */
   async function load() {
@@ -55,5 +61,5 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
-  return { player, loading, error, quick, locationId, sceneId, inScene, load }
+  return { player, loading, error, quick, locationId, sceneId, inScene, finalAttrs, maxHp, maxEnergy, load }
 })

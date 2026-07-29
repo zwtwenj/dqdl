@@ -9,6 +9,8 @@ const playerStore = usePlayerStore()
 const player = computed(() => playerStore.player)
 const loading = computed(() => playerStore.loading)
 
+const emits = defineEmits(['openContainer'])
+
 // 玩家是否移动中（status=9）/ 历练中（status=2）：状态栏可点击重新打开对应弹窗
 const isMoving = computed(() => player.value?.status === 9)
 const isTraining = computed(() => player.value?.status === 2)
@@ -26,13 +28,9 @@ function pct(cur, max) {
   return Math.max(0, Math.min(100, (c / m) * 100))
 }
 
-// 三条进度条宽度（绑定到 :style）
-// 注意：气血/斗气上限必须用 final_attrs 里的值（含功法+宝物加成），
-// 顶层 max_hp/max_energy 只是基础值（stamina*10 / level*20），不含加成，
-// 用错会出现 hp > max_hp 的倒挂（如 370/270）。
-const finalAttrs = computed(() => player.value?.final_attrs || {})
-const maxHp = computed(() => finalAttrs.value.max_hp ?? player.value?.max_hp ?? 0)
-const maxEnergy = computed(() => finalAttrs.value.max_energy ?? player.value?.max_energy ?? 0)
+// 三条进度条宽度（maxHp/maxEnergy 来自 store，含功法+宝物加成）
+const maxHp = computed(() => playerStore.maxHp)
+const maxEnergy = computed(() => playerStore.maxEnergy)
 
 const hpPct = computed(() => pct(player.value?.hp, maxHp.value))
 const energyPct = computed(() => pct(player.value?.energy, maxEnergy.value))
@@ -53,6 +51,12 @@ const energyTip = computed(() => {
   const p = player.value || {}
   return `当前斗气：${p.energy ?? 0} / ${maxEnergy.value}`
 })
+
+
+// 打开背包
+const openContainer = (tab) => {
+    emits('openContainer', tab)
+}
 </script>
 
 <template>
@@ -70,9 +74,9 @@ const energyTip = computed(() => {
         </div>
         <div class="quick-botton-list">
             <quickButton class="quick-button">任务</quickButton>
-            <quickButton class="quick-button">人物</quickButton>
-            <quickButton class="quick-button">背包</quickButton>
-            <quickButton class="quick-button">斗技</quickButton>
+            <quickButton class="quick-button" @click="openContainer('player')">人物</quickButton>
+            <quickButton class="quick-button" @click="openContainer('backpack')">背包</quickButton>
+            <quickButton class="quick-button" @click="openContainer('skill')">斗技</quickButton>
         </div>
         <div class="player-hp-mp-cult" v-if="player">
             <div class="player-cult">

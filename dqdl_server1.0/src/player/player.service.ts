@@ -49,12 +49,12 @@ export const PLAYER_STATUS = {
 
 export const STATUS_LABEL: Record<number, string> = {
   1: '空闲',
-  2: '历练',
+  2: '历练中',
   3: '奇遇副本',
   4: '洞天福地修炼',
   5: '修炼室修炼',
-  6: '采集',
-  7: '战斗',
+  6: '采集中',
+  7: '战斗中',
   8: '剧本演出',
   9: '移动中',
 };

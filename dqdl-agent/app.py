@@ -14,6 +14,7 @@ dqdl-agent: AI 生成服务（Flask）
   POST /generate/breakthrough 突破叙事（routes/breakthrough.py）
   POST /generate/dungeon    箱庭副本五幕蓝图（routes/dungeon.py）
   POST /generate/event      场景事件规格（routes/event.py）
+  POST /generate/task-adventurer 佣兵任务文案生成（routes/task_adventurer.py）
 """
 from flask import Flask
 from config import AGENT_HOST, AGENT_PORT
@@ -25,6 +26,7 @@ from routes.breakthrough import bp as breakthrough_bp
 from routes.dungeon import bp as dungeon_bp
 from routes.event import bp as event_bp
 from routes.npc import bp as npc_bp
+from routes.task_adventurer import bp as task_adventurer_bp
 
 app = Flask(__name__)
 
@@ -37,6 +39,7 @@ app.register_blueprint(breakthrough_bp)
 app.register_blueprint(dungeon_bp)
 app.register_blueprint(event_bp)
 app.register_blueprint(npc_bp)
+app.register_blueprint(task_adventurer_bp)
 
 # ── 兼容旧测试的 re-export ──
 # test_event.py / test_fallback.py 用 `import app as agent` 访问以下符号，

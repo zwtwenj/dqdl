@@ -17,6 +17,8 @@ import type {
   AgentNpcResult,
   AgentWildMobsRequest,
   AgentWildMobsResult,
+  AgentTaskRequest,
+  AgentTaskResult,
 } from './agent.types';
 
 /**
@@ -333,6 +335,36 @@ export class AgentService {
       const err = e as AxiosError;
       this.logger.warn(
         `agent /generate/npc 调用失败：${err.message}（code=${err.code}）`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 生成佣兵任务文案：调 POST /generate/task-adventurer。
+   * 由 server 组装玩家/地图/怪/数量等上下文，agent 生成任务标题(name)、整体描述(description)、单目标描述(target_desc)。
+   * @returns 文案对象；agent 不可用或出错时返回 null（调用方用模板字符串兜底）
+   */
+  async generateTaskAdventurer(
+    req: AgentTaskRequest,
+  ): Promise<AgentTaskResult | null> {
+    try {
+      const { data } = await firstValueFrom(
+        this.http.post<AgentTaskResult>(
+          `${this.baseUrl}/generate/task-adventurer`,
+          req,
+          { timeout: 15000 },
+        ),
+      );
+      if (!data || !data.name) {
+        this.logger.warn('agent /generate/task-adventurer 返回无效数据，已忽略');
+        return null;
+      }
+      return data;
+    } catch (e) {
+      const err = e as AxiosError;
+      this.logger.warn(
+        `agent /generate/task-adventurer 调用失败：${err.message}（code=${err.code}）`,
       );
       return null;
     }

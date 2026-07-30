@@ -4,6 +4,7 @@ import { Repository, DataSource } from 'typeorm';
 import { Task } from './task.entity';
 import { LocationNetService } from '../location_net/location-net.service';
 import { MobService } from '../mob/mob.service';
+import { AgentService } from '../agent/agent.service';
 import { Biz } from '../common/biz.exception';
 import { TASK } from '../config/game.config';
 
@@ -32,8 +33,9 @@ function parseRewardBase(env: string | undefined, def: Record<number, number>): 
   return def;
 }
 
-/** 任务目标项 */
+/** 任务目标项。type 决定走哪个完成判定函数：fight=击杀 / findNpc=找人(预留) */
 export interface TaskTarget {
+  type: 'fight' | 'findNpc';
   desc: string;
   current: number;
   required: number;
@@ -60,6 +62,7 @@ export class TaskService {
     private readonly taskRepo: Repository<Task>,
     private readonly locationNet: LocationNetService,
     private readonly mobService: MobService,
+    private readonly agentService: AgentService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -146,7 +149,7 @@ export class TaskService {
     const killCount = this.randInt(KILL_MIN, KILL_MAX);
 
     // 6. 组装候选任务（不入库，无 id）
-    return { ok: true, task: this.buildAdventurerDraft(wild, mob, killCount) };
+    return { ok: true, task: await this.buildAdventurerDraft(player, wild, mob, killCount) };
   }
 
   /**
@@ -183,6 +186,8 @@ export class TaskService {
       type: 'adventurer',
       star: draft.star || 1,
       delivery: null,
+      giver_npc_id: draft.giver_npc_id ?? null,
+      giver_npc_name: draft.giver_npc_name ?? null,
     });
     const saved = await this.taskRepo.save(task);
     this.logger.log(`玩家 ${playerId} 接受佣兵任务：${task.description}`);
@@ -192,17 +197,54 @@ export class TaskService {
   /**
    * 由野生地图候选 + 怪 + 击杀数 组装一个候选任务对象（不入库）。
    * 前端用于展示「接受/拒绝/换一个」。
+   *
+   * 文案优先走 agent（name/description/target.desc），agent 不可用或失败时回退模板字符串，
+   * 保证任务总能生成。target.type 标记目标机制（fight/findNpc），完成判定按它分发。
+   * giver 为发布人快照，佣兵任务统一由"佣兵公会接待员"发布。
    */
-  private buildAdventurerDraft(
+  private async buildAdventurerDraft(
+    player: any,
     wild: any,
     mob: { mob_id: string; name: string; rank?: string },
     killCount: number,
-  ): any {
+  ): Promise<any> {
     const star = wild.danger_level || 1;
     const dangerLabel: Record<number, string> = { 1: '一阶', 2: '二阶', 3: '三阶' };
+
+    // 模板兜底文案（地名/怪物名带 HTML 高亮 span，与 agent 输出格式一致，前端 v-html 渲染）
+    const fallbackName = `猎杀·${mob.name}`;
+    const fallbackDesc = `前往<span style="color: green">${wild.name}</span>，击杀<span style="color: #e77800">${mob.name}</span>${killCount}只（完成后回佣兵公会与接待员交谈交付）`;
+    const fallbackTargetDesc = `击杀<span style="color: #e77800">${mob.name}</span>（${dangerLabel[star] || ''}魔兽）`;
+
+    // 调 agent 生成文案（失败回退模板）
+    let name = fallbackName;
+    let description = fallbackDesc;
+    let targetDesc = fallbackTargetDesc;
+    try {
+      const agentText = await this.agentService.generateTaskAdventurer({
+        player: { name: player.name, level: player.level },
+        wild: { name: wild.name, description: wild.description || '', danger_level: star },
+        mob: { mob_id: mob.mob_id, name: mob.name, rank: mob.rank || dangerLabel[star] || '' },
+        killCount,
+        star,
+      });
+      if (agentText) {
+        if (agentText.name?.trim()) name = agentText.name.trim();
+        if (agentText.description?.trim()) description = agentText.description.trim();
+        if (agentText.target_desc?.trim()) targetDesc = agentText.target_desc.trim();
+      }
+    } catch (e) {
+      this.logger.warn(`task 文案生成走 fallback：${e}`);
+    }
+
+    // description 列是 varchar255。agent 文案含 HTML span 高亮，直接 slice 可能切断标签
+    // 导致 v-html 渲染破损，故超长时整体回退到标签完整的模板兜底（而非截断）。
+    if (description.length > 255) description = fallbackDesc;
+
     const target: TaskTarget[] = [
       {
-        desc: `击杀${mob.name}（${dangerLabel[star] || ''}魔兽）`,
+        type: 'fight',
+        desc: targetDesc,
         current: 0,
         required: killCount,
         net_id: wild.id,
@@ -215,12 +257,14 @@ export class TaskService {
       { type: 'money', value: DANGER_REWARD_BASE[star] ?? DANGER_REWARD_BASE[1] },
     ];
     return {
-      name: `猎杀·${mob.name}`,
-      description: `前往${wild.name}，击杀${mob.name}${killCount}只（完成后回佣兵公会与接待员交谈交付）`,
+      name,
+      description,
       target,
       reward,
       star,
       type: 'adventurer',
+      giver_npc_id: null,
+      giver_npc_name: '佣兵公会接待员',
     };
   }
 
@@ -239,8 +283,12 @@ export class TaskService {
 
   /**
    * 击杀进度判定（地图+怪物双条件）。
-   * 玩家在 netId 地图击杀 mobId 怪时调用，匹配上的 pending 任务 current+1。
+   * 玩家在 netId 地图击杀 mobId 怪时调用，匹配上且目标机制为 fight 的 pending 任务 current+1。
    * 达标后保持 pending（等玩家回公会交付），不自动改状态。
+   *
+   * 注意两层 type：
+   *   - task.type='adventurer'（任务级分类，保留不动）→ where 条件
+   *   - target[].type='fight'（目标级机制，新增）→ 内部分发，只推进 fight 目标
    * @returns 是否命中了任意任务目标
    */
   async checkKillProgress(
@@ -256,6 +304,8 @@ export class TaskService {
       const targets: TaskTarget[] = this.safeParseArr(task.target);
       let changed = false;
       for (const t of targets) {
+        // 只处理 fight 目标（findNpc 不走击杀判定）
+        if (t.type !== 'fight') continue;
         // 双条件：地图 + 怪物都匹配，且未达标
         if (t.net_id === netId && t.mob_id === mobId && t.current < t.required) {
           t.current += 1;
@@ -269,6 +319,22 @@ export class TaskService {
       }
     }
     return hit;
+  }
+
+  /**
+   * 找人任务进度判定（预留，后端暂未接入）。
+   * 完成条件待定（到达指定场景 / 与指定 NPC 对话），本轮仅占位。
+   * 触发点尚未建立，此方法当前无调用方。
+   * @returns 是否命中
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async checkFindNpcProgress(
+    playerId: number,
+    netId: number,
+    npcId?: number,
+  ): Promise<boolean> {
+    // TODO: findNpc 完成判定 + 触发点接入（到达/对话）
+    return false;
   }
 
   // ---------- 交付领奖 ----------
@@ -344,6 +410,8 @@ export class TaskService {
       status: t.status,
       type: t.type,
       star: t.star,
+      giver_npc_id: t.giver_npc_id ?? null,
+      giver_npc_name: t.giver_npc_name ?? null,
       created_at: t.created_at,
     };
   }

@@ -32,14 +32,14 @@ function handleTrade({ npc, playerId, closeDialog }) {
 }
 
 /**
- * createAdventurerTask 事件：打开「任务接取预览」面板。
+ * createAdventurerTask 事件：打开「任务接取」面板。
  * 不直接接任务——面板里展示一个候选任务，玩家「接受/拒绝/换一个」。
- * 实际 DB 生成（preview 候选 / accept 入库）由 TaskAcceptPanel 自治处理。
+ * 实际 DB 生成（preview 候选 / accept 入库）由 TaskDetails 自治处理。
+ * 注意：不关闭 NPC 对话——任务详情弹窗叠在对话之上，玩家可同时看到两者。
  */
-function handleCreateAdventurerTask({ playerId, closeDialog }) {
+function handleCreateAdventurerTask({ playerId }) {
   if (!playerId) return
   bus.emit(BusEvents.TASK_ACCEPT_OPEN, { playerId })
-  closeDialog?.()
 }
 
 /** 任务全部目标达标即可交付（与后端 claimTask 的 every 判定一致） */

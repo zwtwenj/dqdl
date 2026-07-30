@@ -12,6 +12,7 @@ import {
  * target / reward / delivery 均为 JSON 字符串（TEXT 列存），约定结构：
  *
  *   target: [{
+ *     type: 'fight',              // 目标机制：fight=击杀 / findNpc=找人(预留)
  *     desc: '前往落日草原，击杀焰尾蜥8只',
  *     current: 0,                 // 当前进度
  *     required: 8,                // 需要数量
@@ -60,6 +61,12 @@ export class Task {
 
   @Column({ type: 'text', nullable: true, comment: '交付信息JSON' })
   delivery: string | null;
+
+  @Column({ type: 'int', nullable: true, comment: '发布人NPC ID（NULL=系统/接待员，仅存快照）' })
+  giver_npc_id: number | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true, comment: '发布人NPC名（快照）' })
+  giver_npc_name: string | null;
 
   @CreateDateColumn()
   created_at: Date;

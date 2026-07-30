@@ -11,7 +11,6 @@ import { usePlayerStore } from '@/stores/player'
 import { bus, BusEvents } from '@/utils/eventBus'
 import { ref, onMounted, onUnmounted } from 'vue'
 import Information from './information.vue'
-import mainContainer from './mainContainer.vue'
 import MainContainer from './mainContainer.vue'
 
 const playerStore = usePlayerStore()

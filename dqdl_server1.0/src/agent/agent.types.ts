@@ -152,3 +152,20 @@ export interface AgentNpcResult {
   nature: string; // 性格名（须对齐 nature 表）
 }
 
+/** 佣兵任务文案生成请求（调 /generate/task-adventurer）
+ *  由 server 组装玩家/地图/怪/数量等上下文，agent 生成任务标题、整体描述、单目标描述。 */
+export interface AgentTaskRequest {
+  player: { name: string; level?: number };
+  wild: { name: string; description: string; danger_level: number };
+  mob: { mob_id: string; name: string; rank?: string };
+  killCount: number;
+  star: number;
+}
+
+/** 任务文案生成结果：name=任务标题、description=整条任务一句话、target_desc=单目标描述 */
+export interface AgentTaskResult {
+  name: string;
+  description: string;
+  target_desc: string;
+}
+

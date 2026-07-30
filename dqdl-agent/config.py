@@ -75,7 +75,7 @@ def _parse_route(env_key):
 
 
 # 各场景的路由（call_type → (platform, model)）
-_SCENARIOS = ['training', 'dialog', 'dungeon', 'event', 'map', 'encounter', 'breakthrough']
+_SCENARIOS = ['training', 'dialog', 'dungeon', 'event', 'map', 'encounter', 'breakthrough', 'task']
 _ROUTES = {}
 for _s in _SCENARIOS:
     _route = _parse_route(_s.upper() + '_MODEL')

@@ -7,10 +7,12 @@ import { LocationNetModule } from '../location_net/location-net.module';
 import { MobModule } from '../mob/mob.module';
 import { PlayerModule } from '../player/player.module';
 import { AuthModule } from '../auth/auth.module';
+import { AgentModule } from '../agent/agent.module';
 
 /**
  * 任务模块：佣兵公会战斗任务（生成/查询/交付）。
  * TaskService 对外 export，供 training/battle 等模块调用 checkKillProgress。
+ * 依赖 AgentModule：任务文案(name/description/target.desc)优先由 agent 生成，失败回退模板。
  */
 @Module({
   imports: [
@@ -19,6 +21,7 @@ import { AuthModule } from '../auth/auth.module';
     MobModule,
     PlayerModule,
     AuthModule,
+    AgentModule,
   ],
   providers: [TaskService],
   controllers: [TaskController],

@@ -10,3 +10,6 @@ app.use(createPinia())
 app.use(router)
 app.directive('tooltip', vTooltip)   // 全局注册 v-tooltip 指令
 app.mount('#app')
+
+// 全局禁用浏览器右键菜单
+document.addEventListener('contextmenu', (e) => e.preventDefault())

@@ -59,10 +59,12 @@ function positionAtMouse(clientX, clientY) {
   tip.style.top = top + 'px'
 }
 
-/** 显示浮层（innerHTML 支持 <br/> 换行；用 textContent 会把标签当文本，故用 innerHTML） */
+/** 显示浮层（innerHTML 支持 <br/> 换行）。
+ *  text 为空/null/undefined 时不显示（避免空浮层）。 */
 function show(el, text, evt) {
+  if (!text) return               // 空内容不弹浮层
   const tip = getTipEl()
-  tip.innerHTML = text ?? ''
+  tip.innerHTML = text
   currentTarget = el
   positionAtMouse(evt.clientX, evt.clientY)
   tip.style.display = 'block'

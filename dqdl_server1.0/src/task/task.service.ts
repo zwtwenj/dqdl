@@ -22,6 +22,8 @@ const MIN_CANDIDATES = Number(process.env.TASK_MIN_CANDIDATES) || TASK.minCandid
 const DANGER_REWARD_BASE = parseRewardBase(process.env.TASK_REWARD_BASE, TASK.rewardBase);
 /** 任务搜图范围（切比雪夫距离 N 格内） */
 const TASK_MAX_DIST = Number(process.env.TASK_MAX_DIST) || TASK.maxDist;
+/** 草稿超时秒数：preview 生成的 draft 超过此时间未确认 → 惰性标 delete。默认 600（10分钟） */
+const DRAFT_TTL = Number(process.env.TASK_DRAFT_TTL) || 600;
 
 /** 解析 .env 的奖励基数配置（逗号分隔），失败回退默认 */
 function parseRewardBase(env: string | undefined, def: Record<number, number>): Record<number, number> {
@@ -69,24 +71,29 @@ export class TaskService {
   // ---------- 佣兵任务生成 ----------
 
   /**
-   * 预览一个佣兵公会战斗任务（生成候选，不入库）。
+   * 预览一个佣兵公会战斗任务（生成草稿落库，返回 taskId）。
    *
    * 流程：
-   *   1. 取玩家当前地图节点 netId
-   *   2. 查三格内（切比雪夫距离≤3）的野外地图候选（含 common_mobs）
-   *   3. 不足 3 个 → 定向生成连通野外补齐
-   *   4. 仍无候选 → 返回"暂时无法发布任务"
-   *   5. 随机取 1 图 + 1 怪 + 6-10 只，组装任务（不入库）
+   *   0. 惰性清理该玩家超时草稿（created_at 超 DRAFT_TTL 的 draft → delete）
+   *   1. 上限校验（只数 pending，draft 不占上限）
+   *   2. 取玩家当前地图节点 netId
+   *   3. 查三格内（切比雪夫距离≤3）的野外地图候选（含 common_mobs）
+   *   4. 不足 3 个 → 定向生成连通野外补齐
+   *   5. 仍无候选 → 返回"暂时无法发布任务"
+   *   6. 随机取 1 图 + 1 怪 + 6-10 只，组装草稿 → 落库 status=draft
    *
-   * 返回候选对象（含可入库所需全部字段），由前端展示给玩家
-   * 「接受 / 拒绝 / 换一个」选择；确认后才调 acceptAdventurerTask 入库。
+   * 落库后只返回 taskId（不返回完整 task 对象，防篡改 + 降耦合），
+   * 前端用 taskId 调 findOneTask 拉单条展示「接受 / 拒绝 / 换一个」。
    *
-   * @returns { ok, task?, msg? }  task 为候选（无 id，未入库）
+   * @returns { ok, taskId?, msg? }  taskId 为已落库的草稿任务 id
    */
   async previewAdventurerTask(
     playerId: number,
-  ): Promise<{ ok: boolean; task?: any; msg?: string }> {
-    // 0. 上限校验
+  ): Promise<{ ok: boolean; taskId?: number; msg?: string }> {
+    // 0. 惰性清理该玩家超时草稿（避免 draft 堆积）
+    await this.cleanExpiredDrafts(playerId);
+
+    // 1. 上限校验（draft 不占上限）
     const pendingCount = await this.taskRepo.count({
       where: { player_id: playerId, type: 'adventurer', status: 'pending' },
     });
@@ -148,24 +155,51 @@ export class TaskService {
     const mob = mobs[Math.floor(Math.random() * mobs.length)];
     const killCount = this.randInt(KILL_MIN, KILL_MAX);
 
-    // 6. 组装候选任务（不入库，无 id）
-    return { ok: true, task: await this.buildAdventurerDraft(player, wild, mob, killCount) };
+    // 6. 组装草稿并落库（status=draft），返回 taskId
+    const draft = await this.buildAdventurerDraft(player, wild, mob, killCount);
+    const saved = await this.taskRepo.save(
+      this.taskRepo.create({
+        player_id: playerId,
+        name: draft.name,
+        description: draft.description,
+        target: JSON.stringify(draft.target),
+        reward: JSON.stringify(draft.reward),
+        status: 'draft',
+        type: 'adventurer',
+        star: draft.star || 1,
+        delivery: null,
+        giver_npc_id: draft.giver_npc_id ?? null,
+        giver_npc_name: draft.giver_npc_name ?? null,
+      }),
+    );
+    return { ok: true, taskId: saved.id };
+  }
+
+  /** 惰性清理玩家超时草稿：created_at 超过 DRAFT_TTL 的 draft → delete */
+  private async cleanExpiredDrafts(playerId: number): Promise<void> {
+    await this.taskRepo
+      .createQueryBuilder()
+      .update()
+      .set({ status: 'delete' })
+      .where('player_id = :pid AND status = :status AND created_at < :deadline', {
+        pid: playerId,
+        status: 'draft',
+        deadline: new Date(Date.now() - DRAFT_TTL * 1000),
+      })
+      .execute();
   }
 
   /**
-   * 确认接受一个候选任务（入 task 表）。
-   * 候选由 previewAdventurerTask 生成、玩家在前端点「接受」后回传。
-   * 再次校验上限（防止并发/重复提交），校验候选字段完整性。
-   * @param draft 候选任务（含 name/description/target/reward/star）
-   * @returns { ok, task?, msg? }
+   * 确认接受草稿任务（draft → pending）。
+   * 前端点「接受」时调用，传 taskId。后端按 taskId 找到自己的草稿（校验归属 + status=draft），
+   * 全程后端持有数据，不信任前端传来的任务内容（防篡改）。
+   * 再次校验上限（防并发）。
+   * @returns { ok, taskId?, msg? }
    */
   async acceptAdventurerTask(
     playerId: number,
-    draft: any,
-  ): Promise<{ ok: boolean; task?: any; msg?: string }> {
-    if (!draft || !draft.target || !draft.reward || !draft.name) {
-      return { ok: false, msg: '任务数据不完整' };
-    }
+    taskId: number,
+  ): Promise<{ ok: boolean; taskId?: number; msg?: string }> {
     // 上限二次校验
     const pendingCount = await this.taskRepo.count({
       where: { player_id: playerId, type: 'adventurer', status: 'pending' },
@@ -176,22 +210,34 @@ export class TaskService {
         msg: `佣兵公会任务已达上限（${MAX_ADVENTURER_PENDING}个）`,
       };
     }
-    const task = this.taskRepo.create({
-      player_id: playerId,
-      name: draft.name,
-      description: draft.description,
-      target: typeof draft.target === 'string' ? draft.target : JSON.stringify(draft.target),
-      reward: typeof draft.reward === 'string' ? draft.reward : JSON.stringify(draft.reward),
-      status: 'pending',
-      type: 'adventurer',
-      star: draft.star || 1,
-      delivery: null,
-      giver_npc_id: draft.giver_npc_id ?? null,
-      giver_npc_name: draft.giver_npc_name ?? null,
-    });
-    const saved = await this.taskRepo.save(task);
-    this.logger.log(`玩家 ${playerId} 接受佣兵任务：${task.description}`);
-    return { ok: true, task: this.toView(saved) };
+    const task = await this.taskRepo.findOneBy({ id: taskId, player_id: playerId });
+    if (!task) return { ok: false, msg: '任务不存在' };
+    if (task.status !== 'draft') {
+      return { ok: false, msg: '任务状态异常，无法接受' };
+    }
+    task.status = 'pending';
+    await this.taskRepo.save(task);
+    this.logger.log(`玩家 ${playerId} 接受佣兵任务 #${taskId}：${task.description}`);
+    return { ok: true, taskId: task.id };
+  }
+
+  /**
+   * 拒绝/换一个草稿任务（draft → delete）。
+   * 前端点「拒绝」或「换一个」时调用，传 taskId。校验归属 + status=draft。
+   * @returns { ok, msg? }
+   */
+  async rejectTask(
+    playerId: number,
+    taskId: number,
+  ): Promise<{ ok: boolean; msg?: string }> {
+    const task = await this.taskRepo.findOneBy({ id: taskId, player_id: playerId });
+    if (!task) return { ok: false, msg: '任务不存在' };
+    if (task.status !== 'draft') {
+      return { ok: false, msg: '任务状态异常，无法拒绝' };
+    }
+    task.status = 'delete';
+    await this.taskRepo.save(task);
+    return { ok: true };
   }
 
   /**
@@ -277,6 +323,15 @@ export class TaskService {
       order: { id: 'DESC' },
     });
     return tasks.map((t) => this.toView(t));
+  }
+
+  /** 查单条任务详情（按 id + playerId 校验归属）。任务详情弹窗用 */
+  async findOneTask(playerId: number, taskId: number): Promise<any | null> {
+    const task = await this.taskRepo.findOneBy({
+      id: taskId,
+      player_id: playerId,
+    });
+    return task ? this.toView(task) : null;
   }
 
   // ---------- 击杀进度判定 ----------

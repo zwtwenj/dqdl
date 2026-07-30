@@ -2,14 +2,15 @@
 /**
  * 任务详情弹窗（双模式，全局原子组件，App.vue 挂载一次）。
  *
- * 两种模式靠事件载荷区分：
- *   接取模式：bus.on(TASK_ACCEPT_OPEN, { playerId }) → previewAdventurerTask 拉候选 → 展示「接受/换一个/拒绝」
- *   查看模式：bus.on(TASK_DETAILS_OPEN, { playerId, taskId }) → getMyTasks 找到对应任务 → 只读展示进度
+ * 全程 taskId 驱动（降耦合 + 防篡改），组件自己拉单条任务详情：
+ *   接取模式：bus.on(TASK_ACCEPT_OPEN, { playerId }) → preview 生成草稿拿 taskId → getTask 拉单条
+ *             「接受」accept(draft→pending) / 「换一个」reject旧+preview新 / 「拒绝」reject(draft→delete)
+ *   查看模式：bus.on(TASK_DETAILS_OPEN, { playerId, taskId }) → getTask 拉单条（只读展示进度）
  *
  * 字段对齐后端 task 视图：name / description / target[].desc / target[].type(fight|findNpc)
  *   / reward[]（数组）/ star / giver_npc_name（发布人，fallback '佣兵公会接待员'）
  *
- * 显隐：内部 open ref + <Dlg v-if="open">，监听 Dlg @close 关闭。修复旧版一直挡屏问题。
+ * 显隐：内部 open ref + <Dlg v-if="open">，监听 Dlg @close 关闭。
  */
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import Dlg from '@/components1/dlg.vue'
@@ -19,13 +20,15 @@ import { bus, BusEvents } from '@/utils/eventBus'
 import {
   previewAdventurerTask,
   acceptAdventurerTask,
-  getMyTasks,
+  rejectTask,
+  getTask,
 } from '@/api/task'
 
 /** 'accept' 接取候选 / 'view' 查看已接任务 */
 const mode = ref('accept')
 const open = ref(false)
 const playerId = ref(null)
+const taskId = ref(null)
 const task = ref(null)
 const loading = ref(false)
 const accepting = ref(false)
@@ -42,17 +45,42 @@ const allDone = computed(() => {
   return targets.every((t) => (t.current || 0) >= (t.required || 0))
 })
 
+// ---------- 通用：拉单条任务 ----------
+
+/** 用 taskId 拉单条任务详情 */
+async function loadTask() {
+  if (!taskId.value) return
+  loading.value = true
+  task.value = null
+  try {
+    const data = await getTask(taskId.value)
+    if (data && data.id) {
+      task.value = data
+    } else {
+      bus.emit(BusEvents.TOAST, { type: 'info', message: '任务不存在或已失效' })
+      open.value = false
+    }
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '加载任务失败' })
+    open.value = false
+  } finally {
+    loading.value = false
+  }
+}
+
 // ---------- 接取模式 ----------
 
-/** 拉一个候选任务（不入库） */
+/** preview 生成草稿 → 拿 taskId → 拉单条 */
 async function loadPreview() {
   if (!playerId.value) return
   loading.value = true
   task.value = null
+  taskId.value = null
   try {
     const res = await previewAdventurerTask(playerId.value)
-    if (res?.ok && res.task) {
-      task.value = res.task
+    if (res?.ok && res.taskId) {
+      taskId.value = res.taskId
+      await loadTask()
     } else {
       bus.emit(BusEvents.TOAST, { type: 'info', message: res?.msg || '无法接取任务' })
       open.value = false
@@ -65,16 +93,17 @@ async function loadPreview() {
   }
 }
 
-/** 接受候选任务（入库） */
+/** 接受草稿（draft → pending） */
 async function onAccept() {
-  if (!task.value || accepting.value) return
+  if (!taskId.value || accepting.value) return
   accepting.value = true
   try {
-    const res = await acceptAdventurerTask(playerId.value, task.value)
+    const res = await acceptAdventurerTask(playerId.value, taskId.value)
     if (res?.ok) {
-      bus.emit(BusEvents.TOAST, { type: 'success', message: `已接受任务：${task.value.name}` })
-      open.value = false
+      bus.emit(BusEvents.TOAST, { type: 'success', message: `已接受任务：${task.value?.name || ''}` })
+      taskId.value = null
       task.value = null
+      open.value = false
     } else {
       bus.emit(BusEvents.TOAST, { type: 'info', message: res?.msg || '接受失败' })
     }
@@ -85,17 +114,30 @@ async function onAccept() {
   }
 }
 
-/** 换一个（重新预览，不入库） */
-function onReroll() {
+/** 换一个：旧草稿 reject(delete) → preview 新草稿 */
+async function onReroll() {
   if (loading.value) return
-  loadPreview()
+  // 先拒绝当前草稿（draft → delete），失败不阻断换一个
+  if (taskId.value) {
+    try {
+      await rejectTask(playerId.value, taskId.value)
+    } catch (e) {
+      // 静默：超时清理也会兜底
+    }
+  }
+  await loadPreview()
 }
 
-// ---------- 通用 ----------
+// ---------- 通用：关闭 ----------
 
-/** 关闭 */
+/** 关闭。接取模式下若任务仍是草稿，主动 reject 避免草稿残留（超时清理兜底） */
 function onClose() {
+  // 接取模式 + 当前是 draft：异步标记 delete（不阻塞关闭）
+  if (mode.value === 'accept' && taskId.value && task.value?.status === 'draft') {
+    rejectTask(playerId.value, taskId.value).catch(() => {})
+  }
   open.value = false
+  taskId.value = null
   task.value = null
 }
 
@@ -113,25 +155,12 @@ function handleAcceptOpen({ playerId: pid }) {
 }
 
 /** 查看模式触发 */
-async function handleDetailsOpen({ playerId: pid, taskId }) {
+function handleDetailsOpen({ playerId: pid, taskId: tid }) {
   mode.value = 'view'
   playerId.value = pid
+  taskId.value = tid
   open.value = true
-  loading.value = true
-  task.value = null
-  try {
-    const list = await getMyTasks(pid)
-    task.value = (list || []).find((t) => t.id === taskId) || null
-    if (!task.value) {
-      bus.emit(BusEvents.TOAST, { type: 'info', message: '任务不存在或已完成' })
-      open.value = false
-    }
-  } catch (err) {
-    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '加载任务失败' })
-    open.value = false
-  } finally {
-    loading.value = false
-  }
+  loadTask()
 }
 
 let offAccept = null

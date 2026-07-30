@@ -12,6 +12,8 @@ import { bus, BusEvents } from '@/utils/eventBus'
 import { ref, onMounted, onUnmounted } from 'vue'
 import Information from './information.vue'
 import MainContainer from './mainContainer.vue'
+import Task from '@/components/dialog/task.vue'
+import TaskDetails from '@/components/dialog/taskDetails.vue'
 
 const playerStore = usePlayerStore()
 
@@ -67,6 +69,7 @@ const openContainer = (tab) => {
 
     <!--底部功能栏-->
     <Footer></Footer>
+    <Task></Task>
   </div>
 </template>
 

@@ -48,6 +48,9 @@ export const BusEvents = {
   /** 打开任务详情（只读查看）：{ playerId, taskId }
    *  任务列表点击某条任务时触发，TaskDetails 查看模式拉取并展示详情。 */
   TASK_DETAILS_OPEN: 'task-details-open',
+  /** 打开任务列表弹窗：{ playerId }
+   *  玩家面板"任务"按钮触发，Task 弹窗拉取进行中任务展示。 */
+  TASK_LIST_OPEN: 'task-list-open',
   /** 打开 RPG 式分支对话弹窗：{ npc, scene }
    *  由进入场景钩子触发（如坊市且有动态演员）：纯预设剧本、节点+选项+goto 链式、
    *  显示最新节点台词不显示历史、玩家无输入只有选项。剧本暂为前端假数据，后续接分镜。 */

@@ -57,6 +57,13 @@ const energyTip = computed(() => {
 const openContainer = (tab) => {
     emits('openContainer', tab)
 }
+
+// 打开任务列表弹窗（事件总线驱动）
+function onTaskClick() {
+    const pid = player.value?.id
+    if (!pid) return
+    bus.emit(BusEvents.TASK_LIST_OPEN, { playerId: pid })
+}
 </script>
 
 <template>
@@ -73,7 +80,7 @@ const openContainer = (tab) => {
             </div>
         </div>
         <div class="quick-botton-list">
-            <quickButton class="quick-button">任务</quickButton>
+            <quickButton class="quick-button" @click="onTaskClick">任务</quickButton>
             <quickButton class="quick-button" @click="openContainer('player')">人物</quickButton>
             <quickButton class="quick-button" @click="openContainer('backpack')">背包</quickButton>
             <quickButton class="quick-button" @click="openContainer('skill')">斗技</quickButton>

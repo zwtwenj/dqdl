@@ -1,6 +1,7 @@
 <script setup>
-import { defineProps, computed, defineEmits } from 'vue';
+import { defineProps, computed, defineEmits, ref } from 'vue';
 import { nextZIndex } from '@/stores/ui'
+import TabButton from './tabButton.vue'
 
 const props = defineProps({
     title: {
@@ -10,6 +11,11 @@ const props = defineProps({
     contentStyleProp: {
         type: Object,
         default: () => ({})
+    },
+    // 标签栏：[{ text, value }]。存在时不显示 title，改为顶部 tabButton 块
+    tabs: {
+        type: Array,
+        default: () => []
     }
 })
 
@@ -22,14 +28,28 @@ const contentStyle = computed(() => {
     return Object.assign(style, props.contentStyleProp)
 })
 
+// 是否用 tabs 模式（有 tabs 且非空）
+const hasTabs = computed(() => Array.isArray(props.tabs) && props.tabs.length > 0)
+
+// 当前激活的 tab（默认第一个）
+const activeTab = ref('')
+if (hasTabs.value) {
+    activeTab.value = props.tabs[0].value
+}
+
 // 组件实例创建时取递增 z-index，绑到最外层内联样式：
 // 后创建的弹窗 zIndex 更大，永远盖在先创建的之上
 const zIndex = nextZIndex()
 
-const emits = defineEmits(['close'])
+const emits = defineEmits(['close', 'tab-change'])
 
 const closeDlg = () => {
     emits('close')
+}
+
+const onTabClick = (tab) => {
+    activeTab.value = tab.value
+    emits('tab-change', tab.value)
 }
 </script>
 
@@ -40,7 +60,16 @@ const closeDlg = () => {
             <div class="dlg-frame-top-right"></div>
             <div class="dlg-frame-bottom-left"></div>
             <div class="dlg-frame-bottom-right"></div>
-            <div class="dlg-title">{{ title }}</div>
+            <!-- 有 tabs 时顶部显示标签栏，否则显示标题 -->
+            <div v-if="hasTabs" class="dlg-tabs">
+                <TabButton
+                    v-for="tab in tabs"
+                    :key="tab.value"
+                    :isActive="activeTab === tab.value"
+                    @click="onTabClick(tab)"
+                >{{ tab.text }}</TabButton>
+            </div>
+            <div v-else class="dlg-title">{{ title }}</div>
             <div class="dlg-close" @click="closeDlg"></div>
             <div class="dlg-frame-content" :style="contentStyle">
                 <slot></slot>
@@ -80,6 +109,20 @@ const closeDlg = () => {
     width: 100%;
     height: 25px;
     line-height: 25px;
+}
+/* tabs 模式：顶部标签栏，居中排列（清 TabButton 的 float:left） */
+.dlg-tabs{
+    position: absolute;
+    top: -14px;
+    left: 0;
+    width: 100%;
+    text-align: left;
+    z-index: 4;
+    padding-left: 10px;
+}
+.dlg-tabs :deep(.tab-button){
+    float: none;
+    display: inline-block;
 }
 .dlg-close{
     background: var(--img-close) no-repeat center;

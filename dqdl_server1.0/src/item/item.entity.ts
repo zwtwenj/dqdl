@@ -45,6 +45,9 @@ export class Item {
   @Column({ type: 'tinyint', default: 0, comment: '1=可主动使用' })
   usable: number;
 
+  @Column({ type: 'tinyint', default: 1, comment: '是否可堆叠：1=可堆叠(丹药/材料等) 0=不可堆叠(宝物每件独占一格)' })
+  stackable: number;
+
   @Column({ type: 'text', nullable: true, comment: '使用效果 JSON：{type,fn|buff,params|scope}' })
   use_effect: string | null;
 

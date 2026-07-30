@@ -25,17 +25,24 @@ const { open: openStream, close: closeStream } = useScriptStream()
 let offMoveArrived = null
 let offMoveFinished = null
 let offMoveCancelled = null
+// 玩家数据更新（丹药使用/宝物装备卸下等改了后端聚合数据后 emit）：
+//  发起方携带聚合后的 player，这里整体覆盖，无需重新拉接口
+let offPlayerUpdate = null
 onMounted(() => {
   openStream()
   offMoveArrived = bus.on(BusEvents.PLAYER_MOVE_ARRIVED, () => playerStore.load())
   offMoveFinished = bus.on(BusEvents.PLAYER_MOVE_FINISHED, () => playerStore.load())
   offMoveCancelled = bus.on(BusEvents.PLAYER_MOVE_CANCELLED, () => playerStore.load())
+  offPlayerUpdate = bus.on(BusEvents.PLAYER_UPDATE, ({ player }) => {
+    if (player) playerStore.player = player
+  })
 })
 onUnmounted(() => {
   closeStream()
   offMoveArrived?.()
   offMoveFinished?.()
   offMoveCancelled?.()
+  offPlayerUpdate?.()
 })
 
 const mainContainerShow = ref(false)

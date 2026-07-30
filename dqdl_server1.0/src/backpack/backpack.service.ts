@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, In } from 'typeorm';
 import { Backpack } from './backpack.entity';
 import { BackpackLog } from './backpack-log.entity';
 import { Item } from '../item/item.entity';
@@ -136,10 +136,16 @@ export class BackpackService {
       throw Biz.badRequest('增加数量必须大于 0');
     }
     await this.dataSource.transaction(async (em) => {
-      const existing = await em.findOne(Backpack, {
-        where: { player_id: playerId, item_id: itemId },
-        lock: { mode: 'pessimistic_write' },
-      });
+      // 查物品定义：stackable=0（如宝物）时不与已有同类堆叠，每件独占一格
+      const itemDef = await em.findOne(Item, { where: { item_id: itemId } });
+      const stackable = itemDef ? Number(itemDef.stackable) !== 0 : true;
+
+      const existing = stackable
+        ? await em.findOne(Backpack, {
+            where: { player_id: playerId, item_id: itemId },
+            lock: { mode: 'pessimistic_write' },
+          })
+        : null;
       const countBefore = existing?.count ?? null;
       let slot: number | null = existing?.slot ?? null;
       if (slot === null) {
@@ -190,9 +196,14 @@ export class BackpackService {
       const usedSlots = new Set(
         existingRows.map((r) => r.slot).filter((s): s is number => s !== null),
       );
+      // 批量查这批物品定义（判断 stackable，宝物等不可堆叠物每件独占一格）
+      const itemDefs = await em.find(Item, { where: { item_id: In(Array.from(merged.keys())) } });
+      const stackableMap = new Map(itemDefs.map((d) => [d.item_id, Number(d.stackable) !== 0]));
 
       for (const [itemId, count] of merged) {
-        const existing = existingMap.get(itemId);
+        const stackable = stackableMap.get(itemId) ?? true;
+        // 不可堆叠的物品不复用已有 slot（即使 item_id 相同），每件独占一格
+        const existing = stackable ? existingMap.get(itemId) : null;
         const countBefore = existing?.count ?? null;
         let slot = existing?.slot ?? null;
         if (slot === null) {

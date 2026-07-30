@@ -36,9 +36,10 @@ export class ItemUseService {
 
   /**
    * 使用 1 个物品。按 item.type 分发效果，单事务扣背包。
+   * @param targetSlot 宝物装备到指定槽位（1~5）；丹药忽略此参数。
    * @returns { remaining } 背包剩余数量（player 详情由 controller 通过 findOne 重取聚合）
    */
-  async useItem(playerId: number, itemId: string): Promise<{ remaining: number }> {
+  async useItem(playerId: number, itemId: string, targetSlot?: number): Promise<{ remaining: number }> {
     return this.dataSource.transaction(async (em) => {
       // 1. 查 item 定义
       const item = await em.findOne(Item, { where: { item_id: itemId } });
@@ -67,7 +68,7 @@ export class ItemUseService {
           await this.applyPillEffect(em, player, itemId);
           break;
         case '宝物':
-          await this.applyTreasureEquip(player, item);
+          await this.applyTreasureEquip(player, item, targetSlot);
           break;
         default:
           throw Biz.badRequest(`${item.name}（类型 ${item.type}）暂不支持使用`);
@@ -117,8 +118,10 @@ export class ItemUseService {
    * 宝物装备：item.ref_id 指向 treasure 定义 id。
    * 在事务里直接操作 player 实体（已锁），不调 equipTreasureFromItem（它自带 findOne+save，
    * 在事务内会冲突）。校验 + 写 treasures JSON + save 由调用方事务统一处理。
+   *
+   * @param targetSlot 拖拽到指定槽位（1~5）；为空则装到第一个空槽（点击装备兜底）。
    */
-  private async applyTreasureEquip(player: Player, item: Item): Promise<void> {
+  private async applyTreasureEquip(player: Player, item: Item, targetSlot?: number): Promise<void> {
     const treasureId = item.ref_id;
     if (!treasureId) throw Biz.badRequest(`宝物 ${item.name} 未关联定义（ref_id 为空）`);
 
@@ -138,10 +141,17 @@ export class ItemUseService {
       throw Biz.badRequest('该宝物已装备，不可重复装备');
     }
 
-    // 找空槽
+    // 定位槽位：指定槽位优先（校验范围 + 未占用），否则找第一个空槽
     const usedSlots = new Set(arr.map((t) => t.slot));
-    const freeSlot = [1, 2, 3, 4, 5].find((s) => !usedSlots.has(s));
-    if (!freeSlot) throw Biz.badRequest('宝物栏已满（5/5）');
+    let slot: number | undefined;
+    if (targetSlot != null) {
+      if (targetSlot < 1 || targetSlot > 5) throw Biz.badRequest('宝物槽位无效（1~5）');
+      if (usedSlots.has(targetSlot)) throw Biz.badRequest(`宝物槽位 ${targetSlot} 已被占用`);
+      slot = targetSlot;
+    } else {
+      slot = [1, 2, 3, 4, 5].find((s) => !usedSlots.has(s));
+    }
+    if (!slot) throw Biz.badRequest('宝物栏已满（5/5）');
 
     // 同类上限校验
     if (def.unique_cat_max && def.unique_cat_max > 0) {
@@ -156,7 +166,7 @@ export class ItemUseService {
     }
 
     // 写入 treasures JSON
-    arr.push({ id: treasureId, slot: freeSlot });
+    arr.push({ id: treasureId, slot });
     player.treasures = JSON.stringify(arr);
   }
 }

@@ -2,6 +2,8 @@
 import TabButton from '@/components1/tabButton.vue';
 import Backpack from './backpack.vue';
 import PlayerDetails from './playerDetails.vue';
+import Skill from './skill.vue';
+import Treasure from './treasure.vue';
 import { defineProps } from 'vue';
 import { ref } from 'vue';
 import { watch } from 'vue';
@@ -16,7 +18,8 @@ const props = defineProps({
 const tabs = [
     { title: '人物', value: 'player' },
     { title: '背包', value: 'backpack' },
-    { title: '斗技', value: 'skill' }
+    { title: '斗技', value: 'skill' },
+    { title: '宝物', value: 'treasure' }
 ]
 
 const tabActive = ref('player')
@@ -50,6 +53,8 @@ watch(() => props.defaultTab, () => {
                 <div class="tab-content">
                     <PlayerDetails v-if="tabActive == 'player'"></PlayerDetails>
                     <Backpack v-if="tabActive == 'backpack'"></Backpack>
+                    <Skill v-if="tabActive == 'skill'"></Skill>
+                    <Treasure v-if="tabActive == 'treasure'"></Treasure>
                 </div>
             </div>
         </div>

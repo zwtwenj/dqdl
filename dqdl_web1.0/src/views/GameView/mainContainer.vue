@@ -1,6 +1,7 @@
 <script setup>
 import TabButton from '@/components1/tabButton.vue';
 import Backpack from './backpack.vue';
+import PlayerDetails from './playerDetails.vue';
 import { defineProps } from 'vue';
 import { ref } from 'vue';
 import { watch } from 'vue';
@@ -47,6 +48,7 @@ watch(() => props.defaultTab, () => {
                     </TabButton>
                 </div>
                 <div class="tab-content">
+                    <PlayerDetails v-if="tabActive == 'player'"></PlayerDetails>
                     <Backpack v-if="tabActive == 'backpack'"></Backpack>
                 </div>
             </div>

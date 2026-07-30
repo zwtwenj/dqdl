@@ -7,11 +7,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useBackpackStore } from '@/stores/backpack'
 import { useGameStore } from '@/stores/game'
+import { usePlayerStore } from '@/stores/player'
+import { useItem } from '@/api'
 import { bus, BusEvents } from '@/utils/eventBus'
 import LongButton from '@/components1/longButton.vue'
 
 const backpackStore = useBackpackStore()
 const game = useGameStore()
+const playerStore = usePlayerStore()
 
 // —— 网格规格 ——
 const SLOTS_PER_PAGE = 16 * 7   // 112
@@ -60,8 +63,10 @@ function tipText(data) {
   // 标题：大一号 + 金色粗体
   lines.push(`<span style="font-size:14px;font-weight:bold;color:#f0c040;">${it.name || data.item_id}</span>`)
   if (it.type) lines.push(`<span style="color:#c8a0ff;">类型：${TYPE_LABEL[it.type] || it.type}</span>`)
-  if (it.description) lines.push(`<span style="color:#d9d0c2;">${it.description}</span>`)
+  if (it.description) lines.push(`<div style="color:#d9d0c2;max-width:200px;word-break:break-all;line-height:1.5;">${it.description}</div>`)
   if (data.sell_price != null) lines.push(`<span style="color:#50c878;">出售 ${data.sell_price} 金</span>`)
+  // 可使用物品提示双击
+  if (isUsable(data)) lines.push(`<span style="color:#80c8ff;">双击使用</span>`)
   return lines.join('<br/>')
 }
 
@@ -136,6 +141,34 @@ async function onSort() {
     sorting.value = false
   }
 }
+
+// —— 双击使用物品（丹药/宝物等 usable 物品） ——
+const usingItem = ref(false)   // 使用中防重复
+
+/** 判断是否可使用（丹药/宝物 且 usable） */
+function isUsable(data) {
+  return data?.item && (data.item.type === '丹药' || data.item.type === '宝物') && data.item.usable
+}
+
+/** 双击格子：可使用物品 → 调 useItem → 刷新玩家状态 + 背包 */
+async function onSlotDblClick(data) {
+  if (!isUsable(data) || usingItem.value) return
+  const pid = game.playerId
+  if (!pid) return
+  usingItem.value = true
+  try {
+    const res = await useItem(pid, data.item_id)
+    // 刷新玩家状态（后端返回聚合数据含 final_attrs，用 load 重新拉取保证一致）
+    await playerStore.load()
+    // 刷新背包（物品数量变了）
+    await backpackStore.reload(pid)
+    bus.emit(BusEvents.TOAST, { type: 'success', message: `使用了 ${data.item?.name || data.item_id}` })
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '使用失败' })
+  } finally {
+    usingItem.value = false
+  }
+}
 </script>
 
 <template>
@@ -152,6 +185,7 @@ async function onSort() {
                 @dragend="onDragEnd"
                 @dragover="onDragOver"
                 @drop="onDrop($event, ps.slot)"
+                @dblclick="onSlotDblClick(ps.data)"
             >
                 <template v-if="ps.data">
                     <img class="slot-icon" :src="iconUrl(ps.data.item)" :alt="ps.data.item?.name" @error="onIconError">

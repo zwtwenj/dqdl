@@ -233,7 +233,11 @@ export class TrainingService {
 
     // 解析玩家功法/斗技名（按 id 反查，空数组/解析失败则无）
     const techniqueNames = await this.parseTechniqueNames(player.technique);
-    const skillNames = await this.parseSkillNames(player.skill);
+    // 斗技只随机取 1-2 个传给 agent（避免叙事把所有技能都堆上去）
+    const allSkillNames = await this.parseSkillNames(player.skill);
+    const skillNames = allSkillNames.length > 2
+      ? allSkillNames.sort(() => Math.random() - 0.5).slice(0, 1 + Math.floor(Math.random() * 2))
+      : allSkillNames;
 
     // 调 agent 生成叙事
     let result: { text: string; keywords: { text: string; type: string }[] } | null = null;

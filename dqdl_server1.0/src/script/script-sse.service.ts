@@ -25,6 +25,27 @@ export class ScriptSseService {
   private readonly connections = new Map<number, Response>();
   /** 心跳定时器（按 playerId 管理，断开时清理） */
   private readonly heartbeats = new Map<number, NodeJS.Timeout>();
+  /** 连接建立/断开回调（供其他模块订阅，如 TrainingService 的离线结算） */
+  private readonly connectCallbacks: Array<(playerId: number) => void> = [];
+  private readonly disconnectCallbacks: Array<(playerId: number) => void> = [];
+
+  /** 订阅连接建立事件（SSE 重连时触发，回调里可做 resumeOnline） */
+  onConnect(cb: (playerId: number) => void): void {
+    this.connectCallbacks.push(cb);
+  }
+
+  /** 订阅连接断开事件（SSE 关闭时触发，回调里可做 markOffline） */
+  onDisconnect(cb: (playerId: number) => void): void {
+    this.disconnectCallbacks.push(cb);
+  }
+
+  /** 通知连接断开（仅由 controller 的 closeHandler 调用，不在 unregister 内自动触发，
+   *  避免重连覆盖旧连接/register 失败等场景误触发离线结算） */
+  notifyDisconnect(playerId: number): void {
+    this.disconnectCallbacks.forEach((cb) => {
+      try { cb(playerId); } catch (e) { this.logger.warn(`onDisconnect 回调异常: ${(e as Error).message}`); }
+    });
+  }
 
   /**
    * 注册一个玩家的 SSE 连接。
@@ -49,6 +70,10 @@ export class ScriptSseService {
     this.heartbeats.set(playerId, timer);
 
     this.logger.log(`SSE 连接已建立: player=${playerId} (当前连接数 ${this.connections.size})`);
+    // 通知订阅者（如 TrainingService.resumeOnline 离线结算）
+    this.connectCallbacks.forEach((cb) => {
+      try { cb(playerId); } catch (e) { this.logger.warn(`onConnect 回调异常: ${(e as Error).message}`); }
+    });
   }
 
   /** 注销一个玩家的连接（清理心跳 + 从池中移除）。不主动 end 响应（由调用方控制）。 */

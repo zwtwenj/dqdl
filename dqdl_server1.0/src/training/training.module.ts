@@ -15,6 +15,7 @@ import { TechniqueModule } from '../technique/technique.module';
 import { SkillModule } from '../skill/skill.module';
 import { TaskModule } from '../task/task.module';
 import { AuthModule } from '../auth/auth.module';
+import { ScriptModule } from '../script/script.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AuthModule } from '../auth/auth.module';
     SkillModule,
     TaskModule,
     AuthModule,
+    ScriptModule,
   ],
   providers: [TrainingService],
   controllers: [TrainingController],

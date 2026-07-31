@@ -68,6 +68,19 @@ const sseHandlers = {
   task_update: () => {
     bus.emit(BusEvents.TASK_UPDATE)
   },
+
+  /**
+   * 历练新日志生成：后端每生成一条历练日志时推送。
+   * data 含 { last_log_id }。emit TRAINING_LOG，information 监听后增量拉取。
+   */
+  training_log: (data) => {
+    bus.emit(BusEvents.TRAINING_LOG, { last_log_id: data?.last_log_id })
+  },
+
+  /** 历练结束：后端历练到时/手动停止时推送。emit TRAINING_FINISHED。 */
+  training_finished: () => {
+    bus.emit(BusEvents.TRAINING_FINISHED)
+  },
 }
 
 /**

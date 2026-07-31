@@ -85,13 +85,12 @@ function onViewTaskDetail(task) {
     bus.emit(BusEvents.TASK_DETAILS_OPEN, { playerId: Number(gameStore.playerId), taskId: task.id })
 }
 
-// —— 历练日志：增量轮询 ——
+// —— 历练日志：SSE 推送驱动 ——
 // 初始化：getActiveTraining 拉全量日志 + 记录 lastLogId
-// 后续：getNewTrainingLogs(lastLogId) 只拉增量，有新日志则追加 + 更新 lastLogId
+// 后续：后端每生成一条日志经 SSE 推 training_log → 增量拉取新日志（不再轮询）
 const trainingLogs = ref([])
 const trainingActive = ref(false)
 let lastLogId = 0        // 已加载的最后一条日志 id（增量对比用）
-let trainingTimer = null
 
 /** 初始化：拉当前历练全量日志（进入游戏/发起历练后调用）。
  *  后端 getActiveTraining 返回 logs 是 DESC（新→旧），反转成 ASC（旧→新），
@@ -104,32 +103,25 @@ async function initTraining() {
             const logs = (data.logs || []).slice().reverse()  // DESC → ASC
             trainingLogs.value = logs
             lastLogId = logs.length ? logs[logs.length - 1].id : 0
-            startPolling()
         } else {
             trainingActive.value = false
             trainingLogs.value = []
             lastLogId = 0
-            stopPolling()
         }
     } catch {
         // 静默
     }
 }
 
-/** 增量拉取：只拉 id > lastLogId 的新日志，有则追加 */
+/** 增量拉取：只拉 id > lastLogId 的新日志，有则追加（由 SSE training_log 触发） */
 async function pollNewLogs() {
+    if (!trainingActive.value) return
     try {
         const res = await getNewTrainingLogs(lastLogId)
         if (!res?.active) {
             // 历练已结束
             trainingActive.value = false
-            stopPolling()
             return
-        }
-        if (res.finished) {
-            // 后端标记结束（status≠0），拉最终增量后停止
-            trainingActive.value = false
-            stopPolling()
         }
         const newLogs = res.logs || []
         if (newLogs.length) {
@@ -141,42 +133,43 @@ async function pollNewLogs() {
     }
 }
 
-function startPolling() {
-    if (trainingTimer) return
-    trainingTimer = setInterval(pollNewLogs, 5000)  // 5秒增量拉一次
-}
-function stopPolling() {
-    if (trainingTimer) { clearInterval(trainingTimer); trainingTimer = null }
+/** 历练结束（SSE training_finished）：标记结束，拉最终增量 */
+async function onTrainingFinished() {
+    await pollNewLogs()   // 拉最终增量
+    trainingActive.value = false
 }
 
 // 监听历练状态切换（mapView 发起历练/停止时触发）
 let offTrainingToggle = null
 let offTaskUpdate = null
+let offTrainingLog = null
+let offTrainingFinished = null
 onMounted(() => {
-    initTraining()   // 进入游戏：若历练中，拉全量日志 + 启动增量轮询
+    initTraining()   // 进入游戏：若历练中，拉全量日志
     loadTasks()      // 拉当前任务列表
     offTrainingToggle = bus.on(BusEvents.TRAINING_TOGGLE, ({ active }) => {
         if (active) {
-            initTraining()   // 发起历练：重新初始化（全量+轮询）
-        } else {
-            stopPolling()
-            pollNewLogs()    // 停止后拉最终增量
+            initTraining()   // 发起历练：重新初始化（全量）
         }
     })
+    // 历练新日志（SSE training_log）→ 增量拉取
+    offTrainingLog = bus.on(BusEvents.TRAINING_LOG, () => pollNewLogs())
+    // 历练结束（SSE training_finished）→ 拉最终增量 + 标记结束
+    offTrainingFinished = bus.on(BusEvents.TRAINING_FINISHED, () => onTrainingFinished())
     // 任务数据更新（SSE：击杀计数/接受/放弃）→ 重新拉任务列表
     offTaskUpdate = bus.on(BusEvents.TASK_UPDATE, () => loadTasks())
     // 玩家状态变化（如历练结束 status→IDLE）也刷新
     playerStore.$subscribe(() => {
         if (playerStore.player?.status !== 2 && trainingActive.value) {
             trainingActive.value = false
-            stopPolling()
         }
     })
 })
 onUnmounted(() => {
-    stopPolling()
     offTrainingToggle?.()
     offTaskUpdate?.()
+    offTrainingLog?.()
+    offTrainingFinished?.()
 })
 </script>
 

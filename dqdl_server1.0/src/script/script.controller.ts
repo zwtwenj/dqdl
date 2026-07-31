@@ -45,9 +45,10 @@ export class ScriptController {
     // 注册到连接池（含 30s 心跳）
     this.sse.register(playerId, res);
 
-    // 客户端断开时清理
+    // 客户端断开时清理 + 通知订阅者（如 TrainingService 离线结算）
     const closeHandler = () => {
       this.sse.unregister(playerId);
+      this.sse.notifyDisconnect(playerId);
     };
     res.on('close', closeHandler);
   }

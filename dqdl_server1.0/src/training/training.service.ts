@@ -13,6 +13,7 @@ import { EncounterService } from '../encounter/encounter.service';
 import { TechniqueService } from '../technique/technique.service';
 import { SkillService } from '../skill/skill.service';
 import { TaskService } from '../task/task.service';
+import { ScriptSseService } from '../script/script-sse.service';
 import { Biz } from '../common/biz.exception';
 import { Player } from '../player/player.entity';
 import { TRAINING } from '../config/game.config';
@@ -72,7 +73,16 @@ export class TrainingService {
     private readonly techniqueService: TechniqueService,
     private readonly skillService: SkillService,
     private readonly taskService: TaskService,
-  ) {}
+    private readonly sse: ScriptSseService,
+  ) {
+    // 订阅 SSE 连接事件：重连时结算离线历练，断开时转入离线
+    this.sse.onConnect((pid) => {
+      this.resumeOnline(pid).catch((e) => this.logger.error(`resumeOnline 失败: ${e}`));
+    });
+    this.sse.onDisconnect((pid) => {
+      this.markOffline(pid).catch((e) => this.logger.error(`markOffline 失败: ${e}`));
+    });
+  }
 
   /**
    * 开始历练：
@@ -112,6 +122,8 @@ export class TrainingService {
         player_id: playerId,
         location_id: location.id,
         status: 0,
+        online: 0,
+        offline_at: null,
         start_time: now,
         end_time: new Date(now.getTime() + TRAINING_DURATION_MS),
       }),
@@ -323,7 +335,7 @@ export class TrainingService {
     }
 
     // 日志存本次实际获得的掉落物（含 item_id/name/count，供前端展示）
-    await this.logRepo.save(
+    const savedLog = await this.logRepo.save(
       this.logRepo.create({
         training_id: trainingId,
         content: result.text,
@@ -334,6 +346,8 @@ export class TrainingService {
       }),
     );
     this.logger.log(`📝 历练 #${trainingId} 生成日志：${mobEntry.name} ${won ? '胜' : '逃'}${dropsResult ? ` (+${dropsResult.length}件掉落)` : ''}`);
+    // 推送 training_log SSE 事件，前端收到后增量拉取新日志（替代前端轮询）
+    this.sse.push(Number(playerId), 'training_log', { last_log_id: savedLog.id });
   }
 
   /**
@@ -380,8 +394,186 @@ export class TrainingService {
       clearInterval(timer);
       this.timers.delete(playerId);
     }
-    await this.trainingRepo.update({ id: trainingId }, { status: 1 });
+    await this.trainingRepo.update({ id: trainingId }, { status: 1, online: 0, offline_at: null });
     await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
+    // 推送 training_finished，前端收到后停止增量拉取 + 标记历练结束
+    this.sse.push(Number(playerId), 'training_finished', { training_id: trainingId });
+  }
+
+  // ============ 离线结算（SSE 断连停 agent，重连汇总补算）============
+
+  /** SSE 断开时调用：进行中的历练标记离线 + 停 setInterval（agent 不再生成日志） */
+  async markOffline(playerId: number): Promise<void> {
+    const training = await this.trainingRepo.findOneBy({
+      player_id: playerId,
+      status: 0,
+    });
+    if (!training) return;
+    // 已是离线态不重复处理
+    if (Number(training.online) === 1) return;
+    // 停定时器
+    const timer = this.timers.get(playerId);
+    if (timer) {
+      clearInterval(timer);
+      this.timers.delete(playerId);
+    }
+    training.online = 1;
+    training.offline_at = new Date();
+    await this.trainingRepo.save(training);
+    this.logger.log(`🌙 玩家 ${playerId} SSE 断开，历练 #${training.id} 转入离线`);
+  }
+
+  /** SSE 重连时调用：结算断线期间（一条汇总日志，不调 agent）+ 恢复 agent 模式或结束 */
+  async resumeOnline(playerId: number): Promise<void> {
+    const training = await this.trainingRepo.findOneBy({
+      player_id: playerId,
+      status: 0,
+    });
+    if (!training) return;
+    // 本来就在线（online=0）→ 无需补算，确保定时器在跑
+    if (Number(training.online) === 0) {
+      return;
+    }
+    // 算断线 tick 数（每分钟1次，到 end_time 为止）
+    const now = new Date();
+    const endTime = new Date(training.end_time);
+    const offlineAt = training.offline_at ? new Date(training.offline_at) : endTime;
+    const settleUntil = now < endTime ? now : endTime;
+    const missedTicks = Math.max(0, Math.floor((settleUntil.getTime() - offlineAt.getTime()) / TRAINING_LOG_INTERVAL_MS));
+
+    // 取地点/怪物/玩家（汇总结算+重启定时器用）
+    const location = await this.locationNetService.getNode(training.location_id);
+    if (!location) {
+      this.logger.warn(`resumeOnline: 地点 ${training.location_id} 不存在，跳过`);
+      return;
+    }
+    const mobs = this.parseCommonMobs(location);
+    if (mobs.length === 0) return;
+    const player = await this.playerService.getEntity(playerId);
+    if (!player) return;
+
+    // 结算断线期间（有 tick 才生成汇总日志）
+    if (missedTicks > 0) {
+      await this.generateOfflineSummaryLog(playerId, training.id, mobs, location, player, missedTicks);
+    }
+
+    // 情况(2)：已到期 → 结束历练
+    if (now >= endTime) {
+      await this.finishTraining(playerId, training.id);
+      return;
+    }
+    // 情况(1)：未到期 → 恢复在线 + 重启 setInterval（agent 模式）
+    training.online = 0;
+    training.offline_at = null;
+    await this.trainingRepo.save(training);
+    this.startTimer(playerId, training.id, mobs, location, player);
+    this.logger.log(`☀️ 玩家 ${playerId} SSE 重连，历练 #${training.id} 恢复在线（补算 ${missedTicks} 轮）`);
+  }
+
+  /**
+   * 离线汇总日志：按 missedTicks 批量结算（随机选怪/胜率/滚动掉落/任务进度），
+   * 生成一条汇总文本（不调 agent），存日志并推 SSE。
+   */
+  private async generateOfflineSummaryLog(
+    playerId: number,
+    trainingId: number,
+    mobs: { mob_id: string; name: string }[],
+    location: NetNodeView,
+    player: Player,
+    missedTicks: number,
+  ): Promise<void> {
+    // 按怪物名聚合击杀数（用于汇总文本）
+    const killByName = new Map<string, number>();
+    let killCount = 0;
+    let fleeCount = 0;
+    // 掉落聚合（item_id → {name, count}）
+    const dropsAgg = new Map<string, { item_id: string; name: string; count: number }>();
+    // 任务进度聚合（mob_id → 击杀数，批量推进）
+    const taskKills = new Map<string, number>();
+
+    // 预加载所有 mob 详情（避免循环内重复查库，missedTicks 可能上百）
+    const mobDetailMap = new Map<string, any>();
+    for (const m of mobs) {
+      if (!mobDetailMap.has(m.mob_id)) {
+        const d = await this.mobService.findByMobId(m.mob_id);
+        if (d) mobDetailMap.set(m.mob_id, d);
+      }
+    }
+
+    for (let i = 0; i < missedTicks; i++) {
+      const mobEntry = mobs[Math.floor(Math.random() * mobs.length)];
+      const won = Math.random() < WIN_RATE ? 1 : 0;
+      if (won === 1) {
+        killCount++;
+        killByName.set(mobEntry.name, (killByName.get(mobEntry.name) || 0) + 1);
+        taskKills.set(mobEntry.mob_id, (taskKills.get(mobEntry.mob_id) || 0) + 1);
+        // 滚动掉落
+        const mobDetail = mobDetailMap.get(mobEntry.mob_id);
+        if (mobDetail) {
+          const grants = this.rollDrops({
+            drops: mobDetail.drops,
+            attribute: mobDetail.attribute,
+            power: mobDetail.power,
+          });
+          if (grants.length > 0) {
+            const items = await this.itemService.findByItemIds(grants.map((g) => g.item_id));
+            const nameMap = new Map(items.map((it) => [it.item_id, it.name]));
+            const valid = grants.filter((g) => nameMap.has(g.item_id));
+            if (valid.length > 0) {
+              try {
+                await this.backpackService.grant(playerId, valid, 'training_offline');
+                for (const g of valid) {
+                  const name = nameMap.get(g.item_id)!;
+                  const exist = dropsAgg.get(g.item_id);
+                  if (exist) exist.count += g.count;
+                  else dropsAgg.set(g.item_id, { item_id: g.item_id, name, count: g.count });
+                }
+              } catch (e) {
+                this.logger.error(`离线掉落发放失败 #${trainingId}: ${e}`);
+              }
+            }
+          }
+        }
+      } else {
+        fleeCount++;
+      }
+    }
+
+    // 批量推进任务进度（按 mob_id 聚合，减少 checkKillProgress 调用次数）
+    for (const [mobId, cnt] of taskKills) {
+      for (let k = 0; k < cnt; k++) {
+        try {
+          await this.taskService.checkKillProgress(playerId, location.id, mobId);
+        } catch (e) {
+          this.logger.error(`离线任务进度推进失败: ${e}`);
+          break; // 单怪推进失败不影响其他
+        }
+      }
+    }
+
+    // 生成汇总文本（不调 agent）
+    const killText = Array.from(killByName.entries())
+      .map(([name, cnt]) => `${name}×${cnt}`)
+      .join('、');
+    const dropsList = Array.from(dropsAgg.values());
+    const dropsText = dropsList.length
+      ? `，获得 ${dropsList.map((d) => `${d.name}×${d.count}`).join('、')}`
+      : '';
+    const summary = `【离线历练】${player.name}在${location.name}历练${missedTicks}轮，击杀${killCount}只魔兽（${killText || '无'}）${fleeCount ? `，逃脱${fleeCount}次` : ''}${dropsText}。`;
+
+    const savedLog = await this.logRepo.save(
+      this.logRepo.create({
+        training_id: trainingId,
+        content: summary,
+        keywords: JSON.stringify([]),
+        mob_id: '',
+        won: killCount > 0 ? 1 : 0,
+        drops: dropsList.length ? JSON.stringify(dropsList) : null,
+      }),
+    );
+    this.logger.log(`📝 历练 #${trainingId} 离线汇总：${missedTicks}轮，击杀${killCount}，逃脱${fleeCount}${dropsList.length ? ` (+${dropsList.reduce((s, d) => s + d.count, 0)}件掉落)` : ''}`);
+    // 推送 SSE，前端拉这条汇总日志
+    this.sse.push(Number(playerId), 'training_log', { last_log_id: savedLog.id });
   }
 
   /** 解析 location_net 的 common_mobs（NetNodeView 已是数组，直接返回） */

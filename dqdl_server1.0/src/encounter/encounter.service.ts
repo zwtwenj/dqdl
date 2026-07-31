@@ -104,7 +104,7 @@ export class EncounterService {
         player_id: playerId,
         kind: 'cultivate',
         scene_type: '',
-        title: `洞天福地·${'一二三'[star - 1]}星`,
+        title: '洞天福地',
         description: pick(CULTIVATE_DESCS[star]),
         star,
         status: 'pending',

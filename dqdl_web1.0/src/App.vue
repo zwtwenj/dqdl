@@ -5,7 +5,7 @@ import ConfirmBox from '@/components1/confirm.vue'
 import NpcDialog from './components/NpcDialog.vue'
 import NpcShopPanel from './components/NpcShopPanel.vue'
 import Transaction from './components/dialog/transaction.vue'
-import AdventureListPanel from './components/AdventureListPanel.vue'
+import Adventure from './components/dialog/adventure.vue'
 import DungeonPanel from './components/DungeonPanel.vue'
 import CultivationPanel from './components/CultivationPanel.vue'
 import TaskDetails from './components/dialog/taskDetails.vue'
@@ -19,7 +19,7 @@ import SceneBranchDialog from './components/SceneBranchDialog.vue'
   <NpcDialog />
   <NpcShopPanel />
   <Transaction />
-  <AdventureListPanel />
+  <Adventure />
   <DungeonPanel />
   <CultivationPanel />
   <TaskDetails />

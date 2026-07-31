@@ -21,14 +21,14 @@ import { bus, BusEvents } from './eventBus'
 import { getMyTasks, claimTask } from '../api/task'
 
 /**
- * trade 事件：打开 NPC 商店 + 联动打开/置顶玩家背包。
- * 商品数据由 NpcShopPanel 自行调后端拉取（前端不计算价格/库存）。
+ * trade 事件：打开交易弹窗（左侧 NPC 商品 + 右侧玩家背包）。
+ * dialog_event id=1「我想买卖些物品」/ id=2「我想买卖些丹药」均走此事件。
+ * 交易弹窗全局挂载，右侧自带玩家背包，故不再联动 BAG_OPEN。
+ * 携带 npcId 供弹窗拉取该 NPC 的商品（npc_shop 表按 role_id 关联）。
+ * 不关闭 NPC 对话——交易弹窗叠在对话之上，玩家可同时看到两者。
  */
-function handleTrade({ npc, playerId, closeDialog }) {
-  bus.emit(BusEvents.NPC_SHOP_OPEN, { playerId, npcId: npc.id })
-  // 联动打开玩家背包（GameView 监听 BAG_OPEN，打开并置顶）
-  bus.emit(BusEvents.BAG_OPEN)
-  closeDialog()
+function handleTrade({ npc }) {
+  bus.emit(BusEvents.TRANSACTION_OPEN, { npcId: npc?.id })
 }
 
 /**

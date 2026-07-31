@@ -8,6 +8,7 @@ import { Pill } from '../pill/pill.entity';
 import { Biz } from '../common/biz.exception';
 import { PlayerService } from '../player/player.service';
 import { TreasureService } from '../treasure/treasure.service';
+import { applyEffects } from '../pill/pill-effect.library';
 
 /**
  * 通用物品使用服务：单事务完成"扣背包 + 应用效果"。
@@ -28,11 +29,6 @@ export class ItemUseService {
     private readonly playerService: PlayerService,
     private readonly treasureService: TreasureService,
   ) {}
-
-  /** 五维属性白名单（丹药 attr 型 target 合法值） */
-  private static readonly ATTR_TARGETS = new Set([
-    'power', 'intelligence', 'quick', 'stamina', 'lucky',
-  ]);
 
   /**
    * 使用 1 个物品。按 item.type 分发效果，单事务扣背包。
@@ -89,28 +85,26 @@ export class ItemUseService {
     });
   }
 
-  /** 丹药效果：查 pill 表，按 effect_type 应用到 player（度入原 PillUseService 逻辑）。 */
+  /** 丹药效果：查 pill 表 → 读 effect JSON → applyEffects 按 key 分发执行 → patch 写回 player。
+   *  effect 为 {key:params} 映射（如 {"heal_hp":30}），支持多效果叠加。
+   *  key 与 pill-effect.library 的 effectHandlers 对应，未知 key 报错。 */
   private async applyPillEffect(em: any, player: Player, itemId: string): Promise<void> {
     const pill = await em.findOne(Pill, { where: { item_id: itemId } });
     if (!pill) throw Biz.notFound(`丹药 ${itemId} 未配置效果`);
+    if (!pill.effect) throw Biz.badRequest(`丹药 ${pill.name} 未配置效果`);
+
+    let effectObj: Record<string, any> | null = null;
+    try {
+      effectObj = JSON.parse(pill.effect);
+    } catch {
+      throw Biz.badRequest(`丹药 ${pill.name} 效果配置格式错误`);
+    }
 
     const { maxHp, maxEnergy } = await this.playerService.computeMaxHpEnergy(player);
-    const amount = Number(pill.amount) || 0;
-    switch (pill.effect_type) {
-      case 'heal_hp':
-        player.hp = Math.min(maxHp, player.hp + amount);
-        break;
-      case 'heal_energy':
-        player.energy = Math.min(maxEnergy, player.energy + amount);
-        break;
-      case 'attr':
-        if (!ItemUseService.ATTR_TARGETS.has(pill.target)) {
-          throw Biz.badRequest(`丹药 ${pill.name} 配置错误：未知属性 ${pill.target}`);
-        }
-        (player as any)[pill.target] = (player as any)[pill.target] + amount;
-        break;
-      default:
-        throw Biz.badRequest(`丹药 ${pill.name} 配置错误：未知效果类型 ${pill.effect_type}`);
+    const patch = applyEffects(player as any, effectObj, { maxHp, maxEnergy });
+    // patch 写回 player 实体（事务统一 save）
+    for (const [k, v] of Object.entries(patch)) {
+      (player as any)[k] = v;
     }
   }
 

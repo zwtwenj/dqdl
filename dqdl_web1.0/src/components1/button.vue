@@ -16,6 +16,7 @@
     line-height: 27px;
     display: inline-block;
     cursor: pointer;
+    color: #7f5644;
 }
 .dqdl-button:hover{
     background: var(--img-btn-hover) no-repeat;

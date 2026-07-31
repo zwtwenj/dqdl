@@ -4,8 +4,6 @@ import PlayerInfo from './playerInfo.vue'
 import Footer from './footer.vue'
 import ModuleBox from '@/components1/moduleBox.vue'
 import MapView from './mapView.vue'
-import Dlg from '@/components1/dlg.vue'
-import Button from '@/components1/button.vue'
 import { useScriptStream } from '@/composables/useScriptStream'
 import { usePlayerStore } from '@/stores/player'
 import { bus, BusEvents } from '@/utils/eventBus'
@@ -13,7 +11,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import Information from './information.vue'
 import MainContainer from './mainContainer.vue'
 import Task from '@/components/dialog/task.vue'
-import TaskDetails from '@/components/dialog/taskDetails.vue'
 
 const playerStore = usePlayerStore()
 

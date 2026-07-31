@@ -11,6 +11,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useItem } from '@/api'
 import { bus, BusEvents } from '@/utils/eventBus'
 import LongButton from '@/components1/longButton.vue'
+import Pager from '@/components1/pager.vue'
 
 const backpackStore = useBackpackStore()
 const game = useGameStore()
@@ -194,17 +195,14 @@ async function onSlotDblClick(data) {
             </div>
         </div>
         <div class="backpack-page-actions">
-            <div class="backpack-page">
-                <div class="backpack-page-left" @click="prevPage"
-                    @dragover.prevent="startPagerDrag('prev')" @dragleave="clearPagerDrag" @drop.prevent="clearPagerDrag"></div>
-                <div class="backpack-page-textarea">
-                    <div class="textarea-left"></div>
-                    <div class="textarea-body">{{ currentPage }} / {{ TOTAL_PAGES }}</div>
-                    <div class="textarea-right"></div>
-                </div>
-                <div class="backpack-page-right" @click="nextPage"
-                    @dragover.prevent="startPagerDrag('next')" @dragleave="clearPagerDrag" @drop.prevent="clearPagerDrag"></div>
-            </div>
+            <Pager
+                :current="currentPage"
+                :total="TOTAL_PAGES"
+                @prev="prevPage"
+                @next="nextPage"
+                @prev-dragover="startPagerDrag('prev')" @prev-dragleave="clearPagerDrag" @prev-drop="clearPagerDrag"
+                @next-dragover="startPagerDrag('next')" @next-dragleave="clearPagerDrag" @next-drop="clearPagerDrag"
+            />
             <div class="backpack-actions">
                 <LongButton @click="onSort">背包整理</LongButton>
             </div>
@@ -253,43 +251,7 @@ async function onSlotDblClick(data) {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        .backpack-page{
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            margin-top: 10px;
-            .backpack-page-left, .backpack-page-right{
-                cursor: pointer;
-                width: 15px;
-                height: 16px;
-            }
-            .backpack-page-left{ background: url("/static/arrow-left.gif"); }
-            .backpack-page-right{ background: url("/static/arrow-right.gif"); }
-            .backpack-page-textarea{
-                display: flex;
-                .textarea-left{
-                    float: left;
-                    width: 3px;
-                    height: 22px;
-                    background: url("/static/textarea-left.gif") no-repeat;
-                }
-                .textarea-right{
-                    float: right;
-                    width: 3px;
-                    height: 22px;
-                    background: url("/static/textarea-right.gif") no-repeat;
-                }
-                .textarea-body{
-                    float: left;
-                    line-height: 22px;
-                    text-align: center;
-                    color: #e9e5dc;
-                    padding: 0 5px;
-                    height: 22px;
-                    background: transparent url("/static/textarea-bg.gif") repeat-x;
-                }
-            }
-        }
+        margin-top: 10px;
     }
 }
 </style>

@@ -19,6 +19,10 @@ export const BusEvents = {
   /** 打开 NPC 商店：{ playerId: number, npcId: number }
    *  原子化触发——对话弹窗内点「交易」快捷事件触发，商品 UI/查询由全局挂载的 NpcShopPanel 自治处理。 */
   NPC_SHOP_OPEN: 'npc-shop-open',
+  /** 打开交易弹窗（买卖物品/丹药）：无载荷。
+   *  由 NPC 对话「我想买卖些物品/丹药」(dialog_event event=trade) 触发，
+   *  Transaction 弹窗左侧商品 + 右侧玩家背包，全局挂载自治显隐。 */
+  TRANSACTION_OPEN: 'transaction-open',
   /** 打开/置顶玩家背包（跨组件：全局组件触发，GameView 监听打开 bagOpen） */
   BAG_OPEN: 'bag-open',
   /** 玩家数据更新：{ player }

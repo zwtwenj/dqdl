@@ -16,6 +16,7 @@
     font-size: var(--fs-sm);
     padding: 4px 0 7px 0;
     cursor: pointer;
+    display: inline-block;
 }
 .quick-button:hover{
     background: var(--img-quick-btn-hover) no-repeat;

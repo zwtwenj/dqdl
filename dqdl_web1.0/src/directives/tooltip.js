@@ -79,8 +79,12 @@ function hide(el) {
 
 export const vTooltip = {
   mounted(el, binding) {
+    // 缓存最新值到 el 上：Vue3 自定义指令的 binding 在 updated 时是新对象，
+    // mounted 闭包里捕获的 binding.value 不会随后续更新而变化。
+    // 故 enter/move 一律读 el._tooltipValue（mounted/updated 同步），保证拿到最新内容。
+    el._tooltipValue = binding.value
     const enter = (evt) => {
-      show(el, binding.value, evt)
+      show(el, el._tooltipValue, evt)
       // 挂 mousemove 跟随鼠标（handler 缓存到 el，leave/unmount 时用同一引用解绑）
       const move = (e) => {
         if (currentTarget === el) positionAtMouse(e.clientX, e.clientY)
@@ -102,7 +106,9 @@ export const vTooltip = {
     el._tooltipLeave = leave
   },
   updated(el, binding) {
-    // 值变化时，若正在显示则更新内容
+    // 同步最新值（响应式数据异步加载后值会变，如背包 slots 挂载后才到位）
+    el._tooltipValue = binding.value
+    // 若正在显示则更新内容
     if (currentTarget === el) {
       getTipEl().innerHTML = binding.value ?? ''
     }

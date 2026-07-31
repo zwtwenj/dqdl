@@ -17,17 +17,21 @@ import Dlg from '@/components1/dlg.vue'
 import Button from '@/components1/button.vue'
 import star from '@/components1/star.vue'
 import { bus, BusEvents } from '@/utils/eventBus'
+import { confirm } from '@/components1/confirm'
 import {
   previewAdventurerTask,
   acceptAdventurerTask,
   rejectTask,
   getTask,
+  abandonTask,
 } from '@/api/task'
 
 /** 'accept' 接取候选 / 'view' 查看已接任务 */
 const mode = ref('accept')
 const open = ref(false)
 const playerId = ref(null)
+const npcId = ref(null)
+const npcName = ref(null)
 const taskId = ref(null)
 const task = ref(null)
 const loading = ref(false)
@@ -77,7 +81,7 @@ async function loadPreview() {
   task.value = null
   taskId.value = null
   try {
-    const res = await previewAdventurerTask(playerId.value)
+    const res = await previewAdventurerTask(playerId.value, npcId.value, npcName.value)
     if (res?.ok && res.taskId) {
       taskId.value = res.taskId
       await loadTask()
@@ -114,6 +118,24 @@ async function onAccept() {
   }
 }
 
+/** 放弃任务（查看模式，二次确认 → abandonTask → 关闭详情） */
+async function onAbandon() {
+  if (!taskId.value) return
+  const ok = await confirm({ title: '放弃任务', content: '是否放弃该任务？放弃后不可恢复。' })
+  if (!ok) return
+  try {
+    const res = await abandonTask(taskId.value, playerId.value)
+    if (res?.ok) {
+      bus.emit(BusEvents.TOAST, { type: 'success', message: '已放弃任务' })
+      onClose()
+    } else {
+      bus.emit(BusEvents.TOAST, { type: 'info', message: res?.msg || '放弃失败' })
+    }
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '放弃失败' })
+  }
+}
+
 /** 换一个：旧草稿 reject(delete) → preview 新草稿 */
 async function onReroll() {
   if (loading.value) return
@@ -147,9 +169,11 @@ function onKeydown(e) {
 }
 
 /** 接取模式触发 */
-function handleAcceptOpen({ playerId: pid }) {
+function handleAcceptOpen({ playerId: pid, npcId: nid, npcName: nname }) {
   mode.value = 'accept'
   playerId.value = pid
+  npcId.value = nid ?? null
+  npcName.value = nname ?? null
   open.value = true
   loadPreview()
 }
@@ -261,6 +285,7 @@ onUnmounted(() => {
                             目标已全部完成，请回佣兵公会交付
                         </span>
                         <span v-else class="view-hint">任务进行中...</span>
+                        <Button v-if="task.abandonable" class="abandon-btn" @click="onAbandon">放弃任务</Button>
                     </template>
                 </div>
             </template>
@@ -411,5 +436,8 @@ onUnmounted(() => {
 .view-hint.done{
     color: #b8860b;
     font-weight: bold;
+}
+.abandon-btn{
+
 }
 </style>

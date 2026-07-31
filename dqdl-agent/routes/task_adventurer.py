@@ -54,7 +54,8 @@ def generate_task_adventurer():
         'description 和 target_desc 中，地点名用 <span style="color: green">地点名</span> 包裹，'
         '魔兽名用 <span style="color: #e77800">魔兽名</span> 包裹，其余文字不加 span；'
         'description 不超过80字（含span标签），说明去哪、做什么、完成后去哪交付；'
-        'target_desc 不超过20字（含span标签），简述目标。'
+        'target_desc 必须包含地点名和魔兽名，格式固定为"前往<地点名>击杀<魔兽名>"，'
+        '不要加任何修饰性形容词（如"暗影中滑翔的""凶猛的"等），只保留地名+动作+怪物名。'
         '只输出JSON，不要输出任何其他内容。'
     )
     user_prompt = (
@@ -63,14 +64,15 @@ def generate_task_adventurer():
         f'【目标魔兽】{mob_name}（{rank}）\n'
         f'【击杀数量】{kill_count} 只\n'
         f'【危险度】{danger_label}魔兽\n'
-        f'\n请按JSON格式生成该悬赏委托的文案，地名和魔兽名用对应颜色的span包裹。'
+        f'\n请按JSON格式生成该悬赏委托的文案。'
+        f'target_desc 必须是"前往{wild_name}击杀{mob_name}"这种格式（地名绿、怪物名橙），不要加修饰词。'
     )
 
     # 兜底文案（LLM 失败或返回无效时用，同样带 HTML 高亮）
     fallback = {
         'name': f'猎杀·{mob_name}',
         'description': f'前往<span style="color: green">{wild_name}</span>，击杀<span style="color: #e77800">{mob_name}</span>{kill_count}只（完成后回佣兵公会与接待员交谈交付）',
-        'target_desc': f'击杀<span style="color: #e77800">{mob_name}</span>（{rank}魔兽）',
+        'target_desc': f'前往<span style="color: green">{wild_name}</span>击杀<span style="color: #e77800">{mob_name}</span>',
     }
 
     try:

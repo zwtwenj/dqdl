@@ -37,9 +37,13 @@ function handleTrade({ npc }) {
  * 实际 DB 生成（preview 候选 / accept 入库）由 TaskDetails 自治处理。
  * 注意：不关闭 NPC 对话——任务详情弹窗叠在对话之上，玩家可同时看到两者。
  */
-function handleCreateAdventurerTask({ playerId }) {
+function handleCreateAdventurerTask({ playerId, npc }) {
   if (!playerId) return
-  bus.emit(BusEvents.TASK_ACCEPT_OPEN, { playerId })
+  bus.emit(BusEvents.TASK_ACCEPT_OPEN, {
+    playerId,
+    npcId: npc?.id,
+    npcName: npc?.name,
+  })
 }
 
 /** 任务全部目标达标即可交付（与后端 claimTask 的 every 判定一致） */

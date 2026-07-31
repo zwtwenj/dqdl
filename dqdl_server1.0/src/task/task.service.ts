@@ -5,6 +5,7 @@ import { Task } from './task.entity';
 import { LocationNetService } from '../location_net/location-net.service';
 import { MobService } from '../mob/mob.service';
 import { AgentService } from '../agent/agent.service';
+import { ScriptSseService } from '../script/script-sse.service';
 import { Biz } from '../common/biz.exception';
 import { TASK } from '../config/game.config';
 
@@ -65,8 +66,15 @@ export class TaskService {
     private readonly locationNet: LocationNetService,
     private readonly mobService: MobService,
     private readonly agentService: AgentService,
+    private readonly sse: ScriptSseService,
     private readonly dataSource: DataSource,
   ) {}
+
+  /** 推送 task_update 事件，前端收到后重新拉任务列表。
+   *  触发点：击杀计数命中 / 接受任务 / 放弃任务。无连接时静默丢弃。 */
+  private notifyTaskUpdate(playerId: number): void {
+    this.sse.push(Number(playerId), 'task_update', { player_id: Number(playerId) });
+  }
 
   // ---------- 佣兵任务生成 ----------
 
@@ -89,6 +97,8 @@ export class TaskService {
    */
   async previewAdventurerTask(
     playerId: number,
+    npcId?: number,
+    npcName?: string,
   ): Promise<{ ok: boolean; taskId?: number; msg?: string }> {
     // 0. 惰性清理该玩家超时草稿（避免 draft 堆积）
     await this.cleanExpiredDrafts(playerId);
@@ -156,7 +166,7 @@ export class TaskService {
     const killCount = this.randInt(KILL_MIN, KILL_MAX);
 
     // 6. 组装草稿并落库（status=draft），返回 taskId
-    const draft = await this.buildAdventurerDraft(player, wild, mob, killCount);
+    const draft = await this.buildAdventurerDraft(player, wild, mob, killCount, npcName);
     const saved = await this.taskRepo.save(
       this.taskRepo.create({
         player_id: playerId,
@@ -168,7 +178,7 @@ export class TaskService {
         type: 'adventurer',
         star: draft.star || 1,
         delivery: null,
-        giver_npc_id: draft.giver_npc_id ?? null,
+        giver_npc_id: npcId ?? null,
         giver_npc_name: draft.giver_npc_name ?? null,
       }),
     );
@@ -218,6 +228,7 @@ export class TaskService {
     task.status = 'pending';
     await this.taskRepo.save(task);
     this.logger.log(`玩家 ${playerId} 接受佣兵任务 #${taskId}：${task.description}`);
+    this.notifyTaskUpdate(playerId);
     return { ok: true, taskId: task.id };
   }
 
@@ -246,13 +257,14 @@ export class TaskService {
    *
    * 文案优先走 agent（name/description/target.desc），agent 不可用或失败时回退模板字符串，
    * 保证任务总能生成。target.type 标记目标机制（fight/findNpc），完成判定按它分发。
-   * giver 为发布人快照，佣兵任务统一由"佣兵公会接待员"发布。
+   * giver 为发布人快照（来自 preview 调用方传入的 npcName，缺省"佣兵公会接待员"）。
    */
   private async buildAdventurerDraft(
     player: any,
     wild: any,
     mob: { mob_id: string; name: string; rank?: string },
     killCount: number,
+    giverName?: string,
   ): Promise<any> {
     const star = wild.danger_level || 1;
     const dangerLabel: Record<number, string> = { 1: '一阶', 2: '二阶', 3: '三阶' };
@@ -310,7 +322,7 @@ export class TaskService {
       star,
       type: 'adventurer',
       giver_npc_id: null,
-      giver_npc_name: '佣兵公会接待员',
+      giver_npc_name: giverName || '佣兵公会接待员',
     };
   }
 
@@ -332,6 +344,31 @@ export class TaskService {
       player_id: playerId,
     });
     return task ? this.toView(task) : null;
+  }
+
+  /**
+   * 放弃任务（pending/claimed → abandoned）。
+   * 玩家主动放弃，状态置 abandoned（已放弃），不退奖励、不退进度。
+   * 校验：归属 + abandonable=1 + 状态为 pending 或 claimed。
+   * @returns { ok, msg? }
+   */
+  async abandonTask(
+    playerId: number,
+    taskId: number,
+  ): Promise<{ ok: boolean; msg?: string }> {
+    const task = await this.taskRepo.findOneBy({ id: taskId, player_id: playerId });
+    if (!task) return { ok: false, msg: '任务不存在' };
+    if (Number(task.abandonable) !== 1) {
+      return { ok: false, msg: '该任务不可放弃' };
+    }
+    if (task.status !== 'pending' && task.status !== 'claimed') {
+      return { ok: false, msg: '当前状态不可放弃' };
+    }
+    task.status = 'abandoned';
+    await this.taskRepo.save(task);
+    this.logger.log(`玩家 ${playerId} 放弃任务 #${taskId}（${task.name}）`);
+    this.notifyTaskUpdate(playerId);
+    return { ok: true };
   }
 
   // ---------- 击杀进度判定 ----------
@@ -373,6 +410,8 @@ export class TaskService {
         await this.taskRepo.save(task);
       }
     }
+    // 命中击杀目标 → 推送 task_update，前端刷新任务列表
+    if (hit) this.notifyTaskUpdate(playerId);
     return hit;
   }
 
@@ -465,6 +504,7 @@ export class TaskService {
       status: t.status,
       type: t.type,
       star: t.star,
+      abandonable: Number(t.abandonable) === 1,
       giver_npc_id: t.giver_npc_id ?? null,
       giver_npc_name: t.giver_npc_name ?? null,
       created_at: t.created_at,

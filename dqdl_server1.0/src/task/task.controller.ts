@@ -37,9 +37,9 @@ export class TaskController {
 
   /** 预览佣兵任务候选（不入库） */
   @Post('adventurer/preview')
-  async preview(@Body() body: { playerId?: number }, @Req() req: any) {
+  async preview(@Body() body: { playerId?: number; npcId?: number; npcName?: string }, @Req() req: any) {
     const playerId = body.playerId ?? (await this.playerService.verifyOwnershipByUser(req.user.id)).id;
-    return this.taskService.previewAdventurerTask(playerId);
+    return this.taskService.previewAdventurerTask(playerId, body.npcId, body.npcName);
   }
 
   /** 接受草稿任务（draft → pending） */
@@ -90,5 +90,16 @@ export class TaskController {
   ) {
     const playerId = body.playerId ?? (await this.playerService.verifyOwnershipByUser(req.user.id)).id;
     return this.taskService.claimTask(playerId, id);
+  }
+
+  /** 放弃任务（pending/claimed → delete） */
+  @Post(':id/abandon')
+  async abandon(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { playerId?: number },
+    @Req() req: any,
+  ) {
+    const playerId = body.playerId ?? (await this.playerService.verifyOwnershipByUser(req.user.id)).id;
+    return this.taskService.abandonTask(playerId, id);
   }
 }

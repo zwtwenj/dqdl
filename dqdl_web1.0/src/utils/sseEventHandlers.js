@@ -60,6 +60,14 @@ const sseHandlers = {
       stop_net_id: data?.stop_net_id,
     })
   },
+
+  /**
+   * 任务数据更新：后端在击杀计数命中/接受任务/放弃任务时推送。
+   * emit TASK_UPDATE，任务列表组件监听后重新拉取。
+   */
+  task_update: () => {
+    bus.emit(BusEvents.TASK_UPDATE)
+  },
 }
 
 /**

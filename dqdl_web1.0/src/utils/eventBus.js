@@ -49,6 +49,10 @@ export const BusEvents = {
    *  由公会接待员对话「我完成了任务，来交付」交付后触发，
    *  TaskPanel 若打开着则刷新列表。 */
   TASK_CLAIM_UPDATE: 'task-claim-update',
+  /** 任务数据更新（SSE task_update）：无载荷。
+   *  后端在击杀计数命中/接受任务/放弃任务时经 SSE 推 task_update，
+   *  前端监听后重新拉任务列表（information 当前任务 tab / task 弹窗）。 */
+  TASK_UPDATE: 'task-update',
   /** 打开任务详情（只读查看）：{ playerId, taskId }
    *  任务列表点击某条任务时触发，TaskDetails 查看模式拉取并展示详情。 */
   TASK_DETAILS_OPEN: 'task-details-open',

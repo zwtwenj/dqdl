@@ -7,9 +7,10 @@ import http from './request'
  * preview 落库 draft 返回 taskId，前端用 taskId 拉单条详情，全程不传任务内容（防篡改）。
  */
 
-/** 预览佣兵任务（生成草稿 draft 落库）→ { ok, taskId?, msg? } */
-export const previewAdventurerTask = (playerId) =>
-  http.post('/task/adventurer/preview', { playerId })
+/** 预览佣兵任务（生成草稿 draft 落库）→ { ok, taskId?, msg? }
+ *  npcId/npcName 可选：发布人 NPC 信息，用于记录任务的 giver（发布人快照） */
+export const previewAdventurerTask = (playerId, npcId, npcName) =>
+  http.post('/task/adventurer/preview', { playerId, npcId, npcName })
 
 /** 接受草稿任务（draft → pending）→ { ok, taskId?, msg? } */
 export const acceptAdventurerTask = (playerId, taskId) =>
@@ -28,3 +29,7 @@ export const getTask = (taskId) => http.get(`/task/${taskId}`)
 /** 交付任务领奖 → { money } */
 export const claimTask = (taskId, playerId) =>
   http.post(`/task/${taskId}/claim`, { playerId })
+
+/** 放弃任务（pending/claimed → abandoned）→ { ok, msg? } */
+export const abandonTask = (taskId, playerId) =>
+  http.post(`/task/${taskId}/abandon`, { playerId })

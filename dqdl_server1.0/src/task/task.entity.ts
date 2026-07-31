@@ -24,9 +24,9 @@ import {
  *
  *   delivery: { npc_id, npc_name, scene_id, scene_name }   // 在哪个场景/NPC交付
  *
- * 状态机：draft（草稿，preview 生成待确认）→ pending（进行中，确认后）→ claimed（已领奖）。
- * draft 可经 reject/换一个/超时 → delete。pending 仍保留到玩家回公会交付。
- * draft/delete/claimed 均不参与 findMyTasks 列表与 checkKillProgress 击杀判定（仅查 pending）。
+ * 状态机：draft（草稿）→ pending（进行中）→ claimed（已领奖）。
+ * draft 可经 reject/换一个/超时 → delete；pending/claimed 可经 abandon → abandoned（已放弃）。
+ * draft/delete/claimed/abandoned 均不参与 findMyTasks 列表与 checkKillProgress 击杀判定（仅查 pending）。
  *
  * 不使用外键/关系装饰器（遵循 location_net / static_npc 规范），player_id 为纯字段。
  */
@@ -52,7 +52,7 @@ export class Task {
   @Column({ type: 'text', comment: '奖励JSON' })
   reward: string;
 
-  @Column({ type: 'varchar', length: 16, default: 'pending', comment: 'draft=草稿 pending=进行中 claimed=已领奖 delete=已删除' })
+  @Column({ type: 'varchar', length: 16, default: 'pending', comment: 'draft=草稿 pending=进行中 claimed=已领奖 abandoned=已放弃 delete=已删除' })
   status: string;
 
   @Column({ type: 'varchar', length: 32, default: 'common', comment: 'common/adventurer' })
@@ -60,6 +60,9 @@ export class Task {
 
   @Column({ type: 'int', default: 1, comment: '星级/危险度（1/2/3）' })
   star: number;
+
+  @Column({ type: 'tinyint', default: 1, comment: '是否可放弃：1=可放弃 0=不可放弃（如主线任务）' })
+  abandonable: number;
 
   @Column({ type: 'text', nullable: true, comment: '交付信息JSON' })
   delivery: string | null;

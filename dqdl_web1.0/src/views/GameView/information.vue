@@ -1,10 +1,14 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { getActiveTraining, getNewTrainingLogs } from '@/api/training'
+import { getMyTasks } from '@/api/task'
 import { usePlayerStore } from '@/stores/player'
+import { useGameStore } from '@/stores/game'
 import { bus, BusEvents } from '@/utils/eventBus'
+import Star from '@/components1/star.vue'
 
 const playerStore = usePlayerStore()
+const gameStore = useGameStore()
 
 const tabs = ref([
     { name: '当前任务', value: 'task' },
@@ -64,6 +68,21 @@ function onTabClick(value) {
     if (value === 'training' && !trainingLogs.value.length && !trainingTimer) {
         initTraining()
     }
+}
+
+// —— 当前任务列表（复用 task.vue 的 .dqdl-task-dlg 样式）——
+const tasks = ref([])
+async function loadTasks() {
+    const pid = gameStore.playerId
+    if (!pid) return
+    try {
+        tasks.value = (await getMyTasks(pid)) || []
+    } catch {
+        tasks.value = []
+    }
+}
+function onViewTaskDetail(task) {
+    bus.emit(BusEvents.TASK_DETAILS_OPEN, { playerId: Number(gameStore.playerId), taskId: task.id })
 }
 
 // —— 历练日志：增量轮询 ——
@@ -132,8 +151,10 @@ function stopPolling() {
 
 // 监听历练状态切换（mapView 发起历练/停止时触发）
 let offTrainingToggle = null
+let offTaskUpdate = null
 onMounted(() => {
     initTraining()   // 进入游戏：若历练中，拉全量日志 + 启动增量轮询
+    loadTasks()      // 拉当前任务列表
     offTrainingToggle = bus.on(BusEvents.TRAINING_TOGGLE, ({ active }) => {
         if (active) {
             initTraining()   // 发起历练：重新初始化（全量+轮询）
@@ -142,6 +163,8 @@ onMounted(() => {
             pollNewLogs()    // 停止后拉最终增量
         }
     })
+    // 任务数据更新（SSE：击杀计数/接受/放弃）→ 重新拉任务列表
+    offTaskUpdate = bus.on(BusEvents.TASK_UPDATE, () => loadTasks())
     // 玩家状态变化（如历练结束 status→IDLE）也刷新
     playerStore.$subscribe(() => {
         if (playerStore.player?.status !== 2 && trainingActive.value) {
@@ -153,6 +176,7 @@ onMounted(() => {
 onUnmounted(() => {
     stopPolling()
     offTrainingToggle?.()
+    offTaskUpdate?.()
 })
 </script>
 
@@ -168,9 +192,34 @@ onUnmounted(() => {
             >{{ tab.name }}</div>
         </div>
         <div class="information-content">
-            <!-- 当前任务 -->
+            <!-- 当前任务（复用 task.vue 的列表结构与样式） -->
             <template v-if="focusTab === 'task'">
-                <div class="info-empty">暂无任务</div>
+                <div class="dqdl-task-dlg">
+                    <div v-if="!tasks.length" class="task-empty">暂无任务</div>
+                    <div v-else class="task-list">
+                        <div v-for="task in tasks" :key="task.id" class="task-row">
+                            <div class="task-title-detail">
+                                <div class="task-top">
+                                    <div class="task-title">【{{ task.name }}】</div>
+                                    <div class="task-type">佣兵任务</div>
+                                    <Star :star="task.star || 1"></Star>
+                                </div>
+                                <div class="task-details" @click="onViewTaskDetail(task)">查看详情</div>
+                            </div>
+                            <div class="task-target">
+                                <div v-for="(target, index) in task.target" :key="index">
+                                    <div v-if="target.type === 'fight'" class="task-target-fight">
+                                        <div><span class="target-index">{{ index + 1 }}.</span> <span v-html="target.desc"></span></div>
+                                        <div class="task-target-count">({{ target.current || 0 }} / {{ target.required }})</div>
+                                    </div>
+                                    <div v-else-if="target.type === 'findNpc'" class="task-target-fight">
+                                        <div><span class="target-index">{{ index + 1 }}.</span> <span v-html="target.desc"></span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </template>
             <!-- 历练日志 -->
             <template v-else-if="focusTab === 'training'">
@@ -276,6 +325,69 @@ onUnmounted(() => {
                 margin-right: 4px;
                 border-radius: 2px;
             }
+        }
+    }
+}
+
+/* 当前任务列表（复用 task.vue 的 .dqdl-task-dlg 样式） */
+.dqdl-task-dlg{
+    padding: 4px 4px;
+    text-align: left;
+}
+.task-empty{
+    text-align: center;
+    color: #8a7a60;
+    padding: 40px 0;
+    font-size: var(--fs-md);
+}
+.task-list{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.task-row{
+    position: relative;
+}
+.task-title-detail{
+    position: relative;
+    .task-top{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .task-title{
+        font-size: 14px;
+        font-weight: bold;
+        margin: 3px 0;
+        text-align: left;
+    }
+    .task-type{
+        font-size: 12px;
+    }
+    .task-details{
+        position: absolute;
+        right: 0;
+        top: 5px;
+        color: #925141;
+        cursor: pointer;
+        text-decoration: underline;
+    }
+    .task-details:hover{
+        color: #c80000;
+    }
+}
+.task-target{
+    margin: 6px 4px 0 6px;
+    padding: 5px 10px;
+    color: #907250;
+    border: 1px solid #ded9cd;
+    background-color: #ece8e0;
+    .task-target-fight{
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        .task-target-count{
+            color: #c80000;
         }
     }
 }

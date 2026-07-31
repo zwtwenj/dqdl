@@ -80,89 +80,121 @@ function treasureStatText(t) {
   const s = t?.stats || {}
   return Object.keys(s).map((k) => `${ATTR_LABEL[k] || k}+${s[k]}`).join(' ')
 }
+
+// —— tooltip 文案（v-tooltip，内联 HTML）——
+function techniqueTip(t) {
+  if (!t) return ''
+  const lines = [`<span style="font-size:14px;font-weight:bold;color:#f0c040;">${t.name || '未知功法'}</span>`]
+  if (t.level) lines.push(`<span style="color:#7fd09a;">等级 Lv.${t.level}</span>`)
+  if (t.description) lines.push(`<div style="color:#d9d0c2;max-width:220px;line-height:1.5;">${t.description}</div>`)
+  return lines.join('<br/>')
+}
+function skillTip(s) {
+  if (!s) return ''
+  const lines = [`<span style="font-size:14px;font-weight:bold;color:#f0c040;">${s.name || '未知斗技'}</span>`]
+  if (s.level) lines.push(`<span style="color:#7fd09a;">等级 Lv.${s.level}</span>`)
+  if (s.attr) lines.push(`<span style="color:#c8a0ff;">属性：${s.attr}</span>`)
+  if (s.description) lines.push(`<div style="color:#d9d0c2;max-width:220px;line-height:1.5;">${s.description}</div>`)
+  return lines.join('<br/>')
+}
+function treasureTip(t) {
+  if (!t) return ''
+  const lines = [`<span style="font-size:14px;font-weight:bold;color:#f0c040;">${t.name || '宝物'}</span>`]
+  if (t.category) lines.push(`<span style="color:#c8a0ff;">类型：${t.category}</span>`)
+  const stats = treasureStatText(t)
+  if (stats) lines.push(`<span style="color:#c8b078;">${stats}</span>`)
+  if (t.description) lines.push(`<div style="color:#d9d0c2;max-width:220px;line-height:1.5;">${t.description}</div>`)
+  return lines.join('<br/>')
+}
 </script>
 
 <template>
     <div class="player-details" v-if="player">
-        <!-- 等阶名 -->
-        <div class="level-row">
-            <span class="char-title">{{ player.level_name || ('Lv.' + player.level) }}</span>
-            <span class="char-name">{{ player.name }}</span>
+        <div class="player-details-left">
+            <div class="player-details-border">
+                <div class="player-details-title">
+                    基本信息
+                </div>
+                <div class="player-details-module">
+                    <!-- 等阶名 -->
+                    <div class="level-row">
+                        <div class="char-name">角色：{{ player.name }}</div>
+                        <div class="char-title">境界：{{ player.level_name || ('Lv.' + player.level) }}</div>
+                    </div>
+
+                    <!-- 气血/斗气/修为（复用 playerInfo 的 player-hp-mp-cult gif 进度条样式） -->
+                    <div class="player-cult">
+                        <div class="player-cult-left">修为：</div>
+                        <div class="player-cult-point-bg">
+                            <div class="player-cult-point" :style="{ width: cultPct + '%' }"></div>
+                        </div>
+                    </div>
+                    <div class="player-hp">
+                        <div class="player-hp-left">气血：</div>
+                        <div class="player-hp-point-bg">
+                            <div class="player-hp-point" :style="{ width: hpPct + '%' }"></div>
+                        </div>
+                    </div>
+                    <div class="player-energy">
+                        <div class="player-energy-left">斗气：</div>
+                        <div class="player-energy-point-bg">
+                            <div class="player-energy-point" :style="{ width: energyPct + '%' }"></div>
+                        </div>
+                    </div>
+
+                    <!-- 五维属性 -->
+                    <div class="detail-section">
+                        <div class="section-title">基础属性</div>
+                        <div class="attr-rows">
+                            <div v-for="a in ATTRS" :key="a.key" class="attr-row">
+                                <span class="attr-accent" :style="{ background: a.color }"></span>
+                                <span class="attr-name">{{ a.label }}</span>
+                                <span class="attr-value" :style="{ color: a.color }">{{ attrVal(a.key) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- 气血/斗气/修为 -->
-        <div class="detail-section">
-            <div class="vital-row">
-                <span class="vital-label">气血</span>
-                <div class="vital-track">
-                    <div class="vital-fill hp" :style="{ width: hpPct + '%' }"></div>
-                    <span class="vital-text">{{ player.hp }} / {{ maxHp }}</span>
-                </div>
-            </div>
-            <div class="vital-row">
-                <span class="vital-label">斗气</span>
-                <div class="vital-track">
-                    <div class="vital-fill energy" :style="{ width: energyPct + '%' }"></div>
-                    <span class="vital-text">{{ player.energy }} / {{ maxEnergy }}</span>
-                </div>
-            </div>
-            <div class="vital-row">
-                <span class="vital-label">修为</span>
-                <div class="vital-track">
-                    <div class="vital-fill cult" :style="{ width: cultPct + '%' }"></div>
-                    <span class="vital-text">{{ player.cultivation }} / {{ maxCult }}</span>
-                </div>
-            </div>
-        </div>
+        <div class="player-details-right">
+            <div class="player-details-border">
+                <div class="player-details-module">
+                    <!-- 功法 -->
+                    <div class="detail-section">
+                        <div class="section-title">功法</div>
+                        <div v-if="techniques.length" class="item-list">
+                            <div v-for="(t, i) in techniques" :key="'t'+i" class="item-cell" v-tooltip="techniqueTip(t)">
+                                <img class="cell-icon" :src="techniqueIconUrl(t)" @error="onIconError">
+                                <span class="cell-level">Lv.{{ t.level ?? 1 }}</span>
+                            </div>
+                        </div>
+                        <div v-else class="empty-hint">— 尚未装备 —</div>
+                    </div>
 
-        <!-- 五维属性 -->
-        <div class="detail-section">
-            <div class="section-title">基础属性</div>
-            <div class="attr-rows">
-                <div v-for="a in ATTRS" :key="a.key" class="attr-row">
-                    <span class="attr-accent" :style="{ background: a.color }"></span>
-                    <span class="attr-name">{{ a.label }}</span>
-                    <span class="attr-value" :style="{ color: a.color }">{{ attrVal(a.key) }}</span>
-                </div>
-            </div>
-        </div>
+                    <!-- 斗技 -->
+                    <div class="detail-section">
+                        <div class="section-title">斗技</div>
+                        <div v-if="skills.length" class="item-list">
+                            <div v-for="(s, i) in skills" :key="'s'+i" class="item-cell" v-tooltip="skillTip(s)">
+                                <img class="cell-icon" :src="skillIconUrl(s)" @error="onIconError">
+                            </div>
+                        </div>
+                        <div v-else class="empty-hint">— 尚未装备 —</div>
+                    </div>
 
-        <!-- 功法 -->
-        <div class="detail-section">
-            <div class="section-title">功法</div>
-            <div v-if="techniques.length" class="item-list">
-                <div v-for="(t, i) in techniques" :key="'t'+i" class="item-row" v-tooltip="t.name || '未知'">
-                    <img class="item-icon" :src="techniqueIconUrl(t)" @error="onIconError">
-                    <span class="item-name">{{ t.name || t.skill_name || '未知' }}</span>
-                    <span class="item-level">Lv.{{ t.level ?? 1 }}</span>
+                    <!-- 宝物 -->
+                    <div class="detail-section">
+                        <div class="section-title">宝物</div>
+                        <div v-if="treasures.length" class="item-list">
+                            <div v-for="(t, i) in treasures" :key="'tr'+i" class="item-cell" v-tooltip="treasureTip(t)">
+                                <img class="cell-icon" :src="treasureIconUrl(t)" @error="onIconError">
+                            </div>
+                        </div>
+                        <div v-else class="empty-hint">— 尚未装备 —</div>
+                    </div>
                 </div>
             </div>
-            <div v-else class="empty-hint">— 尚未装备 —</div>
-        </div>
-
-        <!-- 斗技 -->
-        <div class="detail-section">
-            <div class="section-title">斗技</div>
-            <div v-if="skills.length" class="item-list">
-                <div v-for="(s, i) in skills" :key="'s'+i" class="item-row" v-tooltip="s.name || '未知'">
-                    <img class="item-icon" :src="skillIconUrl(s)" @error="onIconError">
-                    <span class="item-name">{{ s.name || s.skill_name || '未知' }}</span>
-                </div>
-            </div>
-            <div v-else class="empty-hint">— 尚未装备 —</div>
-        </div>
-
-        <!-- 宝物 -->
-        <div class="detail-section">
-            <div class="section-title">宝物</div>
-            <div v-if="treasures.length" class="item-list">
-                <div v-for="(t, i) in treasures" :key="'tr'+i" class="item-row"
-                    v-tooltip="`${t.name || '宝物'}<br/>${treasureStatText(t)}`">
-                    <img class="item-icon" :src="treasureIconUrl(t)" @error="onIconError">
-                    <span class="item-name">{{ t.name || '宝物' }}</span>
-                </div>
-            </div>
-            <div v-else class="empty-hint">— 尚未装备 —</div>
         </div>
     </div>
 </template>
@@ -170,70 +202,89 @@ function treasureStatText(t) {
 <style lang="less" scoped>
 .player-details{
     padding: 4px;
+    height: calc(100% - 10px);
+    overflow-y: auto;
+    display: flex;
+    gap: 10px;
+    .player-details-left{
+        flex-shrink: 0;          /* 不被 flex 压缩 */
+        align-self: flex-start;  /* 不被 flex 纵向拉伸，高度由内部元素撑开 */
+        width: 220px;
+        border: 1px solid #a69b8b;
+        padding: 2px;
+        .player-details-title{
+            background: url("/static/mission-top.gif") no-repeat;
+            background-size: 100% 100%;
+            line-height: 24px;
+            color: #fff;
+            text-align: center;
+        }
+    }
+    .player-details-right{
+        flex: 1;
+        height: 100%;
+        border: 1px solid #a69b8b;
+        padding: 2px;
+    }
+}
+.player-details-border{
+    border: 1px solid #a69b8b;
+    background: #d9d2cc;
     height: 100%;
+    overflow: hidden;
+}
+.player-details-module{
+    padding: 10px;
+    height: 100%;
+    overflow: hidden;
     overflow-y: auto;
 }
 .level-row{
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-    .char-title{
-        font-weight: bold;
-        font-size: 15px;
-        color: var(--accent);
-    }
-    .char-name{
-        font-size: 13px;
-        color: var(--text-dim);
+    .char-name, .char-title{
+        margin-bottom: 10px;
     }
 }
 .detail-section{
-    margin-bottom: 12px;
+    border-top: 1px solid var(--border);
+    padding: 7px 0;
 }
 .section-title{
     font-weight: bold;
     font-size: 13px;
     color: var(--text);
-    margin-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 3px;
+    margin-bottom: 7px;
 }
 /* 进度条 */
-.vital-row{
+/* 气血/斗气/修为：复用 playerInfo 的 player-hp-mp-cult gif 进度条样式 */
+.player-cult, .player-hp, .player-energy{
     display: flex;
     align-items: center;
-    margin-bottom: 5px;
-    .vital-label{
-        width: 36px;
-        font-size: 12px;
-        color: var(--text-dim);
+    margin-bottom: 7px;
+}
+.player-cult-point-bg, .player-hp-point-bg, .player-energy-point-bg{
+    flex: 1;
+    background: url("/static/point-bar-bg.gif") no-repeat;
+    background-size: 100% 100%;
+    height: 14px;
+    padding: 3px;
+    overflow: hidden;
+    .player-cult-point{
+        height: 100%;
+        background: url("/static/point-bar-1.gif") no-repeat;
+        background-size: 137px 100%;
+        background-position: left center;
     }
-    .vital-track{
-        flex: 1;
-        height: 16px;
-        background: var(--input-bg);
-        border: 1px solid var(--border);
-        border-radius: 2px;
-        position: relative;
-        overflow: hidden;
-        .vital-fill{
-            height: 100%;
-            transition: width 0.3s;
-            &.hp{ background: #d9404a; }
-            &.energy{ background: #3a86e0; }
-            &.cult{ background: #f0c040; }
-        }
-        .vital-text{
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            color: #fff;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-        }
+    .player-hp-point{
+        height: 100%;
+        background: url("/static/point-bar-2.gif") no-repeat;
+        background-size: 137px 100%;
+        background-position: left center;
+    }
+    .player-energy-point{
+        height: 100%;
+        background: url("/static/point-bar-3.gif") no-repeat;
+        background-size: 137px 100%;
+        background-position: left center;
     }
 }
 /* 五维属性 */
@@ -261,24 +312,34 @@ function treasureStatText(t) {
 }
 /* 功法/斗技/宝物列表 */
 .item-list{
-    .item-row{
+    display: flex;
+    gap: 5px;
+    .item-cell{
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        background: url("/static/item-cell-bg.gif");
+        width: 50px;
+        height: 50px;
+        background-size: 100% 100%;
+        position: relative;
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 3px 0;
+        justify-content: center;
         cursor: default;
-        .item-icon{
-            width: 24px;
-            height: 24px;
+        .cell-icon{
+            width: 90%;
+            height: 90%;
             object-fit: contain;
+            pointer-events: none;
         }
-        .item-name{
-            font-size: 12px;
-            color: var(--text);
-        }
-        .item-level{
+        .cell-level{
+            position: absolute;
+            bottom: 1px;
+            right: 2px;
             font-size: 11px;
-            color: var(--text-dim);
+            color: #fff;
+            text-shadow: 1px 1px 2px #000;
+            pointer-events: none;
         }
     }
 }

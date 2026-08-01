@@ -24,7 +24,7 @@ export { startBattle, battleAction, getBattleState, fleeBattle } from './battle'
 export { getNpc, getNpcsByLocation, createNpcSession, talkInSession } from './npc'
 export { getNpcShop, buyItem, sellItem } from './shop'
 export { useItem, unequipTreasure } from './item'
-export { getEncounters, abandonEncounter } from './encounter'
+export { getEncounters, getEncounter, abandonEncounter } from './encounter'
 export { enterDungeon, getCurrentDungeon, nextDungeonAct, escapeDungeon, winDungeonAct, failDungeon } from './dungeon'
 export {
   getCultivationConfig,

@@ -39,6 +39,13 @@ export class EncounterController {
     return this.encounterService.findVisible(player.id);
   }
 
+  /** 单条奇遇详情（含洞天福地修炼数据，join cultivation_session）GET /api/encounter/:id */
+  @Get(':id')
+  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    const player = await this.playerService.verifyOwnershipByUser(req.user.id);
+    return this.encounterService.findOne(id, player.id);
+  }
+
   /** 放弃奇遇（pending / entered 都可放弃）POST /api/encounter/:id/abandon */
   @Post(':id/abandon')
   async abandon(

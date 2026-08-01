@@ -140,8 +140,53 @@ export class EncounterService {
   }
 
   /** 查单个奇遇（controller 判断是否 entered 态用于联动） */
-  async findOne(id: number, playerId: number): Promise<Encounter | null> {
-    return this.repo.findOneBy({ id, player_id: playerId });
+  async findOne(id: number, playerId: number): Promise<any> {
+    // join cultivation_session（按 cultivation_session_id 关联，拿洞天福地修炼数据）
+    const raw = await this.repo
+      .createQueryBuilder('enc')
+      .leftJoin(
+        'cultivation_session',
+        'cs',
+        'cs.id = enc.cultivation_session_id',
+      )
+      .select([
+        'enc.id AS id',
+        'enc.player_id AS player_id',
+        'enc.kind AS kind',
+        'enc.scene_type AS scene_type',
+        'enc.star AS star',
+        'enc.cultivation_session_id AS cultivation_session_id',
+        'enc.title AS title',
+        'enc.description AS description',
+        'enc.status AS status',
+        'cs.rounds AS cult_rounds',
+        'cs.total_gained AS cult_total_gained',
+        'cs.max_rounds AS cult_max_rounds',
+        'cs.status AS cult_status',
+      ])
+      .where('enc.id = :id AND enc.player_id = :pid', { id, pid: playerId })
+      .getRawOne();
+    if (!raw) return null;
+    // 整理返回：encounter 本体 + cultivation 嵌套
+    return {
+      id: raw.id,
+      player_id: raw.player_id,
+      kind: raw.kind,
+      scene_type: raw.scene_type,
+      star: raw.star,
+      title: raw.title,
+      description: raw.description,
+      status: raw.status,
+      cultivation: raw.cultivation_session_id
+        ? {
+            session_id: raw.cultivation_session_id,
+            rounds: raw.cult_rounds,
+            total_gained: raw.cult_total_gained,
+            max_rounds: raw.cult_max_rounds,
+            status: raw.cult_status,
+          }
+        : null,
+    };
   }
 
   /**
@@ -165,5 +210,10 @@ export class EncounterService {
       { id: encounterId, player_id: playerId },
       { status: 'done' },
     );
+  }
+
+  /** 关联修炼会话（洞天福地进入修炼时调用，encounter.cultivation_session_id = sessionId） */
+  async linkCultivationSession(encounterId: number, sessionId: number): Promise<void> {
+    await this.repo.update({ id: encounterId }, { cultivation_session_id: sessionId });
   }
 }

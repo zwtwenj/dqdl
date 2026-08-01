@@ -46,6 +46,10 @@ export class Encounter {
   })
   star: number | null;
 
+  /** 关联的修炼会话ID（洞天福地，一对一，unique 约束） */
+  @Column({ type: 'int', nullable: true, comment: '关联的修炼会话ID（洞天福地）' })
+  cultivation_session_id: number | null;
+
   @Column({ type: 'varchar', length: 64, comment: '奇遇标题' })
   title: string;
 

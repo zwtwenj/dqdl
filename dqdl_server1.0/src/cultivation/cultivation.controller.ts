@@ -3,11 +3,9 @@ import {
   Get,
   Post,
   Body,
-  Res,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { Response, Request } from 'express';
 import { CultivationService } from './cultivation.service';
 import { PlayerService } from '../player/player.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -111,77 +109,8 @@ export class CultivationController {
     return { ok: true, session: latest };
   }
 
-  /** 修炼 SSE 流：每 interval 结算一次；到期/修满/金币不足/停止时结束。
-   *  token 走 ?token= query（EventSource 无法设 header）。
-   *  断开不结束会话——保留 active + status=4，重连时 /resume 补发。 */
-  @Get('stream')
-  async stream(@Req() req: any, @Res() res: Response) {
-    const player = await this.playerService.verifyOwnershipByUser(req.user.id);
-    const playerId = player.id;
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.flushHeaders();
-
-    res.write(
-      `event: init\ndata: ${JSON.stringify({ interval: this.cultivationService.interval })}\n\n`,
-    );
-
-    // 建立连接前先补发断线期间的漏算
-    try {
-      const resumeResult = await this.cultivationService.resume(playerId);
-      if (resumeResult) {
-        res.write(`event: resume\ndata: ${JSON.stringify(resumeResult)}\n\n`);
-        if (resumeResult.finished) {
-          res.write(
-            `event: stop\ndata: ${JSON.stringify({ reason: resumeResult.reason })}\n\n`,
-          );
-          res.end();
-          return;
-        }
-      }
-    } catch (err: any) {
-      res.write(
-        `event: error\ndata: ${JSON.stringify({ message: err.message || 'resume 失败' })}\n\n`,
-      );
-      res.end();
-      return;
-    }
-
-    let running = true;
-    const closeHandler = () => {
-      running = false;
-    };
-    req.on('close', closeHandler);
-
-    while (running) {
-      const session = await this.cultivationService.getCurrent(playerId);
-      if (!session) {
-        res.write('event: stop\ndata: {}\n\n');
-        break;
-      }
-      try {
-        const result = await this.cultivationService.settle(playerId);
-        if (!result) {
-          res.write('event: stop\ndata: {}\n\n');
-          break;
-        }
-        res.write(`data: ${JSON.stringify(result)}\n\n`);
-        if (result.finished) {
-          res.write(
-            `event: stop\ndata: ${JSON.stringify({ reason: result.reason })}\n\n`,
-          );
-          break;
-        }
-      } catch (err: any) {
-        res.write(`event: error\ndata: ${JSON.stringify({ message: err.message })}\n\n`);
-        break;
-      }
-      await new Promise<void>((r) => setTimeout(r, this.cultivationService.interval));
-    }
-    // 断开/结束只关闭响应，不回收会话（保留 active + status=4，重连时 resume 补发）
-    req.off('close', closeHandler);
-    res.end();
-  }
+  /** 修炼 SSE 已合并到通用 SSE（/api/script/stream）：
+   *  后端定时器每 interval 结算一次 → 推 cultivation_settle 事件；
+   *  结束（满/到期/轮数）推 cultivation_finished。
+   *  本路由已废弃（保留注释说明迁移去向）。 */
 }

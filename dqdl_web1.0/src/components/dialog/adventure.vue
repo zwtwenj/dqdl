@@ -50,6 +50,12 @@ function kindLabel(enc) {
 
 /** 点击卡片 → 打开详情 */
 function onCardClick(enc) {
+    // 洞天福地：直接弹详情 Dlg（不在列表内展开子弹层）
+    if (enc.kind === 'cultivate') {
+        bus.emit(BusEvents.CULTIVATION_DETAIL_OPEN, { encounterId: enc.id })
+        return
+    }
+    // 其他类型（秘境）：展开列表内详情子弹层
     selected.value = enc
 }
 
@@ -85,7 +91,12 @@ function onEnter() {
         return
     }
     if (selected.value.kind === 'cultivate') {
-        bus.emit(BusEvents.CULTIVATION_OPEN, { encounterId: selected.value.id })
+        bus.emit(BusEvents.CULTIVATION_DETAIL_OPEN, {
+            encounterId: selected.value.id,
+            title: selected.value.title,
+            star: selected.value.star,
+            description: selected.value.description,
+        })
         selected.value = null
         open.value = false
         return

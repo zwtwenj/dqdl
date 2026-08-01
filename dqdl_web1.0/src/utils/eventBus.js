@@ -37,6 +37,14 @@ export const BusEvents = {
   DUNGEON_OPEN: 'dungeon-open',
   /** 打开洞天福地修炼面板：{ encounterId } 由奇遇详情「进入」cultivate 类型触发 */
   CULTIVATION_OPEN: 'cultivation-open',
+  /** 打开洞天福地详情弹窗：{ encounterId, title, star, description }
+   *  奇遇列表点击洞天福地触发，详情Dlg展示信息 + 修炼按钮。 */
+  CULTIVATION_DETAIL_OPEN: 'cultivation-detail-open',
+  /** 修炼结算（SSE cultivation_settle）：SettleResult（gained/critical/rounds/...）。
+   *  后端修炼定时器每轮结算后推送，修炼面板据此更新实时修为。 */
+  CULTIVATION_SETTLE: 'cultivation-settle',
+  /** 修炼结束（SSE cultivation_finished）：{ reason }。后端修炼到期/修满/停止时推送。 */
+  CULTIVATION_FINISHED: 'cultivation-finished',
   /** 打开修炼室面板（城内付费修炼）：由修炼室管理员对话「我想要进行修炼」触发 */
   CULTIVATION_ROOM_OPEN: 'cultivation-room-open',
   /** 玩家状态变更（秘境进入/撤退等改变 status 时）：前端可监听刷新 player */

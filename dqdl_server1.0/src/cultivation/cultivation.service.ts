@@ -6,6 +6,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CultivationSession } from './cultivation-session.entity';
 import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 import { EncounterService } from '../encounter/encounter.service';
+import { ScriptSseService } from '../script/script-sse.service';
 import { Biz } from '../common/biz.exception';
 import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
 import { BLESSSED_LAND, CULTIVATION_ROOM, CULTIVATION_MODE } from '../config/game.config';
@@ -79,6 +80,8 @@ export class CultivationService {
   /** 暴击率/倍率，与 PlayerService.cultivate 内部一致（离线补偿期望值用） */
   private readonly CRIT_RATE = 0.1;
   private readonly CRIT_MULT = 3;
+  /** 进行中的定时器：playerId -> timer */
+  private readonly timers = new Map<number, NodeJS.Timeout>();
 
   constructor(
     @InjectRepository(CultivationSession)
@@ -86,12 +89,18 @@ export class CultivationService {
     private readonly playerService: PlayerService,
     private readonly encounterService: EncounterService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly sse: ScriptSseService,
     config: ConfigService,
   ) {
     this.interval =
       Number(process.env.CULTIVATION_INTERVAL) ||
       config.get<number>('CULTIVATION_INTERVAL') ||
       BLESSSED_LAND.intervalMs;
+    // 订阅 SSE 连接事件：断连停定时器，重连恢复（不补算，按你要求暂不管 resume）
+    this.sse.onDisconnect((pid) => this.stopCultTimer(pid));
+    this.sse.onConnect((pid) => {
+      this.resumeCultTimer(pid).catch((e) => this.logger.error(`resumeCultTimer: ${e}`));
+    });
   }
 
   // ============ 选项（供前端渲染） ============
@@ -177,7 +186,10 @@ export class CultivationService {
       status: 'active',
     });
     const saved = await this.repo.save(session);
+    // 回写 encounter.cultivation_session_id（建立一对一关联）
+    await this.encounterService.linkCultivationSession(enc.id, saved.id);
     await this.playerService.setStatus(playerId, PLAYER_STATUS.CULTIVATING);
+    this.startCultTimer(playerId);
     this.logger.log(`玩家 ${playerId} 进入 ${saved.tier}星洞天福地修炼`);
     return saved;
   }
@@ -245,6 +257,7 @@ export class CultivationService {
     });
     const saved = await this.repo.save(session);
     await this.playerService.setStatus(playerId, PLAYER_STATUS.CULTIVATING);
+    this.startCultTimer(playerId);
     this.logger.log(
       `玩家 ${playerId} 进入 ${tier}阶修炼室(${m})，计划修炼 ${durationMin} 分钟`,
     );
@@ -366,6 +379,53 @@ export class CultivationService {
       reason,
       ...progress,
     };
+  }
+
+  // ============ 定时器（通用 SSE 推送，替代独立 cultivation/stream）============
+
+  /** 启动修炼定时器：每 interval 结算一次 → 推 cultivation_settle，结束推 cultivation_finished */
+  private startCultTimer(playerId: number): void {
+    this.stopCultTimer(playerId);   // 先清旧的（防重复）
+    const timer = setInterval(async () => {
+      try {
+        const result = await this.settle(playerId);
+        if (!result) {
+          // 会话不存在/异常 → 停定时器
+          this.stopCultTimer(playerId);
+          return;
+        }
+        // 推送本轮结算结果
+        this.sse.push(Number(playerId), 'cultivation_settle', result);
+        if (result.finished) {
+          // 修炼结束 → 停定时器 + 推结束事件
+          this.stopCultTimer(playerId);
+          this.sse.push(Number(playerId), 'cultivation_finished', { reason: result.reason });
+        }
+      } catch (e) {
+        this.logger.error(`修炼定时器结算异常 player=${playerId}: ${e}`);
+        this.stopCultTimer(playerId);
+      }
+    }, this.interval);
+    this.timers.set(playerId, timer);
+  }
+
+  /** 停止修炼定时器（不结束会话，保留 active + status=4） */
+  private stopCultTimer(playerId: number): void {
+    const timer = this.timers.get(playerId);
+    if (timer) {
+      clearInterval(timer);
+      this.timers.delete(playerId);
+    }
+  }
+
+  /** SSE 重连时恢复修炼定时器（有进行中的会话才恢复，不补算 resume） */
+  private async resumeCultTimer(playerId: number): Promise<void> {
+    if (this.timers.has(playerId)) return;   // 定时器已在跑
+    const session = await this.getCurrent(playerId);
+    if (session && session.status === 'active') {
+      this.startCultTimer(playerId);
+      this.logger.log(`☀️ 玩家 ${playerId} SSE 重连，恢复修炼定时器`);
+    }
   }
 
   /** 按 mode 判定修炼目标是否已满（结算前置检查，避免无效扣费） */
@@ -554,6 +614,7 @@ export class CultivationService {
   async stop(playerId: number): Promise<CultivationSession | null> {
     const session = await this.getCurrent(playerId);
     if (!session) throw Biz.notFound('没有进行中的修炼');
+    this.stopCultTimer(playerId);
     await this.endSession(session, 'stopped', 'stopped');
     this.logger.log(`玩家 ${playerId} 中止修炼（scene=${session.scene}）`);
     return this.getLatest(playerId);

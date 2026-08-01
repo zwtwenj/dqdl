@@ -81,6 +81,19 @@ const sseHandlers = {
   training_finished: () => {
     bus.emit(BusEvents.TRAINING_FINISHED)
   },
+
+  /**
+   * 修炼结算：后端修炼定时器每轮结算后推送。
+   * data 为 SettleResult（gained/critical/rounds/total_gained/...）。emit CULTIVATION_SETTLE。
+   */
+  cultivation_settle: (data) => {
+    bus.emit(BusEvents.CULTIVATION_SETTLE, data)
+  },
+
+  /** 修炼结束：后端修炼到期/修满/停止时推送。data 含 { reason }。emit CULTIVATION_FINISHED。 */
+  cultivation_finished: (data) => {
+    bus.emit(BusEvents.CULTIVATION_FINISHED, { reason: data?.reason })
+  },
 }
 
 /**

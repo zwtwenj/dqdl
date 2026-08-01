@@ -4,6 +4,7 @@ import playerBox from '@/components1/playerBox.vue'
 import quickButton from '@/components1/quickButton.vue'
 import { usePlayerStore } from '@/stores/player'
 import { bus, BusEvents } from '@/utils/eventBus'
+import { getCurrentCultivation } from '@/api'
 
 const playerStore = usePlayerStore()
 const player = computed(() => playerStore.player)
@@ -11,13 +12,23 @@ const loading = computed(() => playerStore.loading)
 
 const emits = defineEmits(['openContainer'])
 
-// 玩家是否移动中（status=9）/ 历练中（status=2）：状态栏可点击重新打开对应弹窗
+// 玩家是否移动中（status=9）/ 历练中（status=2）/ 修炼中（status=4,5）：状态栏可点击重新打开对应弹窗
 const isMoving = computed(() => player.value?.status === 9)
 const isTraining = computed(() => player.value?.status === 2)
+const isCultivating = computed(() => player.value?.status === 4 || player.value?.status === 5)
 
-function onStatusClick() {
+async function onStatusClick() {
   if (isMoving.value) bus.emit(BusEvents.MOVE_DIALOG_OPEN)
   else if (isTraining.value) bus.emit(BusEvents.TRAINING_DIALOG_OPEN)
+  else if (isCultivating.value) {
+    // 查当前进行中的修炼会话，拿到 encounter_id 打开洞天福地详情
+    try {
+      const session = await getCurrentCultivation()
+      if (session?.encounter_id) {
+        bus.emit(BusEvents.CULTIVATION_DETAIL_OPEN, { encounterId: session.encounter_id })
+      }
+    } catch { /* 静默 */ }
+  }
 }
 
 /** 进度百分比：cur/max → 0~100，max 为 0 时返回 0（防除零） */
@@ -110,8 +121,8 @@ function onTaskClick() {
             <div
                 class="player-status-value"
                 :class="{
-                    'player-status-active': isMoving || isTraining,
-                    'player-status-1': !isMoving && !isTraining
+                    'player-status-active': isMoving || isTraining || isCultivating,
+                    'player-status-1': !isMoving && !isTraining && !isCultivating
                 }"
                 @click="onStatusClick"
             >{{ player?.status_label || (loading ? '...' : '---') }}</div>

@@ -190,6 +190,8 @@ export class CultivationService {
     await this.encounterService.linkCultivationSession(enc.id, saved.id);
     await this.playerService.setStatus(playerId, PLAYER_STATUS.CULTIVATING);
     this.startCultTimer(playerId);
+    // 推送修炼开始（前端奇遇列表据此刷新标记）
+    this.sse.push(Number(playerId), 'cultivation_start', { encounter_id: enc.id });
     this.logger.log(`玩家 ${playerId} 进入 ${saved.tier}星洞天福地修炼`);
     return saved;
   }

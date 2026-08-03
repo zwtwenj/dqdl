@@ -3,6 +3,8 @@ import {
   Get,
   Post,
   Body,
+  Param,
+  ParseIntPipe,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -35,6 +37,14 @@ export class DungeonController {
   async current(@Req() req: any) {
     const player = await this.playerService.verifyOwnershipByUser(req.user.id);
     return this.dungeonService.getCurrent(player.id);
+  }
+
+  /** 按 encounter_id 查该奇遇对应的秘境（奇遇列表点 entered 秘境还原用）
+   *  GET /api/dungeon/by-encounter/:encounterId */
+  @Get('by-encounter/:encounterId')
+  async byEncounter(@Param('encounterId', ParseIntPipe) encounterId: number, @Req() req: any) {
+    const player = await this.playerService.verifyOwnershipByUser(req.user.id);
+    return this.dungeonService.findByEncounter(encounterId, player.id);
   }
 
   /** 推进下一幕（最后一幕则通关）POST /api/dungeon/next */

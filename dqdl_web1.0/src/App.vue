@@ -6,8 +6,10 @@ import NpcDialog from './components/NpcDialog.vue'
 import NpcShopPanel from './components/NpcShopPanel.vue'
 import Transaction from './components/dialog/transaction.vue'
 import Adventure from './components/dialog/adventure.vue'
-import DungeonPanel from './components/DungeonPanel.vue'
+import DungeonPanel from './components/dialog/dungeonPanel.vue'
 import CultivationDetails from './components/dialog/cultivationDetails.vue'
+import DungeonDetails from './components/dialog/dungeonDetails.vue'
+import BattlePanel from './components/dialog/battlePanel.vue'
 import TaskDetails from './components/dialog/taskDetails.vue'
 import SceneBranchDialog from './components/SceneBranchDialog.vue'
 </script>
@@ -22,6 +24,8 @@ import SceneBranchDialog from './components/SceneBranchDialog.vue'
   <Adventure />
   <DungeonPanel />
   <CultivationDetails />
+  <DungeonDetails />
+  <BattlePanel />
   <TaskDetails />
   <SceneBranchDialog />
 </template>

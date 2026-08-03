@@ -7,8 +7,9 @@ import {
 } from 'typeorm';
 
 /**
- * 战斗日志表：每场战斗结束（胜/败/逃）写一行，存完整战报。
- * 用于战报回看与后续成就/统计。
+ * 战斗日志表：战斗开始即写一行（status=active，含进行中快照），结束标记 finished。
+ * 进行中状态持久化（player_state/mob_state/log）供刷新/断线还原当前回合。
+ * 历史行（status=finished）用于战报回看与统计。
  */
 @Entity('battle_log')
 @Index('idx_battle_log_player', ['player_id'])
@@ -25,9 +26,25 @@ export class BattleLog {
   @Column({ type: 'varchar', length: 64, default: '', comment: '怪物名' })
   mob_name: string;
 
-  /** win / lose / flee */
+  /** win / lose / flee（结束时填） */
   @Column({ type: 'varchar', length: 8, default: 'flee', comment: 'win/lose/flee' })
   result: string;
+
+  /** active=进行中 / finished=已结束 */
+  @Column({ type: 'varchar', length: 16, default: 'finished', comment: 'active=进行中 finished=已结束' })
+  status: string;
+
+  /** 玩家战斗快照 JSON（hp/energy/buffs/skills），进行中每回合更新 */
+  @Column({ type: 'text', nullable: true, comment: '玩家战斗快照JSON' })
+  player_state: string | null;
+
+  /** 怪物战斗快照 JSON（hp/buffs），进行中每回合更新 */
+  @Column({ type: 'text', nullable: true, comment: '怪物战斗快照JSON' })
+  mob_state: string | null;
+
+  /** 来源状态（还原时参考，如秘境中=3） */
+  @Column({ type: 'int', default: 1, comment: '来源状态(还原时参考)' })
+  from_status: number;
 
   @Column({ type: 'int', default: 0, comment: '回合数' })
   rounds: number;

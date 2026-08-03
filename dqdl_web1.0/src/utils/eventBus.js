@@ -35,6 +35,15 @@ export const BusEvents = {
   ADVENTURE_FOUND: 'adventure-found',
   /** 打开秘境面板：{ encounterId? } 由奇遇详情「进入」触发，无 encounterId 则恢复/直接进入 */
   DUNGEON_OPEN: 'dungeon-open',
+  /** 打开秘境详情弹窗：{ encounterId, title, star, description }
+   *  奇遇列表点击秘境触发，详情Dlg展示信息 + 进入/放弃按钮。 */
+  DUNGEON_DETAIL_OPEN: 'dungeon-detail-open',
+  /** 打开战斗弹窗：{ mobId? } 由秘境战斗按钮/状态栏触发。
+   *  带 mobId 开新战斗，不带则还原当前战斗（BattlePanel 全局组件自治处理）。 */
+  BATTLE_OPEN: 'battle-open',
+  /** 战斗结束广播：{ winner, snapshot } 由 BattlePanel 战斗结束后 emit。
+   *  触发方（秘境）监听后按结果自判结算（winDungeonAct/failDungeon）。 */
+  BATTLE_RESULT: 'battle-result',
   /** 打开洞天福地修炼面板：{ encounterId } 由奇遇详情「进入」cultivate 类型触发 */
   CULTIVATION_OPEN: 'cultivation-open',
   /** 打开洞天福地详情弹窗：{ encounterId, title, star, description }
@@ -43,6 +52,9 @@ export const BusEvents = {
   /** 修炼结算（SSE cultivation_settle）：SettleResult（gained/critical/rounds/...）。
    *  后端修炼定时器每轮结算后推送，修炼面板据此更新实时修为。 */
   CULTIVATION_SETTLE: 'cultivation-settle',
+  /** 修炼开始（SSE cultivation_start）：{ encounter_id }。
+   *  玩家进入洞天福地修炼时推送，奇遇列表监听后刷新（标记修炼中）。 */
+  CULTIVATION_START: 'cultivation-start',
   /** 修炼结束（SSE cultivation_finished）：{ reason }。后端修炼到期/修满/停止时推送。 */
   CULTIVATION_FINISHED: 'cultivation-finished',
   /** 打开修炼室面板（城内付费修炼）：由修炼室管理员对话「我想要进行修炼」触发 */

@@ -25,7 +25,7 @@ export { getNpc, getNpcsByLocation, createNpcSession, talkInSession } from './np
 export { getNpcShop, buyItem, sellItem } from './shop'
 export { useItem, unequipTreasure } from './item'
 export { getEncounters, getEncounter, abandonEncounter } from './encounter'
-export { enterDungeon, getCurrentDungeon, nextDungeonAct, escapeDungeon, winDungeonAct, failDungeon } from './dungeon'
+export { enterDungeon, getCurrentDungeon, getDungeonByEncounter, nextDungeonAct, escapeDungeon, winDungeonAct, failDungeon } from './dungeon'
 export {
   getCultivationConfig,
   enterCultivation,

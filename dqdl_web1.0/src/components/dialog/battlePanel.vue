@@ -1,36 +1,88 @@
 <script setup>
 /**
- * 战斗界面：全屏覆盖层。
+ * 战斗界面：全局原子组件（App.vue 挂载，事件总线驱动显隐）。
  *
- * 左侧（战斗舞台 + 操作）沿用老版本 dqdl-web 的设计：
- *   - 立绘作背景全屏铺满整个舞台（fighter），HUD（气血/斗气条 + buff）悬浮其上
- *   - 受击抖动动画 + 浮动伤害数字
- *   - 底部 5 个斗技槽位常驻（filled/空槽），点斗技槽直接施放
+ * 触发：bus.on(BATTLE_OPEN, { mobId? }) → 打开战斗弹窗。
+ *   - 带 mobId → 开新战斗（startBattle）
+ *   - 不带（空）→ 还原当前进行中的战斗（getBattleState，从 battle_log 还原）
  *
- * 右侧战报滚动框（叙事日志，自动滚底，关键词高亮）保持不变。
+ * 战斗 API（开战/行动/逃跑/还原）本组件自治，不依赖触发方。
+ * 战斗结束后 emit BATTLE_RESULT（含 winner/over），触发方（如秘境）监听自判结算。
  *
- * Props:
- *   snapshot (object|null) - 后端 BattleSnapshot
- *   busy    (boolean)     - 是否正在请求中（禁用按钮防连点）
- * Emits:
- *   action ({type, slot}) - 玩家行动
- *   close                 - 关闭（战斗结束后）
+ * 界面：左侧战斗舞台（立绘/HUD/斗技槽）+ 右侧战报，外层 Dlg。
  */
-import { ref, computed, watch, nextTick } from 'vue'
-import FloatingTooltip from './FloatingTooltip.vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import Dlg from '@/components1/dlg.vue'
+import Button from '@/components1/button.vue'
+import ProgressBar from '@/components1/progressBar.vue'
+import { bus, BusEvents } from '@/utils/eventBus'
+import { startBattle, getBattleState, battleAction, fleeBattle } from '@/api'
 
-const props = defineProps({
-  snapshot: { type: Object, default: null },
-  busy: { type: Boolean, default: false },
+/* ============ 战斗状态（自管） ============ */
+const open = ref(false)
+const snapshot = ref(null)
+const busy = ref(false)
+
+const player = computed(() => snapshot.value?.player || null)
+const mob = computed(() => snapshot.value?.mob || null)
+const over = computed(() => !!snapshot.value?.over)
+const winner = computed(() => snapshot.value?.winner || null)
+const skills = computed(() => snapshot.value?.skills || [])
+
+/** BATTLE_OPEN：带 mobId 开新战斗；不带则还原当前战斗 */
+async function handleOpen({ mobId } = {}) {
+  open.value = true
+  busy.value = true
+  try {
+    if (mobId) {
+      snapshot.value = await startBattle(mobId)
+    } else {
+      snapshot.value = await getBattleState()
+    }
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '战斗开启失败' })
+    open.value = false
+  } finally {
+    busy.value = false
+  }
+}
+
+/** 玩家行动（普攻/斗技/逃跑） */
+async function doAction(type, slot) {
+  if (busy.value || over.value) return
+  busy.value = true
+  try {
+    if (type === 'flee') {
+      snapshot.value = await fleeBattle()
+    } else {
+      snapshot.value = await battleAction(type, slot)
+    }
+  } catch (err) {
+    bus.emit(BusEvents.TOAST, { type: 'error', message: err.message || '行动失败' })
+  } finally {
+    busy.value = false
+    // 战斗结束 → 广播结果（触发方监听自判结算）
+    if (snapshot.value?.over) {
+      bus.emit(BusEvents.BATTLE_RESULT, {
+        winner: snapshot.value.winner,
+        snapshot: snapshot.value,
+      })
+    }
+  }
+}
+
+function close() {
+  open.value = false
+  snapshot.value = null
+}
+
+let offOpen = null
+onMounted(() => {
+  offOpen = bus.on(BusEvents.BATTLE_OPEN, handleOpen)
 })
-const emit = defineEmits(['action', 'close'])
-
-/* ============ 玩家/怪物数据 ============ */
-const player = computed(() => props.snapshot?.player || null)
-const mob = computed(() => props.snapshot?.mob || null)
-const over = computed(() => !!props.snapshot?.over)
-const winner = computed(() => props.snapshot?.winner || null)
-const skills = computed(() => props.snapshot?.skills || [])
+onUnmounted(() => {
+  offOpen && offOpen()
+})
 
 const PLAYER_PORTRAIT = '/ui/boy.png'
 const MOB_PORTRAIT_FALLBACK = '/icon/mob/WB-001.png'
@@ -46,6 +98,11 @@ function pct(cur, max) {
   if (!max) return 0
   return Math.min(100, Math.max(0, (cur / max) * 100))
 }
+
+/* ============ 气血/斗气 tooltip（v-tooltip 文案） ============ */
+const hpTip = computed(() => `当前气血：${player.value?.hp ?? 0} / ${player.value?.maxHp ?? 0}`)
+const energyTip = computed(() => `当前斗气：${player.value?.energy ?? 0} / ${player.value?.maxEnergy ?? 0}`)
+const mobHpTip = computed(() => `当前气血：${mob.value?.hp ?? 0} / ${mob.value?.maxHp ?? 0}`)
 
 /* ============ 斗技槽位（5 槽，沿用老版本常驻设计） ============ */
 const FALLBACK_SKILL_ICON = '/icon/cl/cl-100.png'
@@ -70,30 +127,24 @@ function canUseSkill(s) {
   return player.value && player.value.energy >= (s.energyCost || 0)
 }
 function useSkill(slot) {
-  if (over.value || props.busy) return
-  emit('action', { type: 'skill', slot })
+  if (over.value || busy.value) return
+  doAction('skill', slot)
 }
 
-/* ============ 斗技 tooltip（hover 槽位时显示名称/耗气/属性） ============ */
-const skillTipEl = ref(null)
-const skillTipData = ref(null)
-const skillTipOpen = ref(false)
-function onSkillEnter(e, s) {
-  if (!s?.filled) return
-  skillTipEl.value = e.currentTarget
-  skillTipData.value = s
-  skillTipOpen.value = true
-}
-function onSkillLeave() {
-  skillTipOpen.value = false
+/* ============ 斗技 tooltip（v-tooltip，与背包/人物面板一致） ============ */
+function skillTip(s) {
+  if (!s?.filled) return ''
+  const lines = [`<span style="font-size:14px;font-weight:bold;color:#f0c040;">${s.name || '未知斗技'}</span>`]
+  if (s.attr) lines.push(`<span style="color:#c8a0ff;">${ATTR_LABEL[s.attr] || s.attr}属性 · 耗气 ${s.energyCost ?? 0}</span>`)
+  return lines.join('<br/>')
 }
 
 /* ============ 操作按钮 ============ */
 function onAttack() {
-  emit('action', { type: 'normal' })
+  doAction('normal')
 }
 function onFlee() {
-  emit('action', { type: 'flee' })
+  doAction('flee')
 }
 
 /* ============ 受击动画（前后端无 hurt 状态，用 hp 变化检测触发） ============ */
@@ -120,7 +171,7 @@ watch(mobHp, (v) => {
 
 /* ============ 战报滚动（自动滚底） ============ */
 const logBox = ref(null)
-const logEntries = computed(() => props.snapshot?.log || [])
+const logEntries = computed(() => snapshot.value?.log || [])
 watch(
   () => logEntries.value.length,
   async () => {
@@ -166,214 +217,162 @@ const resultClass = computed(() => {
   if (winner.value === 'mob') return 'is-lose'
   return 'is-flee'
 })
-
-function close() {
-  emit('close')
-}
 </script>
 
 <template>
-  <div class="battle-overlay">
-    <div class="battle-box">
-      <div class="battle-body">
-        <!-- ========== 左侧：战斗舞台 + 操作 ========== -->
-        <div class="left-col">
-          <!-- 战斗舞台：玩家 vs 怪物（沿用老版本 fighter 设计） -->
+  <Dlg
+    v-if="open"
+    title="战斗"
+    :contentStyleProp="{ width: '1152px' }"
+    @close="close"
+  >
+    <div class="battle-body">
+        <!-- ========== 上：战斗舞台（玩家 vs 怪物） ========== -->
+        <div class="battle-stage">
           <div class="battle-field">
-            <!-- 玩家舞台：立绘作背景全屏铺满，HUD 悬浮其上 -->
-            <div
-              class="fighter fighter--player"
-              :class="{ hurt: playerHurt }"
-            >
-              <img
-                class="fighter-bg"
-                :src="PLAYER_PORTRAIT"
-                alt="角色"
-                @error="onMobImgError"
+            <!-- 左：玩家立绘 + 下方信息 -->
+            <div class="fighter-col">
+              <div
+                class="fighter fighter--player"
+                :class="{ hurt: playerHurt }"
               >
-              <div class="fighter-shade" />
-              <div class="fighter-hud">
-                <div class="stat-line">
-                  <div class="bar-cap">
-                    <span class="stat-ico ico-hp">❤</span>
-                    <span class="bar-num">{{ player?.hp ?? 0 }}/{{ player?.maxHp ?? 0 }}</span>
-                  </div>
-                  <div class="bar">
-                    <i
-                      class="fill-hp"
-                      :style="{ width: pct(player?.hp ?? 0, player?.maxHp ?? 0) + '%' }"
-                    />
-                  </div>
-                </div>
-                <div class="stat-line">
-                  <div class="bar-cap">
-                    <span class="stat-ico ico-energy">✦</span>
-                    <span class="bar-num">{{ player?.energy ?? 0 }}/{{ player?.maxEnergy ?? 0 }}</span>
-                  </div>
-                  <div class="bar">
-                    <i
-                      class="fill-energy"
-                      :style="{ width: pct(player?.energy ?? 0, player?.maxEnergy ?? 0) + '%' }"
-                    />
-                  </div>
-                </div>
-                <div
-                  v-if="player?.buffs?.length"
-                  class="buff-row"
+                <img
+                  class="fighter-bg"
+                  :src="PLAYER_PORTRAIT"
+                  alt="角色"
+                  @error="onMobImgError"
                 >
-                  <span
-                    v-for="(b, i) in player.buffs"
-                    :key="'pb'+i"
-                    class="buff"
-                    @mouseenter="showBuffTip(b, $event)"
-                    @mouseleave="hideBuffTip"
-                  >{{ b.icon }}<em v-if="b.stacks > 1">×{{ b.stacks }}</em></span>
+                <div class="fighter-shade" />
+                <div class="fighter-hud">
+                  <div
+                    v-if="player?.buffs?.length"
+                    class="buff-row"
+                  >
+                    <span
+                      v-for="(b, i) in player.buffs"
+                      :key="'pb'+i"
+                      class="buff"
+                      @mouseenter="showBuffTip(b, $event)"
+                      @mouseleave="hideBuffTip"
+                    >{{ b.icon }}<em v-if="b.stacks > 1">×{{ b.stacks }}</em></span>
+                  </div>
                 </div>
               </div>
-              <div class="fighter-name">
-                {{ player?.name || '勇者' }} · Lv.{{ player?.level ?? 1 }}
+              <!-- 玩家信息：名称·境界 / 气血 / 斗气（ProgressBar 组件） -->
+              <div class="fighter-info">
+                <div class="fi-name">{{ player?.name || '勇者' }} · {{ player?.level_name || ('Lv.' + (player?.level ?? 1)) }}</div>
+                <div class="fi-row">
+                  <div class="fi-label">气血：</div>
+                  <ProgressBar type="hp" :pct="pct(player?.hp ?? 0, player?.maxHp ?? 0)" :tip="hpTip" />
+                </div>
+                <div class="fi-row">
+                  <div class="fi-label">斗气：</div>
+                  <ProgressBar type="energy" :pct="pct(player?.energy ?? 0, player?.maxEnergy ?? 0)" :tip="energyTip" />
+                </div>
               </div>
             </div>
 
-            <div class="battle-vs">
-              ⚔
-            </div>
-
-            <!-- 怪物舞台 -->
-            <div
-              class="fighter fighter--mob"
-              :class="{ hurt: mobHurt }"
-            >
-              <img
-                class="fighter-bg"
-                :src="mobPortrait()"
-                alt="怪物"
-                @error="onMobImgError"
+            <!-- 中：战报 -->
+            <div class="log-col">
+              <div class="log-header">
+                战报
+              </div>
+              <div
+                ref="logBox"
+                class="log-box"
               >
-              <div class="fighter-shade" />
-              <div class="fighter-hud">
-                <div class="stat-line">
-                  <div class="bar-cap">
-                    <span class="stat-ico ico-hp">❤</span>
-                    <span class="bar-num">{{ mob?.hp ?? 0 }}/{{ mob?.maxHp ?? 0 }}</span>
-                  </div>
-                  <div class="bar">
-                    <i
-                      class="fill-hp"
-                      :style="{ width: pct(mob?.hp ?? 0, mob?.maxHp ?? 0) + '%' }"
-                    />
-                  </div>
-                </div>
-                <!-- 怪物无斗气槽：等高占位，使双方 buff 栏垂直对齐 -->
                 <div
-                  class="stat-line stat-line--ghost"
-                  aria-hidden="true"
+                  v-for="(line, i) in logEntries"
+                  :key="i"
+                  class="log-line"
+                  :class="logClass(line)"
                 >
-                  <div class="bar-cap">
-                    <span class="stat-ico">✦</span>
-                  </div>
-                  <div class="bar" />
+                  {{ line }}
                 </div>
                 <div
-                  v-if="mob?.buffs?.length"
-                  class="buff-row"
+                  v-if="!logEntries.length"
+                  class="log-empty"
                 >
-                  <span
-                    v-for="(b, i) in mob.buffs"
-                    :key="'mb'+i"
-                    class="buff"
-                    @mouseenter="showBuffTip(b, $event)"
-                    @mouseleave="hideBuffTip"
-                  >{{ b.icon }}<em v-if="b.stacks > 1">×{{ b.stacks }}</em></span>
+                  战斗即将开始...
                 </div>
               </div>
-              <div class="fighter-name">
-                {{ mob?.name || '???' }} · Lv.{{ mob?.level ?? 1 }}
+            </div>
+
+            <!-- 右：怪物立绘 + 下方信息 -->
+            <div class="fighter-col">
+              <div
+                class="fighter fighter--mob"
+                :class="{ hurt: mobHurt }"
+              >
+                <img
+                  class="fighter-bg"
+                  :src="mobPortrait()"
+                  alt="怪物"
+                  @error="onMobImgError"
+                >
+                <div class="fighter-shade" />
+                <div class="fighter-hud">
+                  <div
+                    v-if="mob?.buffs?.length"
+                    class="buff-row"
+                  >
+                    <span
+                      v-for="(b, i) in mob.buffs"
+                      :key="'mb'+i"
+                      class="buff"
+                      @mouseenter="showBuffTip(b, $event)"
+                      @mouseleave="hideBuffTip"
+                    >{{ b.icon }}<em v-if="b.stacks > 1">×{{ b.stacks }}</em></span>
+                  </div>
+                </div>
+              </div>
+              <!-- 怪物信息：名称·阶 / 气血（ProgressBar 组件） -->
+              <div class="fighter-info">
+                <div class="fi-name">{{ mob?.name || '???' }} · {{ mob?.rankLabel || '一阶' }}</div>
+                <div class="fi-row">
+                  <div class="fi-label">气血：</div>
+                  <ProgressBar type="hp" :pct="pct(mob?.hp ?? 0, mob?.maxHp ?? 0)" :tip="mobHpTip" />
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- 操作区：攻击 | 5 斗技图标槽 | 逃跑（7 个等宽按键） -->
-          <div class="battle-actions">
+        <!-- ========== 下：操作区（攻击 | 斗技 | 逃跑） ========== -->
+        <div class="battle-actions">
             <!-- 攻击 -->
-            <button
-              class="act-btn"
-              type="button"
-              :disabled="over || busy"
-              @click="onAttack"
-            >
-              <span class="act-text">攻击</span>
-            </button>
+            <Button class="act-btn" @click="onAttack">攻击</Button>
 
-            <!-- 5 个斗技图标槽（hover 显示 tooltip） -->
-            <div
-              v-for="(sk, idx) in skillSlots"
-              :key="idx"
-              class="act-btn skill-slot"
-              :class="{
-                filled: sk.filled,
-                disabled: over || busy || (sk.filled && !canUseSkill(sk)),
-              }"
-              @click="sk.filled && useSkill(idx)"
-              @pointerenter="onSkillEnter($event, sk)"
-              @pointerleave="onSkillLeave"
-            >
-              <template v-if="sk.filled">
-                <img
-                  class="skill-slot-icon"
-                  :src="skillIconUrl(sk)"
-                  :alt="sk.name"
-                  @error="onSkillIconError"
-                >
-                <span class="skill-slot-cost">{{ sk.energyCost }}</span>
-              </template>
-              <span
-                v-else
-                class="skill-slot-empty"
-              >·</span>
+            <!-- 5 个斗技格子（背包同款样式，hover 显示 tooltip） -->
+            <div class="skill-slot-list">
+              <div
+                v-for="(sk, idx) in skillSlots"
+                :key="idx"
+                class="skill-slot-cell"
+                :class="{
+                  'has-item': sk.filled,
+                  disabled: over || busy || (sk.filled && !canUseSkill(sk)),
+                }"
+                v-tooltip="skillTip(sk)"
+                @click="sk.filled && useSkill(idx)"
+              >
+                <template v-if="sk.filled">
+                  <img
+                    class="skill-slot-icon"
+                    :src="skillIconUrl(sk)"
+                    :alt="sk.name"
+                    @error="onSkillIconError"
+                  >
+                  <span class="skill-slot-cost">{{ sk.energyCost }}</span>
+                </template>
+                <span v-else class="skill-slot-empty">·</span>
+              </div>
             </div>
 
             <!-- 逃跑 -->
-            <button
-              class="act-btn"
-              type="button"
-              :disabled="busy"
-              @click="onFlee"
-            >
-              <span class="act-text">逃跑</span>
-            </button>
+            <Button class="act-btn" @click="onFlee">逃跑</Button>
           </div>
-
-          <!-- 战斗结束：全屏遮罩（点击任意位置关闭），沿用老版本设计 -->
-        </div>
-
-        <!-- ========== 右侧：战报 ========== -->
-        <div class="log-col">
-          <div class="log-header">
-            战报
-          </div>
-          <div
-            ref="logBox"
-            class="log-box"
-          >
-            <div
-              v-for="(line, i) in logEntries"
-              :key="i"
-              class="log-line"
-              :class="logClass(line)"
-            >
-              {{ line }}
-            </div>
-            <div
-              v-if="!logEntries.length"
-              class="log-empty"
-            >
-              战斗即将开始...
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
 
     <!-- 战斗结果横幅：全屏遮罩，点击任意位置关闭 -->
     <div
@@ -400,89 +399,83 @@ function close() {
         > ×{{ buffTooltip.b.stacks }}</span><span class="bt-sep">：</span>{{ buffTooltip.b.desc }}<span class="bt-dur">（{{ buffTooltip.b.remaining === '∞' ? '永久' : buffTooltip.b.remaining + '回合' }}）</span>
       </div>
     </Teleport>
-
-    <!-- 斗技悬浮 tooltip（FloatingTooltip，hover 斗技槽时显示） -->
-    <FloatingTooltip
-      v-model:open="skillTipOpen"
-      :reference="skillTipEl"
-      placement="top"
-    >
-      <div class="skill-tip-name">
-        {{ skillTipData?.name || '未知斗技' }}
-      </div>
-      <div
-        v-if="skillTipData?.attr"
-        class="skill-tip-meta"
-      >
-        {{ ATTR_LABEL[skillTipData.attr] || skillTipData.attr }}属性 · 耗气 {{ skillTipData?.energyCost ?? 0 }}
-      </div>
-    </FloatingTooltip>
-  </div>
+  </Dlg>
 </template>
 
 <style scoped>
-/* ========== 全屏覆盖层（与游戏背景同宽，左对齐到 1200px 设计区，参考 CharacterSelectDialog） ========== */
-.battle-overlay {
-  position: fixed;
-  width: 1200px;
-  inset: 0;
-  z-index: 300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(5, 5, 12, 0.8);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-}
-
-.battle-box {
-  width: 100%;
-  max-width: 1152px;
-  max-height: 92vh;
-  background: linear-gradient(160deg, rgba(28, 22, 16, 0.95), rgba(14, 11, 8, 0.97));
-  border: 1px solid rgba(180, 150, 90, 0.4);
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(220, 190, 120, 0.12);
-  overflow: hidden;
-  position: relative;
-  color: #e8e2d0;
-  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
-}
-
-/* ========== 主体布局 ========== */
+/* ========== 主体布局（一列：上舞台 / 中战报 / 下操作） ========== */
 .battle-body {
   display: flex;
+  flex-direction: column;
   gap: 12px;
   padding: 12px;
 }
 
-/* ---------- 左列 ---------- */
-.left-col {
-  flex: 0 0 64%;
-  display: flex;
-  flex-direction: column;
+/* ===== 战斗舞台（左玩家 / 中战报 / 右怪物） ===== */
+.battle-stage {
+  flex: 0 0 auto;
 }
-
-/* ===== 战斗舞台（沿用老版本 fighter 设计） ===== */
 .battle-field {
-  flex: 1;
   display: flex;
   align-items: stretch;
   justify-content: center;
-  padding: 16px 16px 12px;
   gap: 16px;
+}
+
+/* 立绘列：立绘 + 下方信息 */
+.fighter-col {
+  flex: 1;
+  max-width: 216px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .fighter {
   position: relative;
-  flex: 1;
-  max-width: 320px;
+  width: 100%;
   height: 380px;
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid rgba(180, 150, 90, 0.45);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
   background: #0c0c16;
+}
+
+/* 玩家/怪物信息（player-hp 风格：名称 + 气血/斗气进度条） */
+.fighter-info {
+  height: 98px;
+  padding: 8px 10px;
+  background: linear-gradient(160deg, rgba(28, 22, 16, 0.9), rgba(14, 11, 8, 0.92));
+  border: 1px solid rgba(180, 150, 90, 0.3);
+  text-align: left;
+  border-radius: 8px;
+  color: #e8e2d0;
+  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
+  .fi-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: #f0d890;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  .fi-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    .fi-label {
+      width: 42px;
+      font-size: 12px;
+      color: #d4b070;
+      flex-shrink: 0;
+    }
+    /* ProgressBar 组件在 flex 中撑满 */
+    :deep(.progress-point-bg) {
+      flex: 1;
+    }
+  }
 }
 
 /* 立绘作背景全屏铺满 */
@@ -648,78 +641,61 @@ function close() {
   100% { transform: translate(0, 0) rotate(0) scale(1); }
 }
 
-/* ===== 操作区：7 个等宽按键（攻击 + 5 斗技 + 逃跑） ===== */
+/* ===== 操作区：攻击(Button) + 斗技格子 + 逃跑(Button) ===== */
 .battle-actions {
   flex: 0 0 auto;
   display: flex;
-  gap: 8px;
-  justify-content: center;
-  align-items: stretch;
-  padding: 16px 20px 20px;
-}
-
-/* 统一按键：等宽正方形块，攻击/斗技/逃跑大小一致 */
-.act-btn {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 64px;
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 6px 4px;
-  font-size: 15px;
-  letter-spacing: 3px;
-  color: #e8d5a0;
-  background: linear-gradient(180deg, rgba(45, 34, 20, 0.85), rgba(28, 22, 14, 0.85));
-  border: 1px solid rgba(160, 130, 70, 0.45);
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: 'STKaiti', 'KaiTi', '楷体', serif;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-  transition: all 0.15s ease;
-}
-.act-btn:hover:not(:disabled):not(.disabled) {
-  border-color: rgba(220, 190, 120, 0.8);
-  background: linear-gradient(180deg, rgba(60, 45, 26, 0.9), rgba(40, 30, 20, 0.9));
-  transform: translateY(-1px);
-}
-.act-btn:disabled,
-.act-btn.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.act-text {
-  font-size: 15px;
-  letter-spacing: 4px;
+  gap: 14px;
 }
 
-/* 斗技槽（filled 时显示图标 + 耗气角标） */
-.skill-slot.filled {
-  border-color: rgba(192, 160, 240, 0.5);
-  background: rgba(192, 160, 240, 0.08);
+/* 攻击/逃跑用 Button 组件，稍微放大 */
+.battle-actions :deep(.dqdl-button) {
+  width: 110px;
+  font-size: 14px;
+  letter-spacing: 3px;
 }
-.skill-slot.filled:hover:not(.disabled) {
-  border-color: rgba(192, 160, 240, 0.9);
-  background: rgba(192, 160, 240, 0.16);
+
+/* 斗技格子（背包同款样式） */
+.skill-slot-list {
+  display: flex;
+  gap: 6px;
 }
-.skill-slot-icon {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
-  pointer-events: none;
-}
-.skill-slot-cost {
-  font-size: 10px;
-  color: #80c8ff;
-  font-family: 'Georgia', serif;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9);
-}
-.skill-slot-empty {
-  font-size: 20px;
-  color: rgba(160, 140, 100, 0.3);
+.skill-slot-cell {
+  width: 56px;
+  height: 56px;
+  background: url('/static/item-cell-bg.gif');
+  background-size: 100% 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  &.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .skill-slot-icon {
+    width: 90%;
+    height: 90%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+  .skill-slot-cost {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    font-size: 11px;
+    color: #80c8ff;
+    text-shadow: 1px 1px 2px #000;
+    pointer-events: none;
+  }
+  .skill-slot-empty {
+    color: rgba(160, 140, 100, 0.4);
+    font-size: 20px;
+  }
 }
 
 /* 斗技 tooltip 内容样式（FloatingTooltip Teleport 到 body） */
@@ -769,7 +745,7 @@ function close() {
 
 /* ---------- 右列：战报 ---------- */
 .log-col {
-  flex: 1;
+  flex: 1;           /* 中间列：战报撑满 */
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, rgba(20, 16, 10, 0.6), rgba(10, 8, 5, 0.6));
@@ -790,6 +766,7 @@ function close() {
   flex: 1;
   overflow-y: auto;
   padding: 8px 12px;
+  text-align: left;
 }
 .log-box::-webkit-scrollbar {
   width: 4px;

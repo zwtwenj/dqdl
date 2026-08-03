@@ -6,9 +6,25 @@
  */
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import ProgressBar from '@/components1/progressBar.vue'
+import { bus, BusEvents } from '@/utils/eventBus'
 
 const playerStore = usePlayerStore()
 const player = computed(() => playerStore.player)
+
+// —— 玩家状态（战斗中叠加 active_status） ——
+const displayLabel = computed(
+  () => player.value?.active_status_label || player.value?.status_label || '未知',
+)
+// 战斗中：active_status=7（新逻辑）；兼容旧数据 status=7（旧逻辑 setStatus 直设）
+const isInBattle = computed(() => player.value?.active_status === 7 || player.value?.status === 7)
+
+/** 点击状态：只按 status 判断（战斗中 status 恒为来源=秘境中，开副本弹窗，弹窗自检测 active_status 拉战斗） */
+function onStatusClick() {
+  if (player.value?.status === 3) {
+    bus.emit(BusEvents.DUNGEON_OPEN)
+  }
+}
 
 // —— 五维属性 ——
 const ATTRS = [
@@ -121,25 +137,27 @@ function treasureTip(t) {
                         <div class="char-name">角色：{{ player.name }}</div>
                         <div class="char-title">境界：{{ player.level_name || ('Lv.' + player.level) }}</div>
                     </div>
+                    <!-- 状态（战斗中可点击：先开秘境弹窗，再开战斗弹窗） -->
+                    <div
+                        class="char-status"
+                        :class="{ 'char-status-active': isInBattle }"
+                        @click="onStatusClick"
+                    >
+                        状态：{{ displayLabel }}
+                    </div>
 
-                    <!-- 气血/斗气/修为（复用 playerInfo 的 player-hp-mp-cult gif 进度条样式） -->
-                    <div class="player-cult">
-                        <div class="player-cult-left">修为：</div>
-                        <div class="player-cult-point-bg">
-                            <div class="player-cult-point" :style="{ width: cultPct + '%' }"></div>
-                        </div>
+                    <!-- 气血/斗气/修为（ProgressBar 组件） -->
+                    <div class="pd-bar-row">
+                        <div class="pd-bar-label">修为：</div>
+                        <ProgressBar type="cult" :pct="cultPct" />
                     </div>
-                    <div class="player-hp">
-                        <div class="player-hp-left">气血：</div>
-                        <div class="player-hp-point-bg">
-                            <div class="player-hp-point" :style="{ width: hpPct + '%' }"></div>
-                        </div>
+                    <div class="pd-bar-row">
+                        <div class="pd-bar-label">气血：</div>
+                        <ProgressBar type="hp" :pct="hpPct" />
                     </div>
-                    <div class="player-energy">
-                        <div class="player-energy-left">斗气：</div>
-                        <div class="player-energy-point-bg">
-                            <div class="player-energy-point" :style="{ width: energyPct + '%' }"></div>
-                        </div>
+                    <div class="pd-bar-row">
+                        <div class="pd-bar-label">斗气：</div>
+                        <ProgressBar type="energy" :pct="energyPct" />
                     </div>
 
                     <!-- 五维属性 -->
@@ -244,6 +262,35 @@ function treasureTip(t) {
         margin-bottom: 10px;
     }
 }
+/* 状态行（战斗中可点击） */
+.char-status{
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+}
+/* 气血/斗气/修为（ProgressBar 组件，label + 条） */
+.pd-bar-row{
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    .pd-bar-label{
+        width: 42px;
+        font-size: var(--fs-sm);
+        line-height: 20px;
+        flex-shrink: 0;
+        color: var(--text-dim);
+    }
+    :deep(.progress-point-bg){
+        flex: 1;
+    }
+}
+.char-status-active{
+    color: #c80000;
+    cursor: pointer;
+    &:hover{
+        text-decoration: underline;
+    }
+}
 .detail-section{
     border-top: 1px solid var(--border);
     padding: 7px 0;
@@ -253,39 +300,6 @@ function treasureTip(t) {
     font-size: 13px;
     color: var(--text);
     margin-bottom: 7px;
-}
-/* 进度条 */
-/* 气血/斗气/修为：复用 playerInfo 的 player-hp-mp-cult gif 进度条样式 */
-.player-cult, .player-hp, .player-energy{
-    display: flex;
-    align-items: center;
-    margin-bottom: 7px;
-}
-.player-cult-point-bg, .player-hp-point-bg, .player-energy-point-bg{
-    flex: 1;
-    background: url("/static/point-bar-bg.gif") no-repeat;
-    background-size: 100% 100%;
-    height: 14px;
-    padding: 3px;
-    overflow: hidden;
-    .player-cult-point{
-        height: 100%;
-        background: url("/static/point-bar-1.gif") no-repeat;
-        background-size: 137px 100%;
-        background-position: left center;
-    }
-    .player-hp-point{
-        height: 100%;
-        background: url("/static/point-bar-2.gif") no-repeat;
-        background-size: 137px 100%;
-        background-position: left center;
-    }
-    .player-energy-point{
-        height: 100%;
-        background: url("/static/point-bar-3.gif") no-repeat;
-        background-size: 137px 100%;
-        background-position: left center;
-    }
 }
 /* 五维属性 */
 .attr-rows{

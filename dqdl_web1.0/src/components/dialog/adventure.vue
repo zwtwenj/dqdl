@@ -14,7 +14,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import Dlg from '@/components1/dlg.vue'
 import Star from '@/components1/star.vue'
 import { bus, BusEvents } from '@/utils/eventBus'
-import { getEncounters, abandonEncounter } from '@/api'
+import { getEncounters } from '@/api'
 
 // 奇遇列表上限（与后端 ENCOUNTER.maxPending 一致，后续可改后端动态返回）
 const MAX_PENDING = 10
@@ -22,13 +22,10 @@ const MAX_PENDING = 10
 const open = ref(false)
 const loading = ref(false)
 const list = ref([])
-const selected = ref(null) // 详情子弹层当前奇遇
-const abandoning = ref(false)
 
 /** 打开：拉取列表 */
 async function handleOpen() {
     open.value = true
-    selected.value = null
     await loadList()
 }
 
@@ -48,67 +45,29 @@ function kindLabel(enc) {
     return enc.kind === 'cultivate' ? '洞天福地' : '秘境入口'
 }
 
-/** 点击卡片 → 打开详情 */
+/** 点击卡片 → 弹独立详情 Dlg（秘境/洞天福地分开） */
 function onCardClick(enc) {
-    // 洞天福地：直接弹详情 Dlg（不在列表内展开子弹层）
     if (enc.kind === 'cultivate') {
         bus.emit(BusEvents.CULTIVATION_DETAIL_OPEN, { encounterId: enc.id })
         return
     }
-    // 其他类型（秘境）：展开列表内详情子弹层
-    selected.value = enc
-}
-
-/** 放弃奇遇 */
-async function onAbandon() {
-    if (!selected.value || abandoning.value) return
-    abandoning.value = true
-    try {
-        list.value = await abandonEncounter(selected.value.id)
-        selected.value = null
-        bus.emit(BusEvents.TOAST, { type: 'info', message: '已放弃该奇遇' })
-    } catch (e) {
-        bus.emit(BusEvents.TOAST, { type: 'error', message: e.message || '放弃失败' })
-    } finally {
-        abandoning.value = false
-    }
-}
-
-/**
- * 进入奇遇：
- * - dungeon：pending→带 encounterId 生成新秘境；entered→恢复进行中秘境
- * - cultivate：带 encounterId 触发洞天福地修炼面板
- */
-function onEnter() {
-    if (!selected.value) return
-    if (selected.value.kind === 'dungeon') {
-        const payload = selected.value.status === 'entered'
-            ? {}
-            : { encounterId: selected.value.id }
-        bus.emit(BusEvents.DUNGEON_OPEN, payload)
-        selected.value = null
-        open.value = false
-        return
-    }
-    if (selected.value.kind === 'cultivate') {
-        bus.emit(BusEvents.CULTIVATION_DETAIL_OPEN, {
-            encounterId: selected.value.id,
-            title: selected.value.title,
-            star: selected.value.star,
-            description: selected.value.description,
-        })
-        selected.value = null
-        open.value = false
-        return
-    }
+    // 秘境
+    bus.emit(BusEvents.DUNGEON_DETAIL_OPEN, { encounterId: enc.id })
 }
 
 let offOpen = null
+let offCultStart = null
+let offCultFinished = null
 onMounted(() => {
     offOpen = bus.on(BusEvents.ADVENTURE_OPEN, handleOpen)
+    // 修炼开始/结束 → 刷新列表（entered 状态变化反映到"修炼中"标记）
+    offCultStart = bus.on(BusEvents.CULTIVATION_START, () => loadList())
+    offCultFinished = bus.on(BusEvents.CULTIVATION_FINISHED, () => loadList())
 })
 onUnmounted(() => {
     offOpen && offOpen()
+    offCultStart && offCultStart()
+    offCultFinished && offCultFinished()
 })
 </script>
 
@@ -138,30 +97,15 @@ onUnmounted(() => {
                         <div class="adv-title-star">
                             <span class="adv-title">{{ enc.title }}</span>
                             <Star v-if="enc.star" :star="enc.star" />
+                            <!-- 洞天福地修炼中：entered 状态 + cultivate 类型 -->
+                            <span
+                                v-if="enc.kind === 'cultivate' && enc.status === 'entered'"
+                                class="adv-cultivating"
+                            >修炼中</span>
                         </div>
                         <span class="adv-kind">{{ kindLabel(enc) }}</span>
                     </div>
-                    
-
                     <div class="adv-desc">{{ enc.description }}</div>
-                </div>
-            </div>
-
-            <!-- 详情子弹层（点击卡片后显示） -->
-            <div v-if="selected" class="adv-detail">
-                <div class="adv-detail-title">{{ selected.title }}</div>
-                <div class="adv-detail-kind">{{ kindLabel(selected) }}</div>
-                <Star v-if="selected.star" :star="selected.star" />
-
-                <div class="adv-detail-desc">{{ selected.description }}</div>
-                <div class="adv-detail-actions">
-                    <button class="adv-btn enter" @click="onEnter">进入</button>
-                    <button
-                        v-if="selected.status === 'pending'"
-                        class="adv-btn abandon"
-                        :disabled="abandoning"
-                        @click="onAbandon"
-                    >放弃</button>
                 </div>
             </div>
         </div>
@@ -230,52 +174,16 @@ onUnmounted(() => {
         margin-top: 4px;
         line-height: 1.5;
     }
-}
-/* 详情子弹层 */
-.adv-detail{
-    margin-top: 12px;
-    padding: 10px;
-    border: 1px solid #bbb09a;
-    background: #efede9;
-    border-radius: 4px;
-    .adv-detail-title{
-        font-size: 15px;
-        font-weight: bold;
-        color: #3a2a1a;
-    }
-    .adv-detail-kind{
-        font-size: 12px;
-        color: #8a7a60;
-    }
-    .adv-detail-desc{
-        font-size: 13px;
-        color: #4a3a28;
-        line-height: 1.6;
-        margin-top: 6px;
-    }
-    .adv-detail-actions{
-        display: flex;
-        gap: 8px;
-        margin-top: 12px;
-        justify-content: center;
-    }
-}
-.adv-btn{
-    padding: 5px 18px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    border: 1px solid;
-    &.enter{
-        color: #fff;
-        background: #b8860b;
-        border-color: #d4af6a;
-    }
-    &.abandon{
-        color: #d8a8a0;
-        background: #fff;
-        border-color: #c8a090;
-        &:disabled{ opacity: 0.5; cursor: not-allowed; }
+    /* 洞天福地修炼中标记 */
+    .adv-cultivating{
+        display: inline-block;
+        padding: 1px 8px;
+        font-size: 11px;
+        color: #7fa860;
+        border: 1px solid #9cc07a;
+        border-radius: 3px;
+        background: #f0f7e8;
+        margin-left: 5px;
     }
 }
 </style>

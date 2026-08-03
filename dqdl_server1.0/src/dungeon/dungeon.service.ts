@@ -89,11 +89,13 @@ export class DungeonService {
     // 3. 场景类型：由奇遇进入则消耗奇遇取其 scene_type，否则随机
     let sceneType = SCENE_POOL[Math.floor(Math.random() * SCENE_POOL.length)];
     let encounterRefId: number | null = null;
+    let encounterTitle: string | null = null;   // 由奇遇进入时记录标题，供秘境 title 复用
     if (encounterId) {
       const enc = await this.encounterService.consume(encounterId, playerId);
       if (enc) {
         sceneType = enc.scene_type;
         encounterRefId = enc.id;
+        encounterTitle = enc.title;
       }
     }
 
@@ -107,11 +109,11 @@ export class DungeonService {
       difficulty,
     );
 
-    // 6. 落库
+    // 6. 落库（title 用奇遇标题保证列表/进入后一致；无奇遇来源则用蓝图标题）
     const instance = this.repo.create({
       player_id: playerId,
       scene_type: blueprint.scene_type,
-      title: blueprint.title,
+      title: encounterTitle || blueprint.title,
       intro: blueprint.intro,
       acts: blueprint.acts,
       current_act: 1,
@@ -134,6 +136,14 @@ export class DungeonService {
   async getCurrent(playerId: number): Promise<DungeonInstance | null> {
     return this.repo.findOne({
       where: { player_id: playerId, status: 'active' },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  /** 按 encounter_id 查该奇遇对应的秘境（奇遇列表点 entered 秘境还原用） */
+  async findByEncounter(encounterId: number, playerId: number): Promise<DungeonInstance | null> {
+    return this.repo.findOne({
+      where: { encounter_id: encounterId, player_id: playerId },
       order: { created_at: 'DESC' },
     });
   }
@@ -173,6 +183,10 @@ export class DungeonService {
     if (!inst) throw Biz.notFound('没有进行中的秘境');
     inst.status = 'escaped';
     await this.repo.save(inst);
+    // 逃跑也算秘境结束：标记来源奇遇完成（从奇遇列表移除）
+    if (inst.encounter_id) {
+      await this.encounterService.markDone(inst.encounter_id, playerId);
+    }
     await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
     this.logger.log(`🏃 玩家 ${playerId} 撤退秘境：${inst.title}`);
     return inst;

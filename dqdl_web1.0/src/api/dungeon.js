@@ -7,6 +7,10 @@ export const enterDungeon = (encounterId) =>
 /** 查当前进行中的秘境（刷新恢复用）GET /api/dungeon/current → 秘境实例或 null */
 export const getCurrentDungeon = () => http.get('/dungeon/current')
 
+/** 按 encounter_id 查该奇遇对应的秘境（奇遇列表点 entered 秘境还原用）
+ *  GET /api/dungeon/by-encounter/:encounterId → 秘境实例或 null */
+export const getDungeonByEncounter = (encounterId) => http.get(`/dungeon/by-encounter/${encounterId}`)
+
 /** 推进下一幕（最后一幕则通关）POST /api/dungeon/next → 秘境实例 */
 export const nextDungeonAct = () => http.post('/dungeon/next')
 

@@ -109,6 +109,10 @@ export class Player {
   @Column({ type: 'tinyint', default: 1, comment: '状态: 1=空闲 2=历练 3=副本 4=洞天 5=修炼室 6=采集 7=战斗 8=剧本演出 9=移动中' })
   status: number;
 
+  /** 叠加状态：0=无 7=战斗中（status 保持来源状态，如秘境中战斗=3+7） */
+  @Column({ type: 'int', default: 0, comment: '叠加状态：0=无 7=战斗中（status 保持来源）' })
+  active_status: number;
+
   @CreateDateColumn()
   created_at: Date;
 

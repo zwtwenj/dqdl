@@ -50,7 +50,7 @@ export const PLAYER_STATUS = {
 export const STATUS_LABEL: Record<number, string> = {
   1: '空闲',
   2: '历练中',
-  3: '奇遇副本',
+  3: '秘境中',
   4: '修炼中',
   5: '修炼中',
   6: '采集中',
@@ -190,6 +190,8 @@ export class PlayerService {
       treasures: await this.aggregateTreasures(player.treasures),
       level_name: PlayerService.levelName(player.level),
       status_label: STATUS_LABEL[player.status] || '未知',
+      active_status: player.active_status ?? 0,
+      active_status_label: (player.active_status ?? 0) ? STATUS_LABEL[player.active_status] || '未知' : '',
       cultivation_efficiency: trEff.cultivation_efficiency || 0,
     };
   }
@@ -475,6 +477,8 @@ export class PlayerService {
       id: player.id,
       status: player.status,
       status_label: STATUS_LABEL[player.status] || '未知',
+      active_status: player.active_status ?? 0,
+      active_status_label: (player.active_status ?? 0) ? STATUS_LABEL[player.active_status] || '未知' : '',
       hp: player.hp,
       max_hp: player.max_hp,
       energy: player.energy,
@@ -1027,6 +1031,12 @@ export class PlayerService {
   /** 直接设置玩家状态（供历练等活动 service 使用） */
   async setStatus(playerId: number, status: number): Promise<void> {
     await this.repo.update({ id: playerId }, { status });
+  }
+
+  /** 设置叠加状态（active_status）：只更新 active_status，status 保持来源状态。
+   *  如秘境中开战 → setActiveStatus(id, 7)，status 仍为 3(秘境中)。清叠加传 0。 */
+  async setActiveStatus(playerId: number, activeStatus: number): Promise<void> {
+    await this.repo.update({ id: playerId }, { active_status: activeStatus });
   }
 
   /** 部分字段更新（供战斗等模块持久化 hp/energy 等运行时状态） */

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import playerBox from '@/components1/playerBox.vue'
 import quickButton from '@/components1/quickButton.vue'
+import ProgressBar from '@/components1/progressBar.vue'
 import { usePlayerStore } from '@/stores/player'
 import { bus, BusEvents } from '@/utils/eventBus'
 import { getCurrentCultivation } from '@/api'
@@ -12,14 +13,27 @@ const loading = computed(() => playerStore.loading)
 
 const emits = defineEmits(['openContainer'])
 
-// 玩家是否移动中（status=9）/ 历练中（status=2）/ 修炼中（status=4,5）：状态栏可点击重新打开对应弹窗
+// 玩家是否移动中（status=9）/ 历练中（status=2）/ 秘境中（status=3）/ 修炼中（status=4,5）/ 战斗中（active_status=7）
 const isMoving = computed(() => player.value?.status === 9)
 const isTraining = computed(() => player.value?.status === 2)
+const isDungeon = computed(() => player.value?.status === 3)
 const isCultivating = computed(() => player.value?.status === 4 || player.value?.status === 5)
+// 战斗中：active_status=7（新逻辑）；兼容旧数据 status=7（旧逻辑 setStatus 直设）
+const isInBattle = computed(() => player.value?.active_status === 7 || player.value?.status === 7)
+
+/** 状态栏显示：有叠加状态（战斗中）优先显示 active_status_label，否则显示 status_label */
+const displayLabel = computed(
+  () => player.value?.active_status_label || player.value?.status_label || '未知',
+)
 
 async function onStatusClick() {
+  // 只按 status 判断（战斗中 status 恒为来源=秘境中，开副本弹窗；副本弹窗自检测 active_status 拉战斗）
   if (isMoving.value) bus.emit(BusEvents.MOVE_DIALOG_OPEN)
   else if (isTraining.value) bus.emit(BusEvents.TRAINING_DIALOG_OPEN)
+  else if (isDungeon.value) {
+    // 秘境中/战斗中：重新打开秘境面板（不带 encounterId，恢复现有秘境 + 战斗）
+    bus.emit(BusEvents.DUNGEON_OPEN)
+  }
   else if (isCultivating.value) {
     // 查当前进行中的修炼会话，拿到 encounter_id 打开洞天福地详情
     try {
@@ -99,21 +113,15 @@ function onTaskClick() {
         <div class="player-hp-mp-cult" v-if="player">
             <div class="player-cult">
                 <div class="player-cult-left">修为：</div>
-                <div class="player-cult-point-bg" v-tooltip="cultTip">
-                    <div class="player-cult-point" :style="{ width: cultPct + '%' }"></div>
-                </div>
+                <ProgressBar type="cult" :pct="cultPct" :tip="cultTip" />
             </div>
             <div class="player-hp">
                 <div class="player-hp-left">气血：</div>
-                <div class="player-hp-point-bg" v-tooltip="hpTip">
-                    <div class="player-hp-point" :style="{ width: hpPct + '%' }"></div>
-                </div>
+                <ProgressBar type="hp" :pct="hpPct" :tip="hpTip" />
             </div>
             <div class="player-energy">
                 <div class="player-energy-left">斗气：</div>
-                <div class="player-energy-point-bg" v-tooltip="energyTip">
-                    <div class="player-energy-point" :style="{ width: energyPct + '%' }"></div>
-                </div>
+                <ProgressBar type="energy" :pct="energyPct" :tip="energyTip" />
             </div>
         </div>
         <div class="player-status">
@@ -121,11 +129,11 @@ function onTaskClick() {
             <div
                 class="player-status-value"
                 :class="{
-                    'player-status-active': isMoving || isTraining || isCultivating,
-                    'player-status-1': !isMoving && !isTraining && !isCultivating
+                    'player-status-active': isMoving || isTraining || isDungeon || isCultivating || isInBattle,
+                    'player-status-1': !isMoving && !isTraining && !isDungeon && !isCultivating && !isInBattle
                 }"
                 @click="onStatusClick"
-            >{{ player?.status_label || (loading ? '...' : '---') }}</div>
+            >{{ loading ? '...' : (displayLabel || '---') }}</div>
         </div>
         <div class="player-money">
             <div class="player-money-left">金钱：</div>
@@ -191,36 +199,11 @@ function onTaskClick() {
     .player-cult, .player-hp, .player-energy{
         display: flex;
         align-items: center;
+        margin-bottom: 2px;
     }
-    .player-cult-point-bg, .player-hp-point-bg, .player-energy-point-bg{
+    /* ProgressBar 组件在 flex 中撑满剩余宽度 */
+    :deep(.progress-point-bg){
         flex: 1;
-        background: url("/static/point-bar-bg.gif") no-repeat;
-        background-size: 100% 100%;
-        height: 14px;
-        padding: 3px;
-        /* 进度槽：裁切子元素，让填充从左往右按百分比露出 */
-        overflow: hidden;
-        .player-cult-point{
-            /* width 用百分比控制进度；
-               高度填满槽体；背景图用满条宽度的固定尺寸，绝不被压缩，
-               超出父元素的部分由 overflow:hidden 截断 */
-            height: 100%;
-            background: url("/static/point-bar-1.gif") no-repeat;
-            background-size: 137px 100%;   /* 固定宽度=满条宽，高度填满 */
-            background-position: left center;
-        }
-        .player-hp-point{
-            height: 100%;
-            background: url("/static/point-bar-2.gif") no-repeat;
-            background-size: 137px 100%;   /* 固定宽度=满条宽，高度填满 */
-            background-position: left center;
-        }
-        .player-energy-point{
-            height: 100%;
-            background: url("/static/point-bar-3.gif") no-repeat;
-            background-size: 137px 100%;   /* 固定宽度=满条宽，高度填满 */
-            background-position: left center;
-        }
     }
 }
 .player-status{

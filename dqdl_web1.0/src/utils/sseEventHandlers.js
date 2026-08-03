@@ -90,6 +90,13 @@ const sseHandlers = {
     bus.emit(BusEvents.CULTIVATION_SETTLE, data)
   },
 
+  /**
+   * 修炼开始：后端玩家进入洞天福地修炼时推送。
+   * data 含 { encounter_id }。emit CULTIVATION_START，奇遇列表监听后刷新。 */
+  cultivation_start: (data) => {
+    bus.emit(BusEvents.CULTIVATION_START, { encounter_id: data?.encounter_id })
+  },
+
   /** 修炼结束：后端修炼到期/修满/停止时推送。data 含 { reason }。emit CULTIVATION_FINISHED。 */
   cultivation_finished: (data) => {
     bus.emit(BusEvents.CULTIVATION_FINISHED, { reason: data?.reason })

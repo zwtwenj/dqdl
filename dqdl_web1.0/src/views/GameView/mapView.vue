@@ -576,8 +576,10 @@ async function restoreScene() {
 }
 
 /** 恢复进行中的移动（页面刷新/onMounted 时调）：
- *  按 player_id+status=active 查 move_session，有就恢复弹窗+倒计时。 */
+ *  仅当玩家状态为「移动中」(status=9) 才查 move_session（有就恢复弹窗+倒计时）；
+ *  其他状态（空闲/历练/副本/...）直接跳过，不发起无意义查询。 */
 async function restoreMove() {
+  if (playerStore.player?.status !== 9) return
   try {
     const session = await getCurrentMove()
     if (session) {

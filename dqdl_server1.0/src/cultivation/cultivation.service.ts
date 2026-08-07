@@ -7,6 +7,7 @@ import { CultivationSession } from './cultivation-session.entity';
 import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 import { EncounterService } from '../encounter/encounter.service';
 import { ScriptSseService } from '../script/script-sse.service';
+import { SseEvents } from '../script/sse-events';
 import { Biz } from '../common/biz.exception';
 import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
 import { BLESSSED_LAND, CULTIVATION_ROOM, CULTIVATION_MODE } from '../config/game.config';
@@ -191,7 +192,7 @@ export class CultivationService {
     await this.playerService.setStatus(playerId, PLAYER_STATUS.CULTIVATING);
     this.startCultTimer(playerId);
     // 推送修炼开始（前端奇遇列表据此刷新标记）
-    this.sse.push(Number(playerId), 'cultivation_start', { encounter_id: enc.id });
+    this.sse.push(Number(playerId), SseEvents.CULTIVATION_START, { encounter_id: enc.id });
     this.logger.log(`玩家 ${playerId} 进入 ${saved.tier}星洞天福地修炼`);
     return saved;
   }
@@ -397,11 +398,11 @@ export class CultivationService {
           return;
         }
         // 推送本轮结算结果
-        this.sse.push(Number(playerId), 'cultivation_settle', result);
+        this.sse.push(Number(playerId), SseEvents.CULTIVATION_SETTLE, result);
         if (result.finished) {
           // 修炼结束 → 停定时器 + 推结束事件
           this.stopCultTimer(playerId);
-          this.sse.push(Number(playerId), 'cultivation_finished', { reason: result.reason });
+          this.sse.push(Number(playerId), SseEvents.CULTIVATION_FINISHED, { reason: result.reason });
         }
       } catch (e) {
         this.logger.error(`修炼定时器结算异常 player=${playerId}: ${e}`);

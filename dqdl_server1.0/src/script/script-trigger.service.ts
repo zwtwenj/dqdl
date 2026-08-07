@@ -9,10 +9,11 @@ import { ScriptSseService } from './script-sse.service';
 import { DynamicNpcService } from '../npc/dynamic-npc.service';
 import { PlayerService, PLAYER_STATUS } from '../player/player.service';
 import { Biz } from '../common/biz.exception';
-import { SCRIPT_HOOK_EVENT, SCRIPT_TRIGGER_EVENT } from './script.constants';
+import { SCRIPT_HOOK_EVENT } from './script.constants';
+import { SseEvents } from './sse-events';
 
-/** SSE 推送用的事件名（通用 event 通道，前端按此分发）。 */
-export { SCRIPT_TRIGGER_EVENT };
+/** SSE 推送用的事件名（统一常量，见 sse-events.ts）。 */
+export { SseEvents };
 
 export interface ScriptHookPayload {
   hook: string;
@@ -192,7 +193,7 @@ export class ScriptTriggerService {
       await this.instanceRepo.update(instance.id, { status: 'playing' });
 
       // SSE 通知前端「准备完成」：只带 instance_id，前端拿 id 调接口查节点详情
-      this.sse.push(playerId, SCRIPT_TRIGGER_EVENT, {
+      this.sse.push(playerId, SseEvents.SCRIPT_TRIGGER, {
         instance_id: instance.id,
         status: 'playing',
       });

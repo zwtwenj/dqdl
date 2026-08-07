@@ -14,6 +14,7 @@ import { TechniqueService } from '../technique/technique.service';
 import { SkillService } from '../skill/skill.service';
 import { TaskService } from '../task/task.service';
 import { ScriptSseService } from '../script/script-sse.service';
+import { SseEvents } from '../script/sse-events';
 import { Biz } from '../common/biz.exception';
 import { Player } from '../player/player.entity';
 import { TRAINING } from '../config/game.config';
@@ -347,7 +348,7 @@ export class TrainingService {
     );
     this.logger.log(`📝 历练 #${trainingId} 生成日志：${mobEntry.name} ${won ? '胜' : '逃'}${dropsResult ? ` (+${dropsResult.length}件掉落)` : ''}`);
     // 推送 training_log SSE 事件，前端收到后增量拉取新日志（替代前端轮询）
-    this.sse.push(Number(playerId), 'training_log', { last_log_id: savedLog.id });
+    this.sse.push(Number(playerId), SseEvents.TRAINING_LOG, { last_log_id: savedLog.id });
   }
 
   /**
@@ -397,7 +398,7 @@ export class TrainingService {
     await this.trainingRepo.update({ id: trainingId }, { status: 1, online: 0, offline_at: null });
     await this.playerService.setStatus(playerId, PLAYER_STATUS.IDLE);
     // 推送 training_finished，前端收到后停止增量拉取 + 标记历练结束
-    this.sse.push(Number(playerId), 'training_finished', { training_id: trainingId });
+    this.sse.push(Number(playerId), SseEvents.TRAINING_FINISHED, { training_id: trainingId });
   }
 
   // ============ 离线结算（SSE 断连停 agent，重连汇总补算）============
@@ -573,7 +574,7 @@ export class TrainingService {
     );
     this.logger.log(`📝 历练 #${trainingId} 离线汇总：${missedTicks}轮，击杀${killCount}，逃脱${fleeCount}${dropsList.length ? ` (+${dropsList.reduce((s, d) => s + d.count, 0)}件掉落)` : ''}`);
     // 推送 SSE，前端拉这条汇总日志
-    this.sse.push(Number(playerId), 'training_log', { last_log_id: savedLog.id });
+    this.sse.push(Number(playerId), SseEvents.TRAINING_LOG, { last_log_id: savedLog.id });
   }
 
   /** 解析 location_net 的 common_mobs（NetNodeView 已是数组，直接返回） */

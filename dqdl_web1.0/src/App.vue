@@ -12,6 +12,7 @@ import DungeonDetails from './components/dialog/dungeonDetails.vue'
 import BattlePanel from './components/dialog/battlePanel.vue'
 import TaskDetails from './components/dialog/taskDetails.vue'
 import SceneBranchDialog from './components/SceneBranchDialog.vue'
+import StoryPlayer from './components/dialog/storyPlayer.vue'
 </script>
 
 <template>
@@ -28,4 +29,5 @@ import SceneBranchDialog from './components/SceneBranchDialog.vue'
   <BattlePanel />
   <TaskDetails />
   <SceneBranchDialog />
+  <StoryPlayer />
 </template>

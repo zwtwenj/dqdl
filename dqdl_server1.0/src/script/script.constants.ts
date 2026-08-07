@@ -13,5 +13,5 @@
 /** 统一钩子事件名：5 个游戏钩子（突破/进入场景/...）都 emit 这个事件。 */
 export const SCRIPT_HOOK_EVENT = 'script.hook';
 
-/** SSE 推送的剧本触发事件名（通用 event 通道，前端按此分发）。 */
-export const SCRIPT_TRIGGER_EVENT = 'script_trigger';
+// SSE 推送事件名已统一到 ./sse-events（SseEvents），这里不再重复定义，
+// 避免 script_trigger 等事件名在两处漂移。

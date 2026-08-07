@@ -7,6 +7,7 @@ import MapView from './mapView.vue'
 import { useScriptStream } from '@/composables/useScriptStream'
 import { usePlayerStore } from '@/stores/player'
 import { bus, BusEvents } from '@/utils/eventBus'
+import { getCurrentStoryEvent } from '@/api/story'
 import { ref, onMounted, onUnmounted } from 'vue'
 import Information from './information.vue'
 import MainContainer from './mainContainer.vue'
@@ -33,7 +34,22 @@ onMounted(() => {
   offPlayerUpdate = bus.on(BusEvents.PLAYER_UPDATE, ({ player }) => {
     if (player) playerStore.player = player
   })
+  // 进入游戏/页面刷新：查玩家当前进行中的故事事件（有则 emit 给 StoryPlayer 演出）
+  fetchCurrentStoryEvent()
 })
+
+/** 查询玩家当前触发的事件（同一时间最多一个），有则 emit STORY_EVENT_READY。
+ *  无进行中事件 → 静默（event 为 null，不弹窗）。 */
+async function fetchCurrentStoryEvent() {
+  try {
+    const { event } = await getCurrentStoryEvent()
+    if (event) {
+      bus.emit(BusEvents.STORY_EVENT_READY, { event })
+    }
+  } catch {
+    // 查询失败不影响进入游戏，静默
+  }
+}
 onUnmounted(() => {
   closeStream()
   offMoveArrived?.()

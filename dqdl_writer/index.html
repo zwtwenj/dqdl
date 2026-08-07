@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>故事可视化</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; }
+body {
+  display:flex; flex-direction:column;
+  background:#12151f; color:#e8eaf0;
+  font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+  overflow:hidden;
+}
+
+/* ===== 顶栏 ===== */
+.topbar {
+  flex:0 0 auto;
+  display:flex; align-items:center; gap:10px;
+  padding:10px 16px;
+  background:#171b28; border-bottom:1px solid #262c40;
+}
+.topbar .logo { font-size:15px; font-weight:700; margin-right:4px; }
+.topbar input {
+  width:220px; padding:5px 10px; font-size:13px;
+  background:#0e1119; border:1px solid #2a3350; border-radius:6px;
+  color:#e8eaf0; outline:none;
+}
+.topbar input:focus { border-color:#5b8def; }
+.topbar button {
+  padding:5px 14px; font-size:13px; cursor:pointer;
+  background:#e94f64; color:#fff; border:none; border-radius:6px;
+}
+.topbar button:hover { background:#d64156; }
+.topbar .info { margin-left:auto; font-size:12px; color:#7a849c; }
+
+/* ===== 画布滚动区 ===== */
+#viewport { flex:1 1 auto; overflow:auto; position:relative; }
+#canvas {
+  position:relative;
+  width:max-content; min-width:100%; min-height:100%;
+  padding:32px;
+  background:radial-gradient(1200px 600px at 30% 0%, #171b28 0%, #12151f 70%);
+}
+#svg { position:absolute; top:0; left:0; pointer-events:none; overflow:visible; }
+
+/* 层：横向排开，每层纵向列 */
+.layers { display:flex; align-items:flex-start; }
+.layer {
+  display:flex; flex-direction:column; gap:20px;
+  margin-right:90px; /* 留出连线的空间 */
+}
+.layer:last-child { margin-right:0; }
+
+/* ===== 节点卡片 ===== */
+.node {
+  width:240px;
+  background:#1a2030; border:1px solid #2a3550; border-radius:10px;
+  padding:12px; cursor:pointer;
+  transition:border-color .12s, transform .12s;
+}
+.node:hover { border-color:#5b8def; transform:translateY(-2px); }
+.node .head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.node .tag {
+  font-size:11px; padding:1px 8px; border-radius:10px; font-weight:600;
+}
+.tag.choice    { background:#e94f6422; color:#ff8a9a; border:1px solid #e94f6455; }
+.tag.narrative { background:#5b8def22; color:#8fb5ff; border:1px solid #5b8def55; }
+.tag.ending    { background:#3fb95022; color:#5dd878; border:1px solid #3fb95055; }
+.node .id { font-size:11px; color:#7a849c; margin-left:auto; }
+.node .title { font-size:14px; font-weight:600; margin-bottom:6px; }
+.node .text {
+  font-size:12px; color:#9aa4bd; line-height:1.6;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+}
+.node .chips { margin-top:8px; display:flex; flex-direction:column; gap:4px; }
+.node .chip {
+  font-size:11px; color:#c4cbe0; background:#10141f; border-radius:6px;
+  padding:4px 8px; border-left:2px solid #e94f6488;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.node .chip b { color:#8fb5ff; font-weight:600; }
+.node .nxt-badge { margin-top:8px; }
+
+/* 游戏动作标记 */
+.action-badge {
+  display:inline-block; font-size:10px; padding:1px 7px; margin-left:4px;
+  border-radius:8px; font-weight:600; vertical-align:1px;
+  background:#e8a23b22; border:1px solid #e8a23b55; color:#f0b45a;
+}
+.action-badge[data-kind="battle"] { background:#e94f6422; border-color:#e94f6455; color:#ff8a9a; }
+.action-badge[data-kind="move"]   { background:#5b8def22; border-color:#5b8def55; color:#8fb5ff; }
+.action-badge[data-kind="reward"] { background:#3fb95022; border-color:#3fb95055; color:#5dd878; }
+.action-badge[data-kind="dialog"] { background:#a855f722; border-color:#a855f755; color:#c084fc; }
+
+/* ===== 详情侧栏 ===== */
+#detail {
+  position:fixed; top:0; right:0; bottom:0; width:380px;
+  background:#171b28; border-left:1px solid #262c40;
+  transform:translateX(100%); transition:transform .18s;
+  z-index:50; display:flex; flex-direction:column;
+}
+#detail.show { transform:none; }
+.d-head {
+  flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px; border-bottom:1px solid #262c40;
+}
+.d-head .d-title { font-size:16px; font-weight:700; }
+.d-close { cursor:pointer; font-size:18px; color:#7a849c; }
+.d-close:hover { color:#fff; }
+.d-body { flex:1 1 auto; overflow-y:auto; padding:16px 18px; }
+.d-tagline { margin-bottom:10px; }
+.d-text {
+  font-size:13px; line-height:1.9; color:#c6cddf;
+  background:#12151f; border:1px solid #262c40; border-radius:8px;
+  padding:12px 14px; margin-bottom:16px;
+}
+.d-sec { font-size:12px; color:#7a849c; margin:14px 0 8px; }
+.d-choice {
+  padding:10px 12px; background:#12151f; border-radius:8px; margin-bottom:8px;
+  border-left:3px solid #e94f64;
+}
+.d-choice .dc-t { font-size:13px; color:#e8eaf0; }
+.d-choice .dc-m { font-size:11px; color:#7a849c; margin-top:4px; line-height:1.7; }
+.d-next {
+  padding:10px 12px; background:#12151f; border-radius:8px;
+  border-left:3px solid #5b8def; font-size:13px; color:#8fb5ff;
+}
+.d-summary { font-size:12px; color:#7a849c; font-style:italic; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">📖 故事可视化</span>
+  <input id="q" placeholder="story_xxx" spellcheck="false">
+  <button id="btn">加载</button>
+  <span class="info" id="info"></span>
+</div>
+
+<div id="viewport">
+  <div id="canvas">
+    <svg id="svg"></svg>
+    <div id="layers" class="layers"></div>
+  </div>
+</div>
+
+<div id="detail">
+  <div class="d-head">
+    <span class="d-title">节点详情</span>
+    <span class="d-close" onclick="document.getElementById('detail').classList.remove('show')">✕</span>
+  </div>
+  <div class="d-body" id="d-body"></div>
+</div>
+
+<script>
+const STORY_DB = {"story_test_action":{"title":"魔兽山脉遗迹猎踪","nodes":[{"id":"n1","type":"narrative","title":"诡异兽踪","summary":"追踪受伤魔兽，意外发现遗迹入口。","narrative":"你沿着血迹深入魔兽山脉，那魔兽的脚印在泥地上格外清晰，却带着一丝不属于寻常野兽的气息。你蹲下查看，发现爪印边缘竟有焦黑痕迹，仿佛被某种高温灼烧过。心头一凛，你握紧背后的玄铁重剑，继续追踪。穿过密林，一座半掩在藤蔓中的石门出现在眼前，门缝中透出幽幽蓝光，隐约有风声呼啸。","next":"n2","action":null},{"id":"n2","type":"choice","title":"规则压制","summary":"进入遗迹，发现斗气运转迟滞，实力被压制。","narrative":"你推开石门，踏入一条幽深甬道，身后石门轰然关闭。一股无形的力量笼罩全身，你惊觉体内斗气运转迟滞，连凝聚斗之气旋都变得困难。你试着催动斗技，却只激起微弱火花。墙壁上的符文闪烁不定，显然这片空间有特殊禁制。你压下慌乱，摸索前行，甬道尽头出现一片开阔的地下广场，中央矗立着一座巨大的石塔。","choices":[{"text":"运转残存斗气，强行冲击前方禁制封锁","intent":"激进","risk":"high","next":"n3","outcome_hint":"强行催动斗气冲击禁制，引发符文反噬，虽找到一道薄弱裂隙，但代价是经脉受损，却也因此看到石塔内异火光芒，提前获悉核心位置。","action":{"kind":"move","target_map":"魔兽山脉外围","task_name":"前往魔兽山脉外围","task_desc":"你决定先退出遗迹休整并打听消息。","giver_text":"坊市守门的佣兵告诉你……"}},{"text":"静心凝神，逐寸研究墙壁符文的规律","intent":"保守","risk":"low","next":"n4","outcome_hint":"耐心观察符文后，发现其变化遵循某种时辰循环。趁符文明灭间隙，找到一条相对安全的路径，绕过了广场上几波人的注意，抵达石塔侧墙，并察觉到破绽。","action":{"kind":"battle","mob_id":"WB-027","mob_name":"炎尾蜥","mob_hint":"一阶魔兽"}}]},{"id":"n3","type":"narrative","title":"焚血破禁","summary":"强行催动斗气冲击禁制，引发符文反噬，虽找到一道薄弱裂隙，但代价是经脉受损，却也因此看到石塔内异火光芒，提前获悉核心位置。","narrative":"你咬牙低吼，将仅存的斗气疯狂压缩，猛地轰向前方虚空。空气炸响，墙壁符文骤然亮起，如活物般缠上你的手臂，灼痛感直透骨髓，经脉传来撕裂般的剧痛。但就在这瞬间，你捕捉到一丝极其细微的裂隙，透过它，你瞥见石塔底层那团跳动的赤红色火焰，心中一震——异火种子！你强行记下方位，代价是左臂暂时麻痹。但你已确信，塔内必有重宝。","next":"n5","action":null},{"id":"n4","type":"narrative","title":"符文识途","summary":"耐心观察符文后，发现其变化遵循某种时辰循环。趁符文明灭间隙，找到一条相对安全的路径，绕过了广场上几波人的注意，抵达石塔侧墙，并察觉到破绽。","narrative":"你强迫自己冷静下来，盘膝坐下，目光如炬，逐寸扫过墙壁上那些流转的符文。不知过了多久，你发现它们的明灭暗合一种时辰流转的规律，每隔半炷香便有短暂停滞。你抓住一次间隙，贴着墙壁无声滑行，如壁虎般绕过广场人影，直抵石塔侧墙。此处符文较薄，且有几道磨损的痕迹，你心中一动，这或许就是禁制的弱点。","next":"n8","action":null},{"id":"n5","type":"choice","title":"混战夺宝","summary":"多方争夺核心机缘，你趁机破解禁制。","narrative":"石塔底层大门洞开，一团赤红色火焰悬浮其中，散发出灼热气息——竟是异火种子！众人瞬间红了眼，黑衣剑士率先拔剑冲向塔内，佣兵们紧随其后，炼药师则低声念咒，抛出几枚毒丸。你趁乱绕到塔侧，看见墙上刻着密密麻麻的符文，似乎正是禁制的破解之法。你灵魂力探出，发现这些符文与古籍中记载的上古文字相似，顿时心中一动。","choices":[{"text":"趁乱强冲，直取异火种子","intent":"激进","risk":"high","next":"n6","outcome_hint":"主角强行突破混战，逼近异火种子，但被岩石巨兽和多方攻击，受伤严重但成功夺得种子。","action":null},{"text":"先解禁制，再图后手","intent":"探索","risk":"medium","next":"n7","outcome_hint":"主角趁乱钻研墙上符文，找到禁制突破口并激活，压制减弱，但异火种子已被巨兽吞入腹中，需另寻机会。","action":null}]},{"id":"n6","type":"narrative","title":"火中取栗","summary":"主角强行突破混战，逼近异火种子，但被岩石巨兽和多方攻击，受伤严重但成功夺得种子。","narrative":"你不再犹豫，身形暴起，如猎豹般穿过混战人群。剑光横扫，逼退两名佣兵，脚尖点地借力，直扑塔内那团赤红火焰。身后风声骤紧，岩石巨兽的利爪撕裂空气，你偏头躲过要害，肩头却火辣辣被刮去一片血肉。剧痛中你咬牙探手，异火种子灼烫入掌，瞬间烧得掌心焦黑，但你死死攥住，借反震之力倒飞而出。","next":"n8","action":null},{"id":"n7","type":"narrative","title":"符文破禁","summary":"主角趁乱钻研墙上符文，找到禁制突破口并激活，压制减弱，但异火种子已被巨兽吞入腹中，需另寻机会。","narrative":"你没有随大流扑向火焰，而是凝神细看墙上符文。灵魂力如蛛网般蔓延，捕捉到几处与古籍记载相符的关键节点。你指尖轻划，注入一缕斗气，符文忽亮忽灭，禁制随之松动大半。你只觉浑身一轻，斗气流转顺畅许多。但与此同时，塔内轰隆巨响，那岩石巨兽竟一口将异火种子吞入腹中，怒吼着冲入人群，场面更加混乱。","next":"n8","action":null},{"id":"n8","type":"choice","title":"孤注一掷","summary":"守护者现出真身，你利用规则漏洞夺取异火。","narrative":"塔内爆出一声咆哮，一头浑身覆盖岩石的巨兽破塔而出，斗灵级的气势横扫全场。佣兵们被震飞，黑衣剑士也被逼退。你顶着压制，快速在符文上刻下几道纹路，禁制忽然松动，你的斗气恢复了大半。你全力催动身法，如鬼魅般穿过战场，直冲塔内。岩石巨兽挥爪拍来，你侧身躲过，一把抓住异火种子，灼痛瞬间蔓延全身。","choices":[{"text":"正面硬撼，吸引巨兽注意","intent":"激进","risk":"high","next":"n9","outcome_hint":"你主动挑衅巨兽，以恢复的斗气施展重剑最强一击，虽破开岩甲，但被反震重伤，却也掩护了其他人冲入塔内。","action":null},{"text":"趁乱绕后，潜入塔内取火","intent":"保守","risk":"low","next":"n10","outcome_hint":"你压制气息，趁着巨兽与众人混战，绕到塔后裂缝悄然潜入，在巨兽未察觉前接近异火种子。","action":null}]},{"id":"n9","type":"narrative","title":"剑撼岩甲","summary":"你主动挑衅巨兽，以恢复的斗气施展重剑最强一击，虽破开岩甲，但被反震重伤，却也掩护了其他人冲入塔内。","narrative":"你不再犹豫，一声暴喝，将恢复的斗气尽数灌入玄铁重剑，剑身亮起刺目金光。你迎着巨兽冲去，剑锋划过一道凄厉弧线，狠狠劈在其胸口。岩甲崩裂，巨兽发出痛吼，被你吸引注意，巨大的尾巴横扫而至，将你拍飞。你口中喷出鲜血，肋骨断了两根，但你的攻击为其他人撕开了突破口，数道人影趁机冲入塔内。","next":"n11","action":null},{"id":"n10","type":"narrative","title":"暗影寻隙","summary":"你压制气息，趁着巨兽与众人混战，绕到塔后裂缝悄然潜入，在巨兽未察觉前接近异火种子。","narrative":"你深吸一口气，将斗气波动压至最低，身形贴着墙壁阴影，如游蛇般滑向塔侧。巨兽正与黑衣剑士缠斗，碎石横飞，没人注意到你。你发现塔身一处被撞开的裂缝，侧身挤入。塔内火光灼灼，异火种子悬浮在石台上，隔着数丈都能感到热浪逼人。你屏住呼吸，一步步靠近，伸手抓向那团跳动的赤焰。","next":"n11","action":null},{"id":"n11","type":"ending","title":"空间崩塌","summary":"遗迹开始坍塌，你带着异火逃出生天。","narrative":"异火种子入体，你感到一股狂暴的能量在经脉中横冲直撞，但同时也与你的灵魂力产生共鸣。你强忍剧痛，用残留的斗气护住心脉，转身冲出石塔。身后，遗迹的墙壁开始龟裂，地面浮现出巨大纹路，整个空间都在剧烈颤抖。你拼尽全力奔向入口，在最后一刻跃出崩塌的石门。轰隆巨响中，遗迹彻底化为废墟。","next":null,"action":null},{"id":"n12","type":"ending","title":"余火新生","summary":"脱险后，异火淬体，实力精进，留下引线。","narrative":"你瘫倒在林间空地，大口喘息。体内异火种子逐渐稳定，竟在淬炼你的经脉，斗气比之前更凝实，隐隐有晋入斗师的迹象。你握了握拳，感受着新生的力量，却忽然听到远处传来急促的脚步声——是那些幸存的佣兵，他们正循着痕迹追来。你咧嘴一笑，将异火气息隐藏起来，翻身钻入密林。但这遗迹的秘密，恐怕不止于此。","next":null,"choices":[],"action":null}]},"story_20260807_112825":{"title":"魔兽山脉遗迹猎踪","nodes":[{"id":"n1","type":"narrative","title":"诡异兽踪","summary":"追踪受伤魔兽，意外发现遗迹入口。","narrative":"你沿着血迹深入魔兽山脉，那魔兽的脚印在泥地上格外清晰，却带着一丝不属于寻常野兽的气息。你蹲下查看，发现爪印边缘竟有焦黑痕迹，仿佛被某种高温灼烧过。心头一凛，你握紧背后的玄铁重剑，继续追踪。穿过密林，一座半掩在藤蔓中的石门出现在眼前，门缝中透出幽幽蓝光，隐约有风声呼啸。","next":"n2"},{"id":"n2","type":"choice","title":"规则压制","summary":"进入遗迹，发现斗气运转迟滞，实力被压制。","narrative":"你推开石门，踏入一条幽深甬道，身后石门轰然关闭。一股无形的力量笼罩全身，你惊觉体内斗气运转迟滞，连凝聚斗之气旋都变得困难。你试着催动斗技，却只激起微弱火花。墙壁上的符文闪烁不定，显然这片空间有特殊禁制。你压下慌乱，摸索前行，甬道尽头出现一片开阔的地下广场，中央矗立着一座巨大的石塔。","choices":[{"text":"运转残存斗气，强行冲击前方禁制封锁","intent":"激进","risk":"high","next":"n3","outcome_hint":"强行催动斗气冲击禁制，引发符文反噬，虽找到一道薄弱裂隙，但代价是经脉受损，却也因此看到石塔内异火光芒，提前获悉核心位置。"},{"text":"静心凝神，逐寸研究墙壁符文的规律","intent":"保守","risk":"low","next":"n4","outcome_hint":"耐心观察符文后，发现其变化遵循某种时辰循环。趁符文明灭间隙，找到一条相对安全的路径，绕过了广场上几波人的注意，抵达石塔侧墙，并察觉到破绽。"}]},{"id":"n3","type":"narrative","title":"焚血破禁","summary":"强行催动斗气冲击禁制，引发符文反噬，虽找到一道薄弱裂隙，但代价是经脉受损，却也因此看到石塔内异火光芒，提前获悉核心位置。","narrative":"你咬牙低吼，将仅存的斗气疯狂压缩，猛地轰向前方虚空。空气炸响，墙壁符文骤然亮起，如活物般缠上你的手臂，灼痛感直透骨髓，经脉传来撕裂般的剧痛。但就在这瞬间，你捕捉到一丝极其细微的裂隙，透过它，你瞥见石塔底层那团跳动的赤红色火焰，心中一震——异火种子！你强行记下方位，代价是左臂暂时麻痹。但你已确信，塔内必有重宝。","next":"n5"},{"id":"n4","type":"narrative","title":"符文识途","summary":"耐心观察符文后，发现其变化遵循某种时辰循环。趁符文明灭间隙，找到一条相对安全的路径，绕过了广场上几波人的注意，抵达石塔侧墙，并察觉到破绽。","narrative":"你强迫自己冷静下来，盘膝坐下，目光如炬，逐寸扫过墙壁上那些流转的符文。不知过了多久，你发现它们的明灭暗合一种时辰流转的规律，每隔半炷香便有短暂停滞。你抓住一次间隙，贴着墙壁无声滑行，如壁虎般绕过广场人影，直抵石塔侧墙。此处符文较薄，且有几道磨损的痕迹，你心中一动，这或许就是禁制的弱点。","next":"n8"},{"id":"n5","type":"choice","title":"混战夺宝","summary":"多方争夺核心机缘，你趁机破解禁制。","narrative":"石塔底层大门洞开，一团赤红色火焰悬浮其中，散发出灼热气息——竟是异火种子！众人瞬间红了眼，黑衣剑士率先拔剑冲向塔内，佣兵们紧随其后，炼药师则低声念咒，抛出几枚毒丸。你趁乱绕到塔侧，看见墙上刻着密密麻麻的符文，似乎正是禁制的破解之法。你灵魂力探出，发现这些符文与古籍中记载的上古文字相似，顿时心中一动。","choices":[{"text":"趁乱强冲，直取异火种子","intent":"激进","risk":"high","next":"n6","outcome_hint":"主角强行突破混战，逼近异火种子，但被岩石巨兽和多方攻击，受伤严重但成功夺得种子。"},{"text":"先解禁制，再图后手","intent":"探索","risk":"medium","next":"n7","outcome_hint":"主角趁乱钻研墙上符文，找到禁制突破口并激活，压制减弱，但异火种子已被巨兽吞入腹中，需另寻机会。"}]},{"id":"n6","type":"narrative","title":"火中取栗","summary":"主角强行突破混战，逼近异火种子，但被岩石巨兽和多方攻击，受伤严重但成功夺得种子。","narrative":"你不再犹豫，身形暴起，如猎豹般穿过混战人群。剑光横扫，逼退两名佣兵，脚尖点地借力，直扑塔内那团赤红火焰。身后风声骤紧，岩石巨兽的利爪撕裂空气，你偏头躲过要害，肩头却火辣辣被刮去一片血肉。剧痛中你咬牙探手，异火种子灼烫入掌，瞬间烧得掌心焦黑，但你死死攥住，借反震之力倒飞而出。","next":"n8"},{"id":"n7","type":"narrative","title":"符文破禁","summary":"主角趁乱钻研墙上符文，找到禁制突破口并激活，压制减弱，但异火种子已被巨兽吞入腹中，需另寻机会。","narrative":"你没有随大流扑向火焰，而是凝神细看墙上符文。灵魂力如蛛网般蔓延，捕捉到几处与古籍记载相符的关键节点。你指尖轻划，注入一缕斗气，符文忽亮忽灭，禁制随之松动大半。你只觉浑身一轻，斗气流转顺畅许多。但与此同时，塔内轰隆巨响，那岩石巨兽竟一口将异火种子吞入腹中，怒吼着冲入人群，场面更加混乱。","next":"n8"},{"id":"n8","type":"choice","title":"孤注一掷","summary":"守护者现出真身，你利用规则漏洞夺取异火。","narrative":"塔内爆出一声咆哮，一头浑身覆盖岩石的巨兽破塔而出，斗灵级的气势横扫全场。佣兵们被震飞，黑衣剑士也被逼退。你顶着压制，快速在符文上刻下几道纹路，禁制忽然松动，你的斗气恢复了大半。你全力催动身法，如鬼魅般穿过战场，直冲塔内。岩石巨兽挥爪拍来，你侧身躲过，一把抓住异火种子，灼痛瞬间蔓延全身。","choices":[{"text":"正面硬撼，吸引巨兽注意","intent":"激进","risk":"high","next":"n9","outcome_hint":"你主动挑衅巨兽，以恢复的斗气施展重剑最强一击，虽破开岩甲，但被反震重伤，却也掩护了其他人冲入塔内。"},{"text":"趁乱绕后，潜入塔内取火","intent":"保守","risk":"low","next":"n10","outcome_hint":"你压制气息，趁着巨兽与众人混战，绕到塔后裂缝悄然潜入，在巨兽未察觉前接近异火种子。"}]},{"id":"n9","type":"narrative","title":"剑撼岩甲","summary":"你主动挑衅巨兽，以恢复的斗气施展重剑最强一击，虽破开岩甲，但被反震重伤，却也掩护了其他人冲入塔内。","narrative":"你不再犹豫，一声暴喝，将恢复的斗气尽数灌入玄铁重剑，剑身亮起刺目金光。你迎着巨兽冲去，剑锋划过一道凄厉弧线，狠狠劈在其胸口。岩甲崩裂，巨兽发出痛吼，被你吸引注意，巨大的尾巴横扫而至，将你拍飞。你口中喷出鲜血，肋骨断了两根，但你的攻击为其他人撕开了突破口，数道人影趁机冲入塔内。","next":"n11"},{"id":"n10","type":"narrative","title":"暗影寻隙","summary":"你压制气息，趁着巨兽与众人混战，绕到塔后裂缝悄然潜入，在巨兽未察觉前接近异火种子。","narrative":"你深吸一口气，将斗气波动压至最低，身形贴着墙壁阴影，如游蛇般滑向塔侧。巨兽正与黑衣剑士缠斗，碎石横飞，没人注意到你。你发现塔身一处被撞开的裂缝，侧身挤入。塔内火光灼灼，异火种子悬浮在石台上，隔着数丈都能感到热浪逼人。你屏住呼吸，一步步靠近，伸手抓向那团跳动的赤焰。","next":"n11"},{"id":"n11","type":"ending","title":"空间崩塌","summary":"遗迹开始坍塌，你带着异火逃出生天。","narrative":"异火种子入体，你感到一股狂暴的能量在经脉中横冲直撞，但同时也与你的灵魂力产生共鸣。你强忍剧痛，用残留的斗气护住心脉，转身冲出石塔。身后，遗迹的墙壁开始龟裂，地面浮现出巨大纹路，整个空间都在剧烈颤抖。你拼尽全力奔向入口，在最后一刻跃出崩塌的石门。轰隆巨响中，遗迹彻底化为废墟。","next":null},{"id":"n12","type":"ending","title":"余火新生","summary":"脱险后，异火淬体，实力精进，留下引线。","narrative":"你瘫倒在林间空地，大口喘息。体内异火种子逐渐稳定，竟在淬炼你的经脉，斗气比之前更凝实，隐隐有晋入斗师的迹象。你握了握拳，感受着新生的力量，却忽然听到远处传来急促的脚步声——是那些幸存的佣兵，他们正循着痕迹追来。你咧嘴一笑，将异火气息隐藏起来，翻身钻入密林。但这遗迹的秘密，恐怕不止于此。","next":null,"choices":[]}]},"story_20260807_111154":{"title":"古玉觉醒","nodes":[{"id":"n1","type":"narrative","title":"逐出萧门","summary":"你被萧家长老判定为废物，当众逐出家族，孤身走向魔兽山脉。","narrative":"萧家祠堂前，你跪在青石板上，听着长老宣读废黜斗之气三段的训词。人群里传来嗤笑，那些曾唤你‘少主’的子弟此刻眼神如刀。你攥紧拳头，却只感到斗气枯竭的虚脱。父亲沉默转身，只留下一句‘活着’。你踉跄站起，朝魔兽山脉的方向走去，身后是缓缓关闭的朱红大门。","next":"n2"},{"id":"n2","type":"choice","title":"山脚拾玉","summary":"你在魔兽山脉边缘躲避妖兽时，从泥泞中捡起一枚温润古玉，触感异样。","narrative":"暮色压着树梢，你靠在断崖下喘息。一头一阶风狼的嘶吼从林子深处传来，你滚进泥沟躲藏。指尖触到一块硬物，抠出来是枚青灰色古玉，温润如水，却透着一股说不出的凉意。玉面刻着扭曲的纹路，像某种文字，又像经脉图。你将它揣入怀中，忽然觉得丹田里那丝枯竭的斗气微微一颤。","choices":[{"text":"握紧古玉，冲向风狼","intent":"冒险反击，激发古玉力量","risk":"high","next":"n3","outcome_hint":"你主动迎向风狼，古玉在危急时刻释放出一丝灵魂波动，惊退风狼，同时你感应到玉中残魂的微弱意识。"},{"text":"屏息不动，静待狼去","intent":"保守求生，避开正面冲突","risk":"low","next":"n4","outcome_hint":"你选择继续躲在泥沟中，风狼搜索无果后离去。安全度过一夜，但古玉未有任何异动，你决定明日再探山洞。"}]},{"id":"n3","type":"narrative","title":"玉光初现","summary":"你主动迎向风狼，古玉在危急时刻释放出一丝灵魂波动，惊退风狼，同时你感应到玉中残魂的微弱意识。","narrative":"你咬紧牙关，握紧古玉从泥沟中跃出，朝风狼嘶吼的方向冲去。风狼低伏利爪刨地，扑向你的瞬间，古玉突然爆出一圈无形的波纹，风狼如遭重击，哀嚎着翻滚退入林中。你愣在原地，掌心古玉滚烫，一个若有若无的声音在脑海深处回荡：“有意思……”你意识到，这玉并非死物，而是藏着某种古老的存在。","next":"n5"},{"id":"n4","type":"narrative","title":"暗夜蛰伏","summary":"你选择继续躲在泥沟中，风狼搜索无果后离去。安全度过一夜，但古玉未有任何异动，你决定明日再探山洞。","narrative":"你死死趴在泥沟里，连呼吸都压到最低。风狼在附近嗅了许久，终于悻悻离去。直到暮色彻底吞没山林，你才爬出来，浑身沾满腐叶和泥浆。古玉贴在胸口，冰凉如初，仿佛刚才那丝颤动只是错觉。你不敢久留，趁黑摸到一处避风的岩缝，蜷缩着睡去。明早，你打算去更深处探探这玉的来历。","next":"n5"},{"id":"n5","type":"narrative","title":"玉中残魂","summary":"深夜篝火旁，古玉释放出一缕古老灵魂，自称‘药尘’，愿以炼药术换你守护其残魂。","narrative":"夜风卷着兽吼，你缩在岩洞里生起火。古玉靠在胸口，竟泛起微光。一个苍老的声音直接响在脑海里：‘小子，你斗气废了，但灵魂力量尚可。’你惊得跳起，却见一缕半透明的人影浮在火堆上，自称药尘，是上古药族后裔，残魂被困玉中千年。他眯眼道：‘替我寻一株融魂草，我教你炼药，保你重新踏上斗者之路。’你看着那缕火焰般的虚影，缓缓点头。","next":"n6"},{"id":"n6","type":"choice","title":"融魂草之争","summary":"你冒险深入魔兽山脉腹地，在毒瘴谷中与一阶铁背蜥蜴争夺融魂草，凭药尘指点险胜。","narrative":"毒瘴谷的雾气泛着绿，你屏息攀过湿滑的岩壁。融魂草长在谷底石缝间，旁边却盘着一头铁背蜥蜴——一阶魔兽，足以撕碎现在的你。药尘的声音在脑中响起：‘左肋三寸，鳞片最薄！’你握紧捡来的短刀，趁蜥蜴转头时扑上去，一刀捅入肋下。腥血溅了满脸，你拔出草根，瘫坐在地，胸口古玉微微发烫。","choices":[{"text":"信药尘，一刀搏命夺草","intent":"激进","risk":"high","next":"n7","outcome_hint":"主角听从药尘指示，冒险突袭铁背蜥蜴，虽成功夺草但被尾扫重伤，修为受损，被迫在谷底多蛰伏两日，拖慢行程。"},{"text":"绕路寻隙，智取灵草","intent":"探索","risk":"medium","next":"n8","outcome_hint":"主角放弃正面冲突，找到毒瘴谷的暗流入口，避开蜥蜴，不仅安全取得融魂草，还在暗渠中发现一株伴生的凝气花，为后续修炼增添助力。"}]},{"id":"n7","type":"narrative","title":"血溅毒瘴","summary":"主角听从药尘指示，冒险突袭铁背蜥蜴，虽成功夺草但被尾扫重伤，修为受损，被迫在谷底多蛰伏两日，拖慢行程。","narrative":"你握紧短刀，不再犹豫，一声低吼扑向铁背蜥蜴。刀尖精准刺入其左肋薄鳞，腥血喷涌，但蜥蜴剧痛下的垂死甩尾也重重抽在你的右肩，骨骼咔咔作响。你滚落泥地，剧痛几乎让你昏厥。药尘急斥：“拔草！快撤！”你挣扎着扯出融魂草，连滚带爬躲进石缝。肩伤让你在谷底多躺了两日，才勉强拖着半废的臂膀继续前行。","next":"n9"},{"id":"n8","type":"narrative","title":"暗渠得宝","summary":"主角放弃正面冲突，找到毒瘴谷的暗流入口，避开蜥蜴，不仅安全取得融魂草，还在暗渠中发现一株伴生的凝气花，为后续修炼增添助力。","narrative":"你强压冲动，没有硬拼。药尘嗤笑一声：“还算有脑子。”你沿着岩壁摸索，发现一条被毒藤遮掩的暗渠，弯身钻入，果然通向谷底石缝的另一侧。铁背蜥蜴毫无察觉。你轻手轻脚摘下融魂草，还瞥见石缝深处一株泛着淡蓝光晕的凝气花，顺手采下。药尘叹道：“运气不错，这花能替你固本培元。”你全身而退，带着双倍收获，循着晨光向谷外走去。","next":"n12"},{"id":"n9","type":"choice","title":"斗之气四段","summary":"药尘用融魂草稳住残魂，并传你黄阶功法‘引气诀’，你的斗之气恢复到四段。","narrative":"岩洞里，药尘将融魂草化作一缕青光吸入玉中，虚影凝实了几分。他飘在你面前，用灵魂力在你经脉里画出一条路线：‘记住，这是引气诀，黄阶功法，但够你重开气旋。’你照着运行，三日后，丹田里那缕枯竭的斗气终于重新游走，冲破三段的桎梏——斗之气，四段。你握了握拳，力量虽弱，却真实得让人眼眶发热。","choices":[{"text":"立刻出谷，实战检验新力量","intent":"激进","risk":"high","next":"n10","outcome_hint":"主角出谷遭遇一阶铁背蜥蜴，凭借四段斗气勉强取胜，但引来风狼王注意。"},{"text":"留在洞中，稳固根基再出发","intent":"保守","risk":"low","next":"n11","outcome_hint":"主角多修炼五日，斗气稳固，但错过出谷时机，风狼王已封锁谷口。"}]},{"id":"n10","type":"narrative","title":"初试锋芒","summary":"主角出谷遭遇一阶铁背蜥蜴，凭借四段斗气勉强取胜，但引来风狼王注意。","narrative":"你握紧短刀，冲出岩洞，直奔谷口。一头铁背蜥蜴正横在路中，你借着新生的斗气，翻滚贴近，一刀刺入其肋下。蜥蜴嘶吼着甩尾，你被抽中肩膀，剧痛中却感到力量在沸腾。你拔出刀，再补一击，击杀成功。你喘着气，正要欢呼，却听见远处传来狼嚎——那是风狼王的领地。","next":"n12"},{"id":"n11","type":"narrative","title":"厚积薄发","summary":"主角多修炼五日，斗气稳固，但错过出谷时机，风狼王已封锁谷口。","narrative":"你压下躁动，盘膝坐回火堆旁，一遍遍运行引气诀。五日后，斗气凝实如线，你甚至能感知到经脉中细小的阻塞。你自信满满地踏出谷口，却见风狼王带着狼群蹲守在外——它们早已循着气味堵住了去路。你苦笑，只得握紧短刀，准备硬闯。","next":"n12"},{"id":"n12","type":"choice","title":"风狼王复仇","summary":"返回途中遭遇风狼王追击，危急之际药尘以灵魂力助你短暂爆发出斗者一击，将其击退。","narrative":"出谷时，那头被你抢了草药的风狼竟领着狼王追来。狼王三阶，獠牙如刃，你根本跑不过。药尘低喝：‘放松心神！’古玉骤然爆发一股灵魂力涌入你经脉，你下意识抬手，斗气凝成一道半尺气刃，正劈在狼王鼻梁上。狼王哀嚎一声，带着群狼退入林中。你跪地喘息，药尘的声音虚弱了许多：‘下次别惹这种大家伙。’","choices":[{"text":"完全放开心神，与药尘合力一击","intent":"激进","risk":"high","next":"n13","outcome_hint":"药尘燃烧残魂之力，将你斗气提升至斗者级别，一击重创狼王，但药尘陷入沉睡。"},{"text":"拒绝依赖，用短刀与地形周旋","intent":"保守","risk":"medium","next":"n14","outcome_hint":"你利用泥沟和短刀与狼王周旋，虽重伤但找到脱身机会，药尘未损分毫。"}]},{"id":"n13","type":"narrative","title":"燃魂一击","summary":"药尘燃烧残魂之力，将你斗气提升至斗者级别，一击重创狼王，但药尘陷入沉睡。","narrative":"你闭目放开心神，古玉如熔岩般灼热，药尘的虚影猛然灌入你四肢百骸。一股远超四段的斗气在经脉中奔涌，你抬手，气刃暴涨至三尺，青光缭绕，带着千钧之势劈出。狼王头颅几乎被斩开，血肉横飞，狼群惊散。你脱力跪倒，古玉黯淡无光，药尘的声音细若游丝：‘三年内，需寻温养灵魂之物……否则，老夫便散了。’你死死攥着古玉，将这份代价刻进骨头里。","next":"n15"},{"id":"n14","type":"ending","title":"泥沼搏狼","summary":"你利用泥沟和短刀与狼王周旋，虽重伤但找到脱身机会，药尘未损分毫。","narrative":"你咬牙压下药尘的扶持念头，翻身滚进泥沟，抓了一把烂泥抹在脸上。狼王扑来，你顺势滑向坡底，短刀狠狠刺向它前爪。狼王怒吼，爪子拍在你肩头，撕开一道血口，你却借着这股力道滑下陡坡，钻入狭小岩缝。狼王獠牙啃在石壁上溅出火星，最终不甘地退走。你瘫在缝里，肩头血流如注，药尘却轻笑：‘小子，有骨气。这伤，值得。’古玉依旧温热，药尘灵魂完好。","next":null},{"id":"n15","type":"ending","title":"归途与执念","summary":"你带着古玉回到乌坦城，站在萧府门前，眼神不再卑微，而是燃起复仇与重振的火焰。","narrative":"乌坦城的街市依旧喧闹，你衣衫褴褛地穿过人群，停在萧府门前。守门护卫认出你，正要嘲讽，却见你目光如刀，生生把话咽了回去。你没有进门，只是摸了摸怀中的古玉。药尘低笑：‘不进去？’你摇头，转身朝城外的加玛帝国方向走去：‘等我成为斗者，再回来拿回属于我的东西。’古玉微光一闪，仿佛回应着你的执念。","next":null,"choices":[]}]},"story_20260807_100917":{"title":"玉简启天录","nodes":[{"id":"n1","type":"narrative","title":"蒙尘玉简","summary":"杂役少年韩立在打扫藏书阁时，从一本破旧道书夹层中摸到一枚温润的青色玉简，神识探入，一篇名为《青元诀》的上古炼气功法涌入脑海。","next":"n2","narrative":"秋雨过后，藏书阁的霉味混着旧纸气息扑面而来。你擦拭书架时，指尖触到一本道书夹层微微鼓起。剖开线装封皮，一枚温润青玉简滑落掌心。神识探入刹那，古老文字如溪流涌入识海——《青元诀》，三个古篆浮现眼前，仿佛沉睡千年只为等你这双杂役之手。","index":1,"retry_count":0},{"id":"n2","type":"choice","title":"抉择前路","summary":"《青元诀》残篇在手，韩立面临改变命运的第一个岔路口。","next":null,"choices":[{"text":"按图索骥，闭关苦修炼气诀","intent":"保守","risk":"low","next":"n3","outcome_hint":"三年后炼气初期圆满，根基扎实，但寿元所剩无几，急需突破机缘。"},{"text":"剑走偏锋，借地火强行冲击经脉","intent":"激进","risk":"high","next":"n4","outcome_hint":"经脉重创，却意外打通一条隐脉，修炼速度倍增，但留下暗伤隐患。"},{"text":"上交玉简，换取管事赏识与庇护","intent":"社交","risk":"medium","next":"n5","outcome_hint":"被管事收为记名弟子，获得正规功法与资源，但玉简被宗门收走。"}],"narrative":"夜色如墨，韩立攥紧手中那枚温润玉简，指节微微泛白。青元诀的古老文字在脑海中盘旋，像一团幽火，烫得他心口发颤。杂役身份如枷锁，寻常炼气功法难有出头之日，可这残篇又是否真能逆天改命？窗外风声呜咽，他盯着玉简上流转的微光，仿佛看见两条截然不同的路在脚下铺展——一条稳扎稳打，以岁月换根基；另一条则险中求胜，借地火淬经脉。但若交出玉简，倒也能换得庇护，只是从此命运便掌于他人之手了。","index":2,"retry_count":0},{"id":"n3","type":"narrative","title":"苦修三载","summary":"韩立凭借残篇苦修三年，炼气初期圆满，但资质平庸，若无机缘筑基无望，内心焦灼。","next":"n6","narrative":"黄枫谷后山那间漏风的石屋里，你睁眼时，灰尘正从梁间簌簌落下。三年了，你靠着一卷残篇，硬生生将炼气推至初期圆满，根基扎实得连自己都意外。可掌中那粒微弱的灵气旋涡，却像一盏将尽的油灯——寿元只剩十余载，筑基遥遥无期。你攥紧拳，指节发白。下山采买丹药的灵石已所剩无几，若再无机缘，这具肉身怕是要烂在黄土里。你叹了口气，推门走向坊市，日光刺眼，集市人声嘈杂，一个披着灰袍的散修正蹲在角落，面前摆着一株蔫头耷脑的灵草种子，标价低得反常。","index":3,"retry_count":0},{"id":"n4","type":"narrative","title":"因祸得福","summary":"韩立强引地火灵气，经脉受损，却意外打通一条隐脉，修炼速度倍增，但需寻丹药压制暗伤。","next":"n6","narrative":"你强引地火灵气冲击经脉，剧痛中经脉寸寸断裂，却意外打通一条隐脉。灵气奔涌如河，修炼速度倍增，但暗伤如毒蛇潜伏，每逢阴雨便有刺痛。你亟需丹药压制隐患，听闻黄枫谷坊市偶有珍奇灵材现世，便匆匆动身前往。行至坊市，忽见一黑衣散修神色诡秘，摊前摆放一株幽光流转的奇异灵草种子，价格低得反常，引人驻足。","index":4,"retry_count":0},{"id":"n5","type":"narrative","title":"寄人篱下","summary":"韩立成为管事记名弟子，虽得正规指引，但管事刻薄，杂役繁重，修炼资源依旧匮乏。","next":"n6","narrative":"你献上玉简后，被管事收为记名弟子。虽得了正规功法指点，但管事性情刻薄，杂役繁重，修炼时间被压榨殆尽。每月发放的灵石丹药，也只够勉强维持引气。你心中暗叹，如此下去，筑基遥遥无期。这日，你终于偷得半日空闲，攥着为数不多的积蓄，打算去黄枫谷坊市碰碰运气，看能否淘到些便宜的灵药。","index":5,"retry_count":0},{"id":"n6","type":"choice","title":"坊市风云","summary":"韩立到黄枫谷坊市采购丹药，偶遇一个伪装成散修的黑衣人，以低价出售一株神秘灵草种子。","next":null,"choices":[{"text":"倾尽积蓄买下种子，回洞府尝试培育","intent":"探索","risk":"high","next":"n7","outcome_hint":"种子实为毒龙草，韩立中毒后意外发现隐脉能化解毒性，肉身强度大增，但积蓄耗尽。"},{"text":"暗中尾随黑衣人，发现其魔道身份","intent":"激进","risk":"high","next":"n8","outcome_hint":"韩立跟踪至密林，发现黑衣人竟在祭炼活人，他险被灭口，但侥幸逃生并获取一枚魔道令牌。"},{"text":"向执法堂举报黑衣人行踪","intent":"社交","risk":"medium","next":"n9","outcome_hint":"执法堂擒获黑衣人，韩立获宗门贡献点，兑换了一本低阶傀儡术入门。"}],"narrative":"你步入黄枫谷坊市，嘈杂的人声裹挟着药香扑面而来。你的心绪却沉甸甸的——三年的苦修也好，隐脉的暗伤也罢，抑或管事刻薄的嘴脸，都让那筑基的念头如鲠在喉。正当你为丹药囊中羞涩而皱眉时，一个不起眼的摊位上，黑袍散修压低声音唤你，掌心托着一枚灰扑扑的种子，说是上古灵草，只换三十块灵石。他目光闪烁，似有隐情，而你心头却莫名一动。","index":6,"retry_count":0},{"id":"n7","type":"narrative","title":"毒体淬炼","summary":"韩立借毒龙草之毒淬炼肉身，隐脉吸收毒性后气力大增，但需找到解毒丹方彻底排除残余毒素。","next":"n10","narrative":"毒龙草的剧毒如万蚁噬心，你咬牙硬撑，却发现那条因祸得福的隐脉竟如饥似渴地吞噬毒性，化作暖流淬炼筋骨，气力暴涨。毒素虽被压制，却仍有残余淤积经络，若不寻得解毒丹方，终成隐患。你摸遍空空如也的储物袋，正自苦笑，忽闻洞府外传来风声——黄枫谷外那座废弃灵脉，似有人影晃动。","index":7,"retry_count":0},{"id":"n8","type":"narrative","title":"魔踪惊魂","summary":"韩立捡到魔道令牌，发现令牌内封印着一缕魔气，可助他感知灵气波动，但也引来魔道修士的追踪。","next":"n10","narrative":"你侥幸从魔道修士手中逃脱，手中紧攥着那枚冰冷的令牌。指尖触及其上纹路时，一缕精纯魔气悄然钻入经脉，竟让你的灵觉骤然清明，方圆数丈内的灵气波动纤毫毕现。可这感应如黑夜中的烛火，恐怕已引来追踪。你强压心悸，深知黄枫谷外凶险难测，唯有尽快提升修为，才能在这杀机四伏的修真界立足。","index":8,"retry_count":0},{"id":"n9","type":"narrative","title":"傀儡入门","summary":"韩立从傀儡术入门中学会炼制低阶木傀儡，虽战力有限，但可替他承担杂役，争取更多修炼时间。","next":"n10","narrative":"执法堂的效率远超你预料，那黑衣人当夜便被擒获，你因此获得了一笔可观的宗门贡献点。你没有犹豫，用它们兑换了一本《傀儡术入门》。回到洞府，你照着玉简上的法门，用废弃的桃木削出关节，刻上符纹，竟真炼制出一具笨拙的木傀儡。它战力有限，却能替你挑水砍柴，让你从繁重的杂役中解脱出来。你终于可以心无旁骛地修炼，隐约中，你感到炼气后期的瓶颈已在松动。","index":9,"retry_count":0},{"id":"n10","type":"choice","title":"筑基之机","summary":"韩立炼气后期圆满，面临筑基瓶颈，他得知黄枫谷外有一处废弃灵脉，传闻有筑基丹残方，但凶险异常。","next":null,"choices":[{"text":"闯入废弃灵脉，搜寻筑基丹残方","intent":"探索","risk":"high","next":"n11","outcome_hint":"韩立遭遇守护妖兽，苦战重伤，但侥幸找到残方，并发现灵脉中隐藏着一口古井，井底有神秘青光。"},{"text":"留在宗门苦修，积累功勋兑换筑基丹","intent":"保守","risk":"low","next":"n12","outcome_hint":"韩立耗时五载，完成宗门任务，终于兑换到一颗下品筑基丹，但药力不足，筑基失败，经脉受损。"}],"narrative":"炼气后期圆满的你，筑基瓶颈如山横亘。洞府外传来木傀儡笨拙的劈柴声，而你体内隐脉隐隐发烫——那缕魔气在丹田盘旋，替你感知着天地灵气的每一丝波动。然而毒龙草的余毒未清，暗伤时时作痛。你听闻黄枫谷外废弃灵脉藏有筑基丹残方，但凶兽盘踞，风险莫测；若留在宗门苦修，功勋积累遥遥无期。夜风穿过窗棂，你望着掌中那枚温热的魔道令牌，心中天平两难。","index":10,"retry_count":0},{"id":"n11","type":"narrative","title":"古井奇遇","summary":"韩立以残方炼成筑基丹，成功筑基，但古井中的青光竟是一枚掌天瓶碎片，可催熟灵药，逆转时间流速。","next":"n12","narrative":"你身负重伤，却以残方炼成筑基丹，一朝筑基成功。井底青光浮起，竟是掌天瓶碎片，可催熟灵药、逆转时间流速。你将其收起，忽觉远处黄枫谷方向传来剧烈灵气波动，似有魔气冲天而起。","index":11,"retry_count":0},{"id":"n12","type":"choice","title":"命运岔路","summary":"韩立筑基成功，但黄枫谷突遭魔道宗门袭击，他必须选择如何应对这场危机。","next":null,"choices":[{"text":"留守宗门，与同门共抗魔道","intent":"社交","risk":"high","next":"n13","outcome_hint":"韩立凭借掌天瓶催熟的灵药救治伤员，并献上魔道令牌情报，助宗门击退强敌，成为内门弟子。"},{"text":"趁乱逃出宗门，独自闯荡乱星海","intent":"激进","risk":"medium","next":"n14","outcome_hint":"韩立逃离战乱，前往乱星海，在妖兽环伺中历练，寻找属于自己的机缘。"},{"text":"暗中收集魔道情报，联络散修联盟","intent":"探索","risk":"medium","next":"n15","outcome_hint":"韩立凭借魔气感知能力，潜入魔道营地窃取情报，但被发现，身负重伤，被散修联盟救走。"}],"narrative":"黄枫谷的钟声被魔气撕碎，血色染红了山门。你立于断壁残垣间，掌心那枚掌天瓶碎片微微发烫——无论是因残方筑基失败后侥幸寻得这奇物，还是早已借它催熟灵药，此刻它都在低鸣。远处魔道修士的遁光如蝗虫压境，同门的惨叫与法宝轰鸣交织。你望向三个方向：护山大阵的缺口、乱星海的迷雾、以及魔道营地后那幽深的阴影。","index":12,"retry_count":2},{"id":"n13","type":"ending","title":"宗门新星","summary":"韩立因护宗有功，成为黄枫谷核心弟子，掌天瓶碎片助他快速提升，百年后结丹，成为天南一代传奇。","next":null,"choices":[],"narrative":"夜色未褪，黄枫谷山门处硝烟尚温。你立在被魔火灼焦的断壁前，掌中青光微闪，催熟的灵药一株株交到伤者手中——那枚古井底寻来的碎片，竟成了这场血战里最沉默的援手。魔道退去后，你献上令牌情报，长老们相视而叹。当宗门论功行赏时，你被录为核心弟子，从此洞府灵气充裕，丹方无尽。百年弹指，你于青峰之巅凝成金丹，天南修士遥望那缕破晓紫气，皆言黄枫谷又多了一位传奇。","index":13,"retry_count":0},{"id":"n14","type":"ending","title":"乱星海客","summary":"韩立在乱星海杀妖夺宝，以掌天瓶催熟灵药换取资源，历经生死磨砺，结丹后纵横海域，成为一方散修大能。","next":null,"choices":[],"narrative":"你趁乱遁出黄枫谷，孤身闯入乱星海。妖兽环伺之下，你以掌天瓶碎片催熟灵药，换得伤药与法器。杀妖夺宝，尸山血海间磨砺道心，终在百年内凝结金丹。自此纵横海域，成为一方散修大能，往昔宗门之乱，已成隔世旧事。","index":14,"retry_count":0},{"id":"n15","type":"ending","title":"暗流之主","summary":"韩立加入散修联盟，凭借魔气感知与掌天瓶资源，暗中布局，逐渐掌控联盟大权，成为天南地下势力的无冕之王。","next":null,"choices":[],"narrative":"你身负重伤倒在散修联盟的竹榻上，胸口魔气感知的余韵仍在刺痛。掌天瓶碎片在怀中微微发烫，催熟一株疗伤灵药需三日，而你只有一夜。你咬牙吞下苦药，趁夜色潜入联盟密库——那里封存着所有成员的功勋卷宗。三日后，你以魔道情报为筹码，悄然替换了卷宗上的名字。当联盟长老议事时，你已站在暗处，指尖摩挲着掌天瓶，听着他们争论谁该接管天南地下商路。无人知晓，那个重伤被救的散修，早已用灵药与情报织成一张无形的网。","index":15,"retry_count":2}]},"story_20260807_080730":{"title":"网状事件（13节点：8叙事/4选择/1结局）","nodes":[{"id":"n1","type":"choice","title":"残页藏机","narrative":"你本是青云宗外门一名杂役弟子，灵根驳杂，修行三年仍徘徊在炼气三层。这日奉命清扫藏经阁顶层，在积灰的横梁夹缝中，摸到一枚温润玉简。指尖触及其上裂痕时，一道金光没入眉心，脑海中浮现出一篇残缺的《长春诀》功法，竟能逆转经脉，淬炼根基。你正惊疑间，阁外传来脚步声，是巡查的执事弟子。","choices":[{"text":"将玉简藏入袖中，若无其事地继续扫地","intent":"保守","risk":"low","next":"n2","outcome_hint":"顺利隐瞒，但保守可能错失更多线索"},{"text":"趁执事未至，翻窗跃下，直奔后山僻静处","intent":"激进","risk":"medium","next":"n3","outcome_hint":"可能暴露行踪或被巡山弟子撞见"},{"text":"原地参悟玉简，尝试引动体内真气","intent":"探索","risk":"high","next":"n4","outcome_hint":"玉简可能有禁制，贸然催动或引发异象"}],"summary":"主角在藏经阁发现神秘玉简，内含逆转根基的《长春诀》，此刻面临是否暴露行踪的抉择。","index":1,"retry_count":0},{"id":"n2","type":"narrative","title":"残页余温","narrative":"你指尖拂过玉简，一股清凉之意直透灵台。那《长春诀》中吐纳法门竟自行运转，一股微弱的暖流在经脉中流转。你心中震惊：这功法竟能自行引导炼气期修士的灵力运转，且如此温和纯正。不远处传来执事弟子说话声，你下意识地将玉简收入袖中。手中那半卷残页尚有余温，你心知这玉简绝非凡物，一旦暴露，以你炼气初期的修为，恐怕连自保都难。夜色渐浓，藏书阁的烛火在风中摇曳。","next":"n3","summary":"主角在藏书阁中私下参悟了《长春诀》，感受到其非凡功效，但担心暴露，暂时藏起玉简，暗中决定下一步行动。","index":2,"retry_count":0},{"id":"n3","type":"choice","title":"夜探后山","narrative":"夜色如墨，你借着月光悄然来到后山。此处人迹罕至，灵脉微弱，正是修炼《长春诀》的绝佳之地。你盘膝坐在一块青石上，翻开玉简，那古朴的文字仿佛活了过来，化作一道道金色符文流转入你体内。你感到丹田中那缕若有若无的真气，竟在蠢蠢欲动。然而，后山深处突然传来一声低沉的兽吼，打断了你的参悟。你知道，此地不宜久留，但《长春诀》的奥秘又让你难以割舍。","choices":[{"text":"寻一处更隐蔽的山洞，继续参悟玉简","intent":"探索","risk":"medium","next":"n4","outcome_hint":"深入后山，可能发现隐蔽灵穴，但也可能遭遇妖兽。"},{"text":"暂且收好玉简，明日再来，先摸清后山情况","intent":"保守","risk":"low","next":"n5","outcome_hint":"稳妥行事，但进度会变慢，可能错失良机。"},{"text":"循着兽吼方向查探，或许有意外发现","intent":"激进","risk":"high","next":"n6","outcome_hint":"可能发现妖兽巢穴中的宝物，但也可能身陷险境。"}],"summary":"主角在后山初次参悟《长春诀》，因兽吼被打断，面临继续参悟、暂避风头或冒险探兽三难抉择。","index":3,"retry_count":0},{"id":"n4","type":"narrative","title":"兽吼余音","narrative":"你循着那声兽吼，拨开茂密的灌木，眼前豁然开朗——一头通体漆黑的巨蟒正缠绕着一株古树，树根处隐约可见一株泛着微光的灵草。你屏住呼吸，心跳如鼓。这畜生至少相当于炼气后期的实力，而你不过初入炼气。但灵草近在咫尺，错过便再无机会。","next":"n5","summary":"主角在后山发现黑蟒与守护的灵草，面临是否冒险抢夺的抉择，但本章暂不展开选择，直接推进到下一节点。","index":4,"retry_count":0},{"id":"n5","type":"choice","title":"夺灵之争","narrative":"夜色如墨，你伏在灌木后，屏息凝视前方。一条碗口粗的黑蟒盘踞在崖壁凹处，身下护着一株泛着淡蓝幽光的灵草——正是《长春诀》中记载的‘凝魂草’。黑蟒吐着信子，似乎察觉到了什么。你握紧袖中的玉简，心跳如鼓。是悄然退去，还是放手一搏？","choices":[{"text":"悄然退去，记下方位，日后再来","intent":"保守","risk":"low","next":"n6","outcome_hint":"你安全撤离，但黑蟒可能挪窝，凝魂草或失之交臂。"},{"text":"掷石引蛇，趁机采药","intent":"探索","risk":"medium","next":"n7","outcome_hint":"你引开黑蟒，但可能被回援的黑蟒堵住退路。"},{"text":"运转长春诀，凝气成刃，正面搏杀","intent":"激进","risk":"high","next":"n8","outcome_hint":"若胜，你将独得灵草，但可能重伤或惊动他人。"}],"summary":"主角在后山发现黑蟒守护的凝魂草，面临退走、智取、强夺三个选择。","index":5,"retry_count":0},{"id":"n6","type":"narrative","title":"暗影蛰伏","narrative":"你悄然退去，将身形隐入灌木丛中，回望那黑蟒仍盘踞灵草旁，吐着信子。你记下此处方位，心中暗忖：时机未至，不可鲁莽。回到藏身地，你取出《长春诀》玉简，指尖摩挲其温润表面，感受其中流转的奇异气息，似乎有一丝微不可察的生机正缓缓融入你的经脉。你知道，这宝物或许是你唯一的依仗，但前路凶险，必须步步为营。夜色渐浓，你决定先稳固自身修为，待实力精进后再来谋取此草。","next":"n8","summary":"主角选择退走，记下灵草位置，继续参悟长春诀，准备提升实力后再来。","index":6,"retry_count":0},{"id":"n7","type":"choice","title":"灵草之争","narrative":"你屏息凝神，从地上拾起一枚石子，运足力气朝黑蟒右侧的灌木掷去。石子划破空气，‘啪’地落在草丛中，惊起一阵窸窣。黑蟒猛地昂起头颅，猩红的信子吞吐不定，缓缓朝声响处游去。你抓住这转瞬即逝的时机，身形如电般扑向凝魂草，指尖即将触到那幽蓝的草叶——","choices":[{"text":"一把扯下凝魂草，转身便逃","intent":"激进","risk":"high","next":"n8","outcome_hint":"采到灵草，但惊动黑蟒，遭到追击"},{"text":"谨慎地将整株连根挖出，再退走","intent":"保守","risk":"medium","next":"n8","outcome_hint":"动作稍慢，黑蟒可能提前回身"},{"text":"放弃采药，趁黑蟒未归，悄悄撤离","intent":"保守","risk":"low","next":"n8","outcome_hint":"安全退走，但一无所获"}],"summary":"主角用调虎离山之计引开黑蟒，现在面临采药方式的选择：速采速逃、连根挖掘或放弃撤离。","index":7,"retry_count":2},{"id":"n8","type":"narrative","title":"蛇口余香","narrative":"你终究得手了，哪怕只是几缕草叶。凝魂草特有的阴寒气息顺着经脉游走，与长春诀的生机纠缠，激得你丹田一阵刺痛。远处的黑蟒嘶吼渐近，你顾不得细究，将残叶含入口中，拔腿便往山下奔去。夜风灌满衣袖，体内那股混杂的真气却愈发躁动，仿佛有什么东西正在破土而出。你知道，今夜之后，一切都将不同。","next":"n9","summary":"主角成功获得凝魂草（部分或全部），体内长春诀与灵草之力产生初次冲突，修为开始出现异变，为后续突破与危险埋下伏笔。","index":8,"retry_count":0},{"id":"n9","type":"narrative","title":"灵草淬体","narrative":"你将凝魂草吞入腹中，一股阴寒之气瞬间冲入经脉，与长春诀的温和灵力激烈碰撞。剧痛中，你惊讶地发现，两股力量竟在丹田处缓缓交融，形成一道奇异的漩涡。你连忙盘膝打坐，引导灵力运转，却发现修为竟在不知不觉中突破至炼气期初期巅峰，距离中期只差一线。然而，你隐约感到体内多了一丝说不清道不明的气息，似有隐患潜藏。","next":"n10","summary":"主角吞服凝魂草后，长春诀灵力与灵草之力冲突融合，修为提升至炼气初期巅峰，但体内留下未知隐患。","index":9,"retry_count":0},{"id":"n10","type":"narrative","title":"暗伤初显","narrative":"凝魂草的灵力在丹田中盘旋，与长春诀的绿芒纠缠不休，如同冰火交击。你只觉经脉胀痛，修为虽被强行催升至炼气初期巅峰，但那股外来之力并未完全驯服，反而沉入丹田深处，化作一丝若有若无的阴寒。你想起玉简中曾提过“凝魂”二字，此草淬体之功虽强，却似乎暗藏某种隐患。夜色渐深，远处的兽吼已然平息，后山重归寂静，但你知道，这具身体里已经埋下了一颗不确定的种子。","next":"n11","summary":"主角吞服凝魂草后成功晋级炼气初期巅峰，但体内留下阴寒隐患，为后续冲突与寻找解决方法埋下伏笔，下一节点应围绕如何应对暗伤或尝试新的机缘展开。","index":10,"retry_count":0},{"id":"n11","type":"narrative","title":"寒毒入体","narrative":"你盘坐洞中，感受着凝魂草带来的灵力在经脉中奔涌，修为稳固在炼气初期巅峰。然而，一股刺骨的寒意正沿着丹田悄然蔓延，每运转一次长春诀，那阴寒便深一分。你猛地睁开眼，呼出的气息竟凝成白霜，暗伤已成，若不设法化解，恐怕会侵蚀根基。","next":"n12","summary":"主角修为提升至炼气初期巅峰，但体内留下凝魂草带来的寒毒暗伤，急需寻找化解之法，为后续探索新机缘埋下伏笔。","index":11,"retry_count":0},{"id":"n12","type":"narrative","title":"寒毒夜行","narrative":"夜半时分，你盘坐于榻上，丹田深处那缕寒毒如针扎般刺痛经脉。窗外忽有风声异动，你警觉地探出神识，却见一只通体漆黑的灵鸦掠过屋檐，爪间衔着一枚玉简，径直落在你窗前。它赤红的眼瞳凝望你片刻，留下玉简便振翅没入夜色。你拾起玉简，神识浸入，赫然发现竟是关于陨灵渊深处‘地火寒潭’的记载——传闻潭中地火与寒气共存，正是化解阴寒暗伤的绝佳机缘。","next":"n13","summary":"主角在寒毒困扰之际，得到神秘灵鸦送来的地火寒潭线索，指引其前往陨灵渊寻找化解暗伤的机缘。","index":12,"retry_count":0},{"id":"n13","type":"ending","title":"地火燎原","narrative":"你循着灵鸦指引，在陨灵渊边缘寻到那处地火寒潭。潭水冰寒刺骨，地底热浪却翻涌而上。你盘坐潭边，以长春诀引导寒热二气冲刷经脉，体内阴毒竟被缓缓炼化。七日之后，你修为稳固，寒毒尽祛，长春诀也因这冰火淬炼更上一层。你展开掌心，那枚神秘玉简隐隐发烫，仿佛在无声宣告——这逆天之路，才刚刚开始。","summary":"主角在地火寒潭化解寒毒，修为精进，长春诀更上层楼，神秘玉简的隐秘初露端倪，逆天之路正式启程。","index":13,"retry_count":0}]}};
+let DATA = null;
+const TLABEL = { narrative:'叙事', choice:'选择', ending:'结局' };
+const ACTION_ICON = { battle:'⚔', move:'🚶', reward:'🎁', dialog:'💬' };
+
+// ===== 加载 =====
+document.getElementById('btn').onclick = go;
+document.getElementById('q').onkeydown = e => { if(e.key==='Enter') go(); };
+
+function go(){
+  const q = document.getElementById('q').value.trim();
+  if(!q) return;
+  try { history.replaceState({},'', new URL(location).href.split('?')[0] + '?query=' + encodeURIComponent(q)); } catch(e) {}
+  if(STORY_DB[q]){
+    DATA = STORY_DB[q];
+    draw();
+    return;
+  }
+  fetch('output/' + q + '.json')
+    .then(r => { if(!r.ok) throw 0; return r.json(); })
+    .then(d => { DATA = d; draw(); })
+    .catch(() => {
+      const s = document.createElement('script');
+      s.src = 'output/' + q + '.js';
+      s.onload = () => {
+        if(window.__STORY_DATA__){ DATA = window.__STORY_DATA__; draw(); }
+      };
+      s.onerror = () => { document.getElementById('info').textContent = '未找到：' + q; };
+      document.head.appendChild(s);
+    });
+}
+(function(){
+  const q = new URLSearchParams(location.search).get('query');
+  if(q){ document.getElementById('q').value = q; go(); }
+})();
+
+// ===== 分层布局（BFS，孤立节点放到最后） =====
+function layout(nodes){
+  const ids = new Set(nodes.map(n => n.id));
+  const adj = {};
+  nodes.forEach(n => {
+    adj[n.id] = [];
+    if(n.next && ids.has(n.next)) adj[n.id].push(n.next);
+    (n.choices||[]).forEach(c => { const t = c.next || c.goto; if(t && ids.has(t)) adj[n.id].push(t); });
+  });
+  const lv = {};
+  const queue = [{ id:nodes[0].id, l:0 }];
+  while(queue.length){
+    const { id, l } = queue.shift();
+    if(id in lv) continue;
+    lv[id] = l;
+    (adj[id]||[]).forEach(nid => { if(!(nid in lv)) queue.push({ id:nid, l:l+1 }); });
+  }
+  let maxL = Math.max(0, ...Object.values(lv));
+  nodes.forEach(n => { if(!(n.id in lv)) lv[n.id] = ++maxL; });
+  return lv;
+}
+
+// ===== 绘制 =====
+function actionBadge(a){
+  if(!a || !a.kind) return '';
+  const icon = ACTION_ICON[a.kind] || '◆';
+  let label = a.kind;
+  if(a.kind === 'battle' && a.mob_name) label = a.mob_name;
+  if(a.kind === 'move' && a.target_map) label = '前往'+a.target_map;
+  return `<span class="action-badge" data-kind="${a.kind}" title="${esc(JSON.stringify(a))}">${icon} ${esc(label)}</span>`;
+}
+
+function makeNode(n){
+  const el = document.createElement('div');
+  el.className = 'node';
+  el.dataset.id = n.id;
+  const body = n.narrative || n.text || '';
+  const head =
+    `<div class="head">
+       <span class="tag ${n.type}">${TLABEL[n.type]||n.type}</span>
+       <span class="id">${n.id}</span>
+     </div>`;
+  const text = `<div class="title">${esc(n.title||'')}</div>
+                <div class="text">${esc(body)}</div>`;
+  let chips = '';
+  if(n.choices && n.choices.length){
+    chips = '<div class="chips">' + n.choices.map(c => {
+      const nxt = c.next || c.goto || '?';
+      const badge = actionBadge(c.action);
+      return `<div class="chip">→ ${esc(c.text||'')} <b>${esc(nxt)}</b> ${badge}</div>`;
+    }).join('') + '</div>';
+  }
+  // narrative 节点的连接动作
+  const nextBadge = n.action ? '<div class="nxt-badge">' + actionBadge(n.action) + '</div>' : '';
+  el.innerHTML = head + text + chips + nextBadge;
+  el.onclick = () => showDetail(n);
+  return el;
+}
+
+function draw(){
+  const nodes = (DATA.nodes||[]).slice().sort((a,b) => (a.index||0)-(b.index||0));
+  const lv = layout(nodes);
+  const info = document.getElementById('info');
+  const ct = { narrative:0, choice:0, ending:0 };
+  nodes.forEach(n => ct[n.type] = (ct[n.type]||0)+1);
+  info.textContent = `${nodes.length} 节点 · 叙事 ${ct.narrative||0} · 选择 ${ct.choice||0} · 结局 ${ct.ending||0}`;
+
+  const canvas = document.getElementById('canvas');
+  const layersEl = document.getElementById('layers');
+  layersEl.innerHTML = '';
+
+  // 按层分组，层内按节点顺序
+  const groups = {};
+  nodes.forEach(n => { const l = lv[n.id]; (groups[l] = groups[l]||[]).push(n); });
+  Object.keys(groups).sort((a,b)=>+a-+b).forEach(l => {
+    const col = document.createElement('div');
+    col.className = 'layer';
+    groups[l].forEach(n => col.appendChild(makeNode(n)));
+    layersEl.appendChild(col);
+  });
+
+  drawEdges(nodes);
+}
+
+// ===== 连线：按 DOM 实际坐标 =====
+function drawEdges(nodes){
+  const svg = document.getElementById('svg');
+  const canvas = document.getElementById('canvas');
+  svg.innerHTML = '';
+  // 箭头定义
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  [['arrow-n','#5b8def'],['arrow-c','#e94f64']].forEach(([id,color]) => {
+    const m = document.createElementNS('http://www.w3.org/2000/svg','marker');
+    m.setAttribute('id',id); m.setAttribute('markerWidth','8'); m.setAttribute('markerHeight','8');
+    m.setAttribute('refX','7'); m.setAttribute('refY','4'); m.setAttribute('orient','auto');
+    const p = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    p.setAttribute('points','0 0, 8 4, 0 8'); p.setAttribute('fill',color);
+    m.appendChild(p); defs.appendChild(m);
+  });
+  svg.appendChild(defs);
+
+  const pos = {};
+  document.querySelectorAll('#layers .node').forEach(el => {
+    pos[el.dataset.id] = {
+      x: el.offsetLeft, y: el.offsetTop,
+      w: el.offsetWidth, h: el.offsetHeight
+    };
+  });
+
+  nodes.forEach(n => {
+    const p = pos[n.id]; if(!p) return;
+    if(n.next && pos[n.next]) addEdge(svg, p, pos[n.next], 'arrow-n', '#5b8def', false);
+    (n.choices||[]).forEach(c => {
+      const t = c.next || c.goto;
+      if(t && pos[t]) addEdge(svg, p, pos[t], 'arrow-c', '#e94f64', true);
+    });
+  });
+
+  // SVG 尺寸撑到画布实际大小
+  svg.setAttribute('width', canvas.scrollWidth);
+  svg.setAttribute('height', canvas.scrollHeight);
+}
+
+function addEdge(svg, p1, p2, marker, color, dashed){
+  const x1 = p1.x + p1.w, y1 = p1.y + p1.h/2;   // 起点：右边中点
+  const x2 = p2.x,         y2 = p2.y + p2.h/2;  // 终点：左边中点
+  const dx = Math.max(40, (x2-x1)*0.4);
+  const d = `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`;
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d', d);
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', '1.6');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('marker-end', `url(#${marker})`);
+  if(dashed) path.setAttribute('stroke-dasharray', '6,4');
+  svg.appendChild(path);
+}
+
+// ===== 详情 =====
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function showDetail(n){
+  const body = document.getElementById('d-body');
+  const tagColor = n.type==='choice' ? '#e94f64' : n.type==='ending' ? '#3fb950' : '#5b8def';
+  let html =
+    `<div class="d-tagline"><span class="tag ${n.type}" style="color:${tagColor};border-color:${tagColor}66;background:${tagColor}22">${TLABEL[n.type]||n.type}</span> <span style="font-size:12px;color:#7a849c">${n.id}</span></div>
+     <div class="d-text">${esc(n.narrative||n.text||'')}</div>`;
+  if(n.choices && n.choices.length){
+    html += '<div class="d-sec">选择分支</div>';
+    n.choices.forEach(c => {
+      const nxt = c.next || c.goto;
+      html += `<div class="d-choice">
+        <div class="dc-t">${esc(c.text||'')} ${actionBadge(c.action)}</div>
+        <div class="dc-m">
+          ${c.intent ? '意图：'+esc(c.intent)+'　' : ''}
+          ${c.risk ? '风险：'+esc(c.risk) : ''}
+          ${nxt ? '　→ '+esc(nxt) : ''}
+          ${c.outcome_hint ? '<br>预期：'+esc(c.outcome_hint) : ''}
+        </div>
+      </div>`;
+    });
+  }
+  const nxt = n.next || n.goto;
+  if(nxt && nxt !== 'null') html += '<div class="d-sec">后续</div><div class="d-next">→ ' + esc(nxt) + ' ' + actionBadge(n.action) + '</div>';
+  if(n.summary) html += '<div class="d-sec">摘要</div><div class="d-summary">' + esc(n.summary) + '</div>';
+  body.innerHTML = html;
+  document.getElementById('detail').classList.add('show');
+}
+</script>
+</body>
+</html>

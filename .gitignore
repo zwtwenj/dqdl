@@ -39,3 +39,9 @@ _*.py
 dqdl-web/public/image/image_*.png
 
 logs
+
+# 小说源文件（大文件，不入库，clone 后自行放置）
+dqdl_writer/*.txt
+
+# dqdl_writer 生成产物
+dqdl_writer/output/

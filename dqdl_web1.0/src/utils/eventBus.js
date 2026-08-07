@@ -87,6 +87,10 @@ export const BusEvents = {
    *  由 SSE script_trigger handler 调完 getScriptNode 接口后 emit，
    *  携带完整节点数据（lines/choices/actors 等），SceneBranchDialog 接收并渲染演出。 */
   SCRIPT_NODE_READY: 'script-node-ready',
+  /** 故事事件节点就绪：{ event }
+   *  进入游戏/页面刷新时调 getCurrentStoryEvent 拿到进行中的事件后 emit，
+   *  携带事件完整数据（title/current_node/node/action 等），StoryPlayer 接收并渲染演出。 */
+  STORY_EVENT_READY: 'story-event-ready',
   /** 打开移动弹窗：无载荷。
    *  玩家状态栏点击「移动中」时触发，mapView 监听后恢复显示移动中弹窗。 */
   MOVE_DIALOG_OPEN: 'move-dialog-open',

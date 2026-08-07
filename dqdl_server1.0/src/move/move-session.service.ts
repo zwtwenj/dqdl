@@ -7,6 +7,7 @@ import { LocationNet } from '../location_net/location-net.entity';
 import { Biz } from '../common/biz.exception';
 import { PLAYER_STATUS, levelAttrBonus } from '../player/player.service';
 import { ScriptSseService } from '../script/script-sse.service';
+import { SseEvents } from '../script/sse-events';
 
 /** 移动距离常量（里），对齐 location-net.service 里的硬编码 70 */
 export const MOVE_DISTANCE = 70;
@@ -186,7 +187,7 @@ export class MoveSessionService {
       player.status = PLAYER_STATUS.IDLE;
       await this.playerRepo.save(player);
       await this.repo.save(session);
-      this.sse.push(playerId, 'move_finished', { to_net_id: arrivedNode.id, to_name: arrivedNode.name });
+      this.sse.push(playerId, SseEvents.MOVE_FINISHED, { to_net_id: arrivedNode.id, to_name: arrivedNode.name });
       this.logger.log(`玩家 ${playerId} 抵达终点 ${arrivedNode.name}(${arrivedNode.id})，移动结束`);
       return { session: this.withParsedLine(session), finished: true };
     }
@@ -195,7 +196,7 @@ export class MoveSessionService {
     session.end_at = new Date(segments[session.current_seg].endTime);
     await this.playerRepo.save(player);
     await this.repo.save(session);
-    this.sse.push(playerId, 'move_arrived', { to_net_id: arrivedNode.id, to_name: arrivedNode.name });
+    this.sse.push(playerId, SseEvents.MOVE_ARRIVED, { to_net_id: arrivedNode.id, to_name: arrivedNode.name });
     this.logger.log(`玩家 ${playerId} 到达 ${arrivedNode.name}(${arrivedNode.id})，继续第 ${session.current_seg + 1}/${segments.length} 段`);
     return { session: this.withParsedLine(session), finished: false };
   }
@@ -244,7 +245,7 @@ export class MoveSessionService {
     session.status = 'finished';
     await this.repo.save(session);
 
-    this.sse.push(playerId, 'move_cancelled', { stop_net_id: session.current_net_id });
+    this.sse.push(playerId, SseEvents.MOVE_CANCELLED, { stop_net_id: session.current_net_id });
     this.logger.log(`玩家 ${playerId} 取消移动，停留在 ${session.current_net_id}`);
   }
 

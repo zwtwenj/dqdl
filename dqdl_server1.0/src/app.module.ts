@@ -30,6 +30,7 @@ import { MapDemoModule } from './mapdemo/mapdemo.module';
 import { LocationNetModule } from './location_net/location-net.module';
 import { TaskModule } from './task/task.module';
 import { ScriptModule } from './script/script.module';
+import { StoryModule } from './story/story.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -80,6 +81,7 @@ import { AppController } from './app.controller';
     LocationNetModule,
     TaskModule,
     ScriptModule,
+    StoryModule,
   ],
   controllers: [AppController],
 })

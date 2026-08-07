@@ -6,6 +6,7 @@ import { LocationNetService } from '../location_net/location-net.service';
 import { MobService } from '../mob/mob.service';
 import { AgentService } from '../agent/agent.service';
 import { ScriptSseService } from '../script/script-sse.service';
+import { SseEvents } from '../script/sse-events';
 import { Biz } from '../common/biz.exception';
 import { TASK } from '../config/game.config';
 
@@ -73,7 +74,7 @@ export class TaskService {
   /** 推送 task_update 事件，前端收到后重新拉任务列表。
    *  触发点：击杀计数命中 / 接受任务 / 放弃任务。无连接时静默丢弃。 */
   private notifyTaskUpdate(playerId: number): void {
-    this.sse.push(Number(playerId), 'task_update', { player_id: Number(playerId) });
+    this.sse.push(Number(playerId), SseEvents.TASK_UPDATE, { player_id: Number(playerId) });
   }
 
   // ---------- 佣兵任务生成 ----------

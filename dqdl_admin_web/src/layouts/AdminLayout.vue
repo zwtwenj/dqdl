@@ -12,6 +12,7 @@ const menus = [
   { index: '/agent-log', title: '调用明细', icon: '📋' },
   { index: '/agent-dialog', title: '对话明细', icon: '💬' },
   { index: '/db', title: '数据库浏览', icon: '🗄️' },
+  { index: '/events', title: '事件管理', icon: '📜' },
 ]
 
 function onMenu(index) {

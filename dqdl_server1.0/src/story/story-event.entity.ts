@@ -39,6 +39,12 @@ export class StoryEvent {
   @Column({ type: 'json' })
   nodes: any;
 
+  @Column({ type: 'json', nullable: true })
+  trigger_config: any; // 事件触发配置 { trigger, params, probability }（配置页 EventTriggers 输出）
+
+  @Column({ type: 'json', nullable: true })
+  connect_configs: any; // 连线配置 { "src->tgt": { event, task } }（配置页连线事件输出）
+
   @Column({ type: 'int', default: 0 })
   endings_count: number;
 

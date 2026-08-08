@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { AgentLogModule } from './agent-log/agent-log.module';
 import { DbViewerModule } from './db-viewer/db-viewer.module';
+import { EventManagementModule } from './event-management/event-management.module';
 
 /**
  * 管理平台后端根模块。
@@ -35,6 +36,7 @@ import { DbViewerModule } from './db-viewer/db-viewer.module';
     AuthModule,
     AgentLogModule,
     DbViewerModule,
+    EventManagementModule,
   ],
 })
 export class AppModule {}

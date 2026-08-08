@@ -13,6 +13,8 @@ const routes = [
       { path: 'agent-log', name: 'agent-log', component: () => import('../views/AgentLog.vue'), meta: { title: '调用明细' } },
       { path: 'agent-dialog', name: 'agent-dialog', component: () => import('../views/AgentDialog.vue'), meta: { title: '对话明细' } },
       { path: 'db', name: 'db', component: () => import('../views/DbViewer.vue'), meta: { title: '数据库浏览' } },
+      { path: 'events', name: 'events', component: () => import('../views/EventManage.vue'), meta: { title: '事件管理' } },
+      { path: 'events/:id', name: 'event-detail', component: () => import('../views/EventDetail.vue'), meta: { title: '事件详情' } },
     ],
   },
 ]

@@ -14,6 +14,7 @@ import { ScriptModule } from '../script/script.module';
  * MoveSessionService 对外 export，供 pending_states / game.service 恢复用。
  * 引入 ScriptModule 是为了用 ScriptSseService（通用 SSE 推送通道）：
  * 玩家到达目的地时推送 move_arrived 事件给前端。
+ * 到达新地图时 emit 'enter_map' 钩子（SCRIPT_HOOK_EVENT），由 story/script 触发服务监听。
  */
 @Module({
   imports: [

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MoveSession } from './move-session.entity';
@@ -8,6 +9,7 @@ import { Biz } from '../common/biz.exception';
 import { PLAYER_STATUS, levelAttrBonus } from '../player/player.service';
 import { ScriptSseService } from '../script/script-sse.service';
 import { SseEvents } from '../script/sse-events';
+import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
 
 /** 移动距离常量（里），对齐 location-net.service 里的硬编码 70 */
 export const MOVE_DISTANCE = 70;
@@ -34,6 +36,7 @@ export class MoveSessionService {
     @InjectRepository(LocationNet)
     private readonly netRepo: Repository<LocationNet>,
     private readonly sse: ScriptSseService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /** 返回 session 给前端时调用：把 line 从 JSON 字符串解析成数组对象，便于前端直接用。 */
@@ -176,6 +179,7 @@ export class MoveSessionService {
     if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
     player.location_id = arrivedNode.id;
     player.scene_id = null;
+    const net = await this.netRepo.findOneBy({ id: arrivedNode.id });
 
     session.current_net_id = arrivedNode.id;
     session.current_seg += 1;
@@ -185,20 +189,39 @@ export class MoveSessionService {
       // 走完全程
       session.status = 'finished';
       player.status = PLAYER_STATUS.IDLE;
-      await this.playerRepo.save(player);
-      await this.repo.save(session);
-      this.sse.push(playerId, SseEvents.MOVE_FINISHED, { to_net_id: arrivedNode.id, to_name: arrivedNode.name });
-      this.logger.log(`玩家 ${playerId} 抵达终点 ${arrivedNode.name}(${arrivedNode.id})，移动结束`);
-      return { session: this.withParsedLine(session), finished: true };
+    } else {
+      // 还有下一段：end_at 更新为下一段 endTime（时间已在 line 里算好，直接读）
+      session.end_at = new Date(segments[session.current_seg].endTime);
     }
-
-    // 还有下一段：end_at 更新为下一段 endTime（时间已在 line 里算好，直接读）
-    session.end_at = new Date(segments[session.current_seg].endTime);
     await this.playerRepo.save(player);
     await this.repo.save(session);
-    this.sse.push(playerId, SseEvents.MOVE_ARRIVED, { to_net_id: arrivedNode.id, to_name: arrivedNode.name });
-    this.logger.log(`玩家 ${playerId} 到达 ${arrivedNode.name}(${arrivedNode.id})，继续第 ${session.current_seg + 1}/${segments.length} 段`);
-    return { session: this.withParsedLine(session), finished: false };
+
+    if (isLast) {
+      this.sse.push(playerId, SseEvents.MOVE_FINISHED, { to_net_id: arrivedNode.id, to_name: arrivedNode.name });
+      this.logger.log(`玩家 ${playerId} 抵达终点 ${arrivedNode.name}(${arrivedNode.id})，移动结束`);
+    } else {
+      this.sse.push(playerId, SseEvents.MOVE_ARRIVED, { to_net_id: arrivedNode.id, to_name: arrivedNode.name });
+      this.logger.log(`玩家 ${playerId} 到达 ${arrivedNode.name}(${arrivedNode.id})，继续第 ${session.current_seg + 1}/${segments.length} 段`);
+    }
+
+    // 进入地图钩子：emit 事件总线（fire-and-forget），story/script 触发服务监听。
+    // 传递玩家信息 + 地图信息两项参数（story-trigger 的 enter_map 函数签名）。
+    // 此时玩家状态已结算（终点=IDLE / 途经=MOVING），与实例 from_status 语义一致。
+    if (net) {
+      this.eventEmitter.emit(SCRIPT_HOOK_EVENT, {
+        hook: 'enter_map',
+        playerId,
+        context: [
+          {
+            type: 'player',
+            data: { id: player.id, level: player.level, money: player.money, status: player.status },
+          },
+          { type: 'location_net', data: { id: net.id, name: net.name, loc_type: net.loc_type } },
+        ],
+      });
+    }
+
+    return { session: this.withParsedLine(session), finished: isLast };
   }
 
   /** 解析 line（段结构 JSON）为数组，异常返回 [] */

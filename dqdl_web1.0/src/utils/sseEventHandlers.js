@@ -11,6 +11,7 @@
  */
 import { bus, BusEvents } from './eventBus'
 import { getScriptNode } from '../api/script'
+import { getCurrentStoryEvent } from '../api/story'
 
 const sseHandlers = {
   /**
@@ -52,6 +53,23 @@ const sseHandlers = {
       to_net_id: data?.to_net_id,
       to_name: data?.to_name,
     })
+  },
+
+  /**
+   * 故事事件触发：进入地图等游戏钩子命中后，后端建实例并推送（data 含 event_id/instance_id）。
+   * 拉取当前进行中事件（/api/story/current）→ emit STORY_EVENT_READY，storyPlayer 弹窗渲染。
+   */
+  story_event: async (data) => {
+    try {
+      const { event } = await getCurrentStoryEvent()
+      if (event) {
+        bus.emit(BusEvents.STORY_EVENT_READY, { event })
+      } else {
+        console.warn('story_event 推送但未查到进行中事件', data)
+      }
+    } catch (err) {
+      console.error('获取故事事件失败：', err)
+    }
   },
 
   /** 移动被取消：emit PLAYER_MOVE_CANCELLED，mapView 关弹窗 + 刷新到停留点。 */

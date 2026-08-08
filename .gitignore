@@ -34,6 +34,9 @@ npm-debug.log*
 _*.js
 _*.py
 
+# 浏览器自动化测试截图（证据产物，不入库）
+gui-test-screenshots/
+
 # 丹炉抠图备份与原始上传（中间文件，不入库）
 *_orig.png
 dqdl-web/public/image/image_*.png

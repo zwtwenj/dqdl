@@ -18,7 +18,6 @@
  */
 import { ref, onMounted, onUnmounted } from 'vue'
 import Dlg from '@/components1/dlg.vue'
-import Button from '@/components1/button.vue'
 import { bus, BusEvents } from '@/utils/eventBus'
 import { advanceStory } from '@/api/story'
 
@@ -132,26 +131,26 @@ onUnmounted(() => {
         </template>
       </div>
 
-      <!-- 底部：任务等待 → 「知道了」；choice 节点 → 选项按钮；否则「继续」 -->
+      <!-- 底部：任务等待 → 「知道了」；choice 节点 → 选项文字；否则「继续」 -->
       <div class="sp-options">
-        <Button
+        <span
           v-if="isTaskPending()"
           class="sp-option sp-continue"
           @click="onClose"
-        >知道了</Button>
+        >知道了</span>
         <template v-else-if="isChoice()">
-          <Button
+          <span
             v-for="(opt, idx) in currentNode.choices"
             :key="idx"
             class="sp-option"
             @click="onChoose(opt)"
-          >{{ opt.text }}</Button>
+          >{{ opt.text }}</span>
         </template>
-        <Button
+        <span
           v-else
           class="sp-option sp-continue"
           @click="onContinue"
-        >{{ loading ? '推进中…' : '继续' }}</Button>
+        >{{ loading ? '推进中…' : '继续' }}</span>
       </div>
     </div>
   </Dlg>
@@ -195,24 +194,24 @@ onUnmounted(() => {
   gap: 8px;
   padding-top: 10px;
   border-top: 1px dashed #c8b89a;
+}
 
-  /* 选项按钮：下划线文字形式（覆盖 Button 图片背景） */
-  :deep(.dqdl-button) {
-    background: none;
-    width: auto;
-    height: auto;
-    line-height: 1.8;
-    padding: 0 4px;
-    color: #6b4423;
-    text-decoration: underline;
-    text-underline-offset: 4px;
-    text-decoration-color: #b89a70;
-  }
-  :deep(.dqdl-button:hover) {
-    background: none;
-    color: var(--accent-hover, #c0392b);
-    text-decoration-color: currentColor;
-  }
+/* 选项文字：下划线形式（此处不用 Button 组件，Button 图片背景在此处不合适） */
+.sp-option {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b4423;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: #b89a70;
+}
+.sp-option:hover {
+  color: #c0392b;
+  text-decoration-color: currentColor;
 }
 .sp-continue {
   opacity: 0.85;

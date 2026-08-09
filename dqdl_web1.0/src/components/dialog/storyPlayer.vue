@@ -195,6 +195,24 @@ onUnmounted(() => {
   gap: 8px;
   padding-top: 10px;
   border-top: 1px dashed #c8b89a;
+
+  /* 选项按钮：下划线文字形式（覆盖 Button 图片背景） */
+  :deep(.dqdl-button) {
+    background: none;
+    width: auto;
+    height: auto;
+    line-height: 1.8;
+    padding: 0 4px;
+    color: #6b4423;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: #b89a70;
+  }
+  :deep(.dqdl-button:hover) {
+    background: none;
+    color: var(--accent-hover, #c0392b);
+    text-decoration-color: currentColor;
+  }
 }
 .sp-continue {
   opacity: 0.85;

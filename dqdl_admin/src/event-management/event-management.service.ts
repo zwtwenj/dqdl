@@ -100,6 +100,10 @@ export class EventManagementService {
     const rows = toRows(res);
     if (!rows.length) return { ok: false, msg: '事件不存在' };
 
+    // 任务目标校验：丢弃未配置完整的目标项（type 为空），避免脏数据落库/运行时解析异常
+    const targets: any[] = (config?.task?.target || []).filter((t) => t && t.type);
+    if (config?.task) config.task.target = targets;
+
     // 任务奖励校验：只保留已配置的奖励项（没选类型或缺少必要字段的丢弃），
     // item 奖励必须存在于 item 表（item_id 是全局唯一ID，前端手输），
     // 校验通过则自动回填物品名（item_name 供任务展示用）。

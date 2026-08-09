@@ -26,9 +26,10 @@ const rewardOptions = [
 ]
 
 const defaultConfig = () => ({ taskTitle: '', description: '', target: [], reward: [] })
-// 兼容旧结构：父值可能是早期保存的配置（缺 reward/target 字段），逐字段兜底补默认值
+// 兼容旧结构 + 防引用污染：深拷贝父值（本地编辑不就地改写父组件数据），
+// 并对缺 target/reward 字段的旧配置逐字段兜底补默认值。
 const clone = (v) => {
-    const src = v && typeof v === 'object' ? v : {}
+    const src = v && typeof v === 'object' ? JSON.parse(JSON.stringify(v)) : {}
     return {
         taskTitle: src.taskTitle ?? '',
         description: src.description ?? '',
@@ -113,32 +114,33 @@ const changeRewardType = (value, reward) => {
     }
 }
 
-/** 删除目标条目（右上角 ×，二次确认） */
-const removeTarget = (index) => {
-    const item = taskConfig.value.target[index]
-    const label = item?.type ? targetOptions.find((o) => o.value === item.type)?.text : ''
+/** 删除目标条目（右上角 ×，二次确认）。
+ *  捕获对象引用，确认后按引用重新定位 index（防确认期间 modelValue 同步导致 index 过期误删）。 */
+const removeTarget = (targetItem) => {
+    const label = targetItem?.type ? targetOptions.find((o) => o.value === targetItem.type)?.text : ''
     ElMessageBox.confirm(
         `确定删除该任务目标${label ? `（${label}）` : ''}吗？`,
         '删除确认',
         { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
     )
         .then(() => {
-            taskConfig.value.target.splice(index, 1)
+            const idx = taskConfig.value.target.indexOf(targetItem)
+            if (idx >= 0) taskConfig.value.target.splice(idx, 1)
         })
         .catch(() => {})
 }
 
-/** 删除奖励条目（右上角 ×，二次确认） */
-const removeReward = (index) => {
-    const item = taskConfig.value.reward[index]
-    const label = item?.type ? rewardOptions.find((o) => o.value === item.type)?.text : ''
+/** 删除奖励条目（右上角 ×，二次确认）。同 removeTarget，用引用定位防 index 过期。 */
+const removeReward = (rewardItem) => {
+    const label = rewardItem?.type ? rewardOptions.find((o) => o.value === rewardItem.type)?.text : ''
     ElMessageBox.confirm(
         `确定删除该任务奖励${label ? `（${label}）` : ''}吗？`,
         '删除确认',
         { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
     )
         .then(() => {
-            taskConfig.value.reward.splice(index, 1)
+            const idx = taskConfig.value.reward.indexOf(rewardItem)
+            if (idx >= 0) taskConfig.value.reward.splice(idx, 1)
         })
         .catch(() => {})
 }
@@ -156,8 +158,8 @@ const removeReward = (index) => {
             <el-form-item label="任务目标：">
                 <div style="width: 100%;">
                     <el-button class="add-target-btn" @click="addTarget">＋ 添加目标</el-button>
-                    <div v-for="(item, index) in taskConfig.target" :key="index" class="task-target">
-                        <el-icon class="item-close" title="删除该目标" @click="removeTarget(index)"><Close /></el-icon>
+                    <div v-for="item in taskConfig.target" :key="item" class="task-target">
+                        <el-icon class="item-close" title="删除该目标" @click="removeTarget(item)"><Close /></el-icon>
                         <el-select v-model="item.type" placeholder="请选择目标类型" @change="(value) => changeTargetType(value, item)">
                             <el-option v-for="option in targetOptions" :key="option.value" :label="option.text" :value="option.value"></el-option>
                         </el-select>
@@ -197,8 +199,8 @@ const removeReward = (index) => {
             <el-form-item label="任务奖励：">
                 <div style="width: 100%;">
                     <el-button class="add-target-btn" @click="addReward">＋ 添加奖励</el-button>
-                    <div v-for="(reward, index) in taskConfig.reward" :key="index" class="task-reward-item">
-                        <el-icon class="item-close" title="删除该奖励" @click="removeReward(index)"><Close /></el-icon>
+                    <div v-for="reward in taskConfig.reward" :key="reward" class="task-reward-item">
+                        <el-icon class="item-close" title="删除该奖励" @click="removeReward(reward)"><Close /></el-icon>
                         <el-select v-model="reward.type" placeholder="请选择奖励类型" @change="(value) => changeRewardType(value, reward)">
                             <el-option v-for="option in rewardOptions" :key="option.value" :label="option.text" :value="option.value"></el-option>
                         </el-select>

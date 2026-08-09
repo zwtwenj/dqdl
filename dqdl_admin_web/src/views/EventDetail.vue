@@ -281,7 +281,19 @@ const savingConnect = ref(false)
 /** 选择连线事件时：首次选"发布任务"初始化默认任务配置（已有值则保留，可回填已保存配置） */
 function onConnectEventChange(val) {
   if (val === 'publish_task' && !connectInstance.value.taskData) {
-    connectInstance.value.taskData = { taskTitle: '', description: '', target: [] }
+    connectInstance.value.taskData = { taskTitle: '', description: '', target: [], reward: [] }
+  }
+}
+
+/** 保存前清洗：过滤未配置完整的空目标/空奖励项（type 为空的丢弃，避免脏数据落库） */
+function sanitizeTaskConfig(taskData) {
+  const t = taskData || {}
+  return {
+    ...t,
+    target: Array.isArray(t.target) ? t.target.filter((x) => x && x.type) : [],
+    reward: Array.isArray(t.reward)
+      ? t.reward.filter((x) => x && (x.type === 'money' || (x.type === 'item' && x.item_id)))
+      : [],
   }
 }
 
@@ -295,7 +307,7 @@ async function saveConnect() {
       ? {
           event: ci.selectedConnectEvent,
           task: ci.selectedConnectEvent === 'publish_task'
-            ? ci.taskData || { taskTitle: '', description: '', target: [] }
+            ? sanitizeTaskConfig(ci.taskData)
             : undefined,
         }
       : null

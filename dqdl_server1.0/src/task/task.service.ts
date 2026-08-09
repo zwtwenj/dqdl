@@ -10,7 +10,7 @@ import { AgentService } from '../agent/agent.service';
 import { ScriptSseService } from '../script/script-sse.service';
 import { SseEvents } from '../script/sse-events';
 import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
-import { BackpackService } from '../backpack/backpack.service';
+import { BackpackService, BACKPACK_CAPACITY } from '../backpack/backpack.service';
 import { Biz } from '../common/biz.exception';
 import { TASK } from '../config/game.config';
 
@@ -243,10 +243,24 @@ export class TaskService {
       // 所有目标都达标才算任务完成（多目标任务：到达只是其中一个目标的进度）
       const allDone = targets.every((t) => (t.current || 0) >= (t.required || 0));
       if (allDone) {
-        // 到达即完成，但若配置了奖励也要发放（故事任务奖励同样走 grantTaskRewards）
+        // 预检背包容量：不足则本次不完成（任务保持 pending，整理背包后再到达可重试）
+        try {
+          await this.assertRewardCapacity(playerId, task);
+        } catch (e) {
+          this.logger.warn(
+            `故事任务 ${task.id} 奖励预检失败（玩家 ${playerId} 背包空间不足），保持 pending: ${(e as Error).message}`,
+          );
+          continue;
+        }
+        // 原子抢占 claimed：条件 UPDATE 带 target 进度一起写，防并发 enter_map 重复发放。
+        // 只有 status=pending 才能抢到；affected=0 说明已被并发领取/状态已变，跳过本次。
+        const claimed = await this.taskRepo.update(
+          { id: task.id, player_id: playerId, status: 'pending' },
+          { status: 'claimed', target: JSON.stringify(targets) },
+        );
+        if (!claimed.affected) continue;
+        // 抢占成功 → 发放奖励（已防重复，此后不会再来）
         await this.grantTaskRewards(playerId, task);
-        task.status = 'claimed';
-        await this.taskRepo.save(task);
         this.notifyTaskUpdate(playerId);
         this.logger.log(`故事任务 ${task.id} 完成（玩家 ${playerId} 到达 ${arrivedNetId}）`);
         // 通知故事模块推进（事件总线解耦，避免 TaskModule 反向依赖 StoryModule）
@@ -640,16 +654,71 @@ export class TaskService {
     const allDone = targets.length > 0 && targets.every((t) => t.current >= t.required);
     if (!allDone) throw Biz.conflict('任务目标尚未全部完成');
 
-    // 发放奖励（money → 金币；item → 背包，source=quest_reward）
-    const { money, items } = await this.grantTaskRewards(playerId, task);
+    // 预检背包容量：不足则拒绝交付（任务保持 pending，整理背包后可重试），避免满格静默丢奖励
+    await this.assertRewardCapacity(playerId, task);
 
-    task.status = 'claimed';
-    await this.taskRepo.save(task);
+    // 原子抢占 claimed（条件 UPDATE 防并发双发/重复领奖：只有 pending 能抢到）
+    const claimed = await this.taskRepo.update(
+      { id: task.id, player_id: playerId, status: 'pending' },
+      { status: 'claimed' },
+    );
+    if (!claimed.affected) throw Biz.conflict('该任务已被领取，请勿重复操作');
+
+    // 发放奖励（money → 金币；item → 背包，source=quest_reward）。
+    // 已抢占成功，此后不会重复发放；发放失败任务仍为 claimed（奖励不重发，仅日志）。
+    const { money, items } = await this.grantTaskRewards(playerId, task);
     this.logger.log(`玩家 ${playerId} 交付任务 ${taskId}，奖励 ${money} 金币 + ${items.length} 种物品`);
     return { money, items };
   }
 
   // ---------- 奖励发放 ----------
+
+  /**
+   * 预检任务奖励的背包容量：item 奖励所需新格位 + 已有格位数 ≤ BACKPACK_CAPACITY。
+   * 在抢占 claimed **之前**调用（容量不足 → 抛 conflict，任务保持 pending 可重试），
+   * 避免 backpack.grant 满格时静默丢弃奖励物品。
+   *
+   * 简化估算：不可堆叠物品每件一格，可堆叠物品若玩家已有同类则合并不占新格，
+   * 否则占一格。与 BackpackService.grant 的实际格位分配策略一致。
+   */
+  private async assertRewardCapacity(playerId: number, task: Task): Promise<void> {
+    const rewards: TaskReward[] = this.safeParseArr(task.reward);
+    const itemRewards = rewards.filter((r) => r?.type === 'item' && r.item_id);
+    if (itemRewards.length === 0) return;
+
+    // 玩家当前持有（item_id → count），用于判断可堆叠物品是否已占格
+    const owned = new Map<string, number>();
+    const rows = await this.backpack.listByPlayer(playerId);
+    for (const r of rows) owned.set(r.item_id, r.count);
+    const usedSlots = rows.length;
+
+    // 估算新增格位
+    let needSlots = 0;
+    for (const r of itemRewards) {
+      const itemId = r.item_id;
+      if (!itemId) continue;
+      const itemDef = await this.dataSource.query(
+        `SELECT item_id, stackable FROM item WHERE item_id = ?`,
+        [itemId],
+      );
+      const def = itemDef[0];
+      if (!def) continue; // 不存在的 item 在 grantTaskRewards 里会被跳过，不计容量
+      const count = Math.max(1, Number(r.count) || 1);
+      const stackable = Number(def.stackable) !== 0;
+      if (stackable) {
+        // 已有同类合并不占新格；否则占 1 格
+        if (!owned.has(itemId)) needSlots += 1;
+      } else {
+        // 不可堆叠：每件独占一格
+        needSlots += count;
+      }
+    }
+    if (usedSlots + needSlots > BACKPACK_CAPACITY) {
+      throw Biz.conflict(
+        `背包空间不足，无法发放任务奖励（需 ${needSlots} 格，已用 ${usedSlots}/${BACKPACK_CAPACITY}），请先整理背包`,
+      );
+    }
+  }
 
   /**
    * 按 task.reward 配置发放奖励（任务完成/交付时调用）。

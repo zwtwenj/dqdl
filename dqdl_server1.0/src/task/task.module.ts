@@ -10,6 +10,7 @@ import { PlayerModule } from '../player/player.module';
 import { AuthModule } from '../auth/auth.module';
 import { AgentModule } from '../agent/agent.module';
 import { ScriptModule } from '../script/script.module';
+import { BackpackModule } from '../backpack/backpack.module';
 
 /**
  * 任务模块：佣兵公会战斗任务（生成/查询/交付/放弃）。
@@ -26,6 +27,7 @@ import { ScriptModule } from '../script/script.module';
     AuthModule,
     AgentModule,
     ScriptModule,
+    BackpackModule,
   ],
   providers: [TaskService],
   controllers: [TaskController],

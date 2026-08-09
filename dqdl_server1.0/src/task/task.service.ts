@@ -10,6 +10,7 @@ import { AgentService } from '../agent/agent.service';
 import { ScriptSseService } from '../script/script-sse.service';
 import { SseEvents } from '../script/sse-events';
 import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
+import { BackpackService } from '../backpack/backpack.service';
 import { Biz } from '../common/biz.exception';
 import { TASK } from '../config/game.config';
 
@@ -82,6 +83,7 @@ export class TaskService {
     private readonly sse: ScriptSseService,
     private readonly eventEmitter: EventEmitter2,
     private readonly dataSource: DataSource,
+    private readonly backpack: BackpackService,
   ) {}
 
   /** 推送 task_update 事件，前端收到后重新拉任务列表。
@@ -241,7 +243,9 @@ export class TaskService {
       // 所有目标都达标才算任务完成（多目标任务：到达只是其中一个目标的进度）
       const allDone = targets.every((t) => (t.current || 0) >= (t.required || 0));
       if (allDone) {
-        task.status = 'claimed'; // 故事任务无奖励，到达即完成
+        // 到达即完成，但若配置了奖励也要发放（故事任务奖励同样走 grantTaskRewards）
+        await this.grantTaskRewards(playerId, task);
+        task.status = 'claimed';
         await this.taskRepo.save(task);
         this.notifyTaskUpdate(playerId);
         this.logger.log(`故事任务 ${task.id} 完成（玩家 ${playerId} 到达 ${arrivedNetId}）`);
@@ -618,10 +622,14 @@ export class TaskService {
 
   /**
    * 交付任务（领奖）。要求该任务所有 target 已达标（current >= required）。
-   * 达标 → 发金币奖励（money 类型累加），status 置 claimed。
+   * 达标 → 按 task.reward 发放奖励（money → 金币；item → 背包），status 置 claimed。
    * 未达标 → 抛 conflict。
+   * @returns { money, items } 发放摘要（money=金币总额，items=物品明细）
    */
-  async claimTask(playerId: number, taskId: number): Promise<{ money: number }> {
+  async claimTask(
+    playerId: number,
+    taskId: number,
+  ): Promise<{ money: number; items: { item_id: string; item_name?: string; count: number }[] }> {
     const task = await this.taskRepo.findOneBy({ id: taskId, player_id: playerId });
     if (!task) throw Biz.notFound(`任务 ${taskId} 不存在`);
     if (task.status === 'claimed') throw Biz.conflict('该任务已交付');
@@ -632,22 +640,61 @@ export class TaskService {
     const allDone = targets.length > 0 && targets.every((t) => t.current >= t.required);
     if (!allDone) throw Biz.conflict('任务目标尚未全部完成');
 
-    // 发奖（本轮只处理 money；item 奖励后续接背包）
+    // 发放奖励（money → 金币；item → 背包，source=quest_reward）
+    const { money, items } = await this.grantTaskRewards(playerId, task);
+
+    task.status = 'claimed';
+    await this.taskRepo.save(task);
+    this.logger.log(`玩家 ${playerId} 交付任务 ${taskId}，奖励 ${money} 金币 + ${items.length} 种物品`);
+    return { money, items };
+  }
+
+  // ---------- 奖励发放 ----------
+
+  /**
+   * 按 task.reward 配置发放奖励（任务完成/交付时调用）。
+   *  - type=money  → 玩家金币累加
+   *  - type=item   → 校验 item 表存在性（item_id 是全局唯一ID，与 admin 配置页一致），
+   *                 存在则入背包（source=quest_reward）；不存在记日志跳过（不影响任务完成）。
+   * 兼容旧结构：{ name } 视为物品名但不含 item_id，跳过。
+   * @returns { money, items } 发放摘要（已实际发放的项）
+   */
+  private async grantTaskRewards(
+    playerId: number,
+    task: Task,
+  ): Promise<{ money: number; items: { item_id: string; item_name?: string; count: number }[] }> {
     const rewards: TaskReward[] = this.safeParseArr(task.reward);
     let totalMoney = 0;
+    const items: { item_id: string; item_name?: string; count: number }[] = [];
     for (const r of rewards) {
-      if (r.type === 'money' && r.value) totalMoney += r.value;
+      if (r?.type === 'money' && Number(r.value) > 0) {
+        totalMoney += Number(r.value);
+      } else if (r?.type === 'item' && r.item_id) {
+        const rows = await this.dataSource.query(
+          `SELECT item_id, name FROM item WHERE item_id = ?`,
+          [r.item_id],
+        );
+        const item = rows[0];
+        if (!item) {
+          this.logger.warn(`任务 ${task.id} 奖励物品不存在，已跳过：${r.item_id}`);
+          continue;
+        }
+        items.push({
+          item_id: item.item_id,
+          item_name: item.name,
+          count: Math.max(1, Number(r.count) || 1),
+        });
+      }
     }
     if (totalMoney > 0) {
       await this.dataSource
         .getRepository('player')
         .increment({ id: playerId }, 'money', totalMoney);
     }
-
-    task.status = 'claimed';
-    await this.taskRepo.save(task);
-    this.logger.log(`玩家 ${playerId} 交付任务 ${taskId}，奖励 ${totalMoney} 金币`);
-    return { money: totalMoney };
+    if (items.length > 0) {
+      await this.backpack.grant(playerId, items, 'quest_reward');
+    }
+    return { money: totalMoney, items };
   }
 
   // ---------- 工具 ----------

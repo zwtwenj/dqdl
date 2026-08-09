@@ -23,6 +23,14 @@ import re
 import sys
 from datetime import datetime
 
+# Windows 控制台/管道默认 GBK 编码，日志含 ✓ 等非 GBK 字符时会 UnicodeEncodeError。
+# 强制 stdout/stderr 用 UTF-8，保证 print 与 subprocess 管道都能正常输出。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 from dotenv import load_dotenv
 load_dotenv()
 

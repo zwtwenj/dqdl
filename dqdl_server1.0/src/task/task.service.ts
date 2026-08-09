@@ -60,9 +60,11 @@ export interface TaskTarget {
 /** 任务奖励项 */
 export interface TaskReward {
   type?: string; // 'money' | 'item'
-  name?: string; // type=item 时
-  count?: number;
-  value?: number; // type=money 时
+  value?: number; // type=money 时：金币数量
+  item_id?: string; // type=item 时：item 表全局唯一ID（如 dp-/mh- 前缀）
+  item_name?: string; // type=item 时：物品名（保存时后端自动回填）
+  count?: number; // type=item 时：数量
+  name?: string; // 兼容旧结构（item 名称兜底）
 }
 
 @Injectable()
@@ -101,7 +103,7 @@ export class TaskService {
    */
   async issueStoryTask(
     playerId: number,
-    cfg: { taskTitle?: string; description?: string; target?: any[] },
+    cfg: { taskTitle?: string; description?: string; target?: any[]; reward?: any[] },
   ): Promise<{ taskId: number; targets: TaskTarget[] }> {
     const player = await this.playerRepo.findOneBy({ id: playerId });
     if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
@@ -160,7 +162,7 @@ export class TaskService {
       name: cfg?.taskTitle || '故事任务',
       description: cfg?.description || '',
       target: JSON.stringify(targets),
-      reward: JSON.stringify([]),
+      reward: JSON.stringify(cfg?.reward || []),
       status: 'pending',
       type: 'story',
       star: 1,

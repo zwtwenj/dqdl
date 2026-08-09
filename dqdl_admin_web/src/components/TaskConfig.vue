@@ -18,8 +18,12 @@ const targetOptions = [
     { text: '前往某地', value: 'go_to_location' },
     { text: '前往某地击败怪物', value: 'go_to_location_defeat_mob' },
 ]
+const rewardOptions = [
+    { text: '金币', value: 'money' },
+    { text: '物品', value: 'item' },
+]
 
-const defaultConfig = () => ({ taskTitle: '', description: '', target: [] })
+const defaultConfig = () => ({ taskTitle: '', description: '', target: [], reward: [] })
 const clone = (v) => JSON.parse(JSON.stringify(v || defaultConfig()))
 
 // 本地表单副本：父值同步进来 → 本地；本地编辑 → 抛回父组件
@@ -76,6 +80,27 @@ const changeTargetType = (value, target) => {
         }
     }
 }
+
+const addReward = () => {
+    // 空奖励项：type 由用户选择后 changeRewardType 初始化对应字段
+    taskConfig.value.reward.push({ type: '' })
+}
+const changeRewardType = (value, reward) => {
+    // 根据选择的奖励类型，初始化对应的数据结构（扁平，对齐后端 TaskReward）
+    if (value === 'money') {
+        reward.type = 'money'
+        reward.value = 0            // 金币数量
+        delete reward.item_id
+        delete reward.item_name
+        delete reward.count
+    } else if (value === 'item') {
+        reward.type = 'item'
+        reward.item_id = ''         // item 表全局唯一 ID（手输，保存时校验存在性）
+        reward.item_name = ''       // 保存时后端自动回填物品名
+        reward.count = 1
+        delete reward.value
+    }
+}
 </script>
 
 <template>
@@ -90,8 +115,6 @@ const changeTargetType = (value, target) => {
             <el-form-item label="任务目标：">
                 <div style="width: 100%;">
                     <el-button class="add-target-btn" @click="addTarget">＋ 添加目标</el-button>
-
-                    <!-- <el-input v-model="taskConfig.target" placeholder="请输入任务目标"></el-input> -->
                     <div v-for="(item, index) in taskConfig.target" :key="index" class="task-target">
                         <el-select v-model="item.type" placeholder="请选择目标类型" @change="(value) => changeTargetType(value, item)">
                             <el-option v-for="option in targetOptions" :key="option.value" :label="option.text" :value="option.value"></el-option>
@@ -126,7 +149,37 @@ const changeTargetType = (value, target) => {
                                 </el-select>
                             </div>
                         </div>
-                        <!-- <el-input v-model="item.description" placeholder="请输入目标描述"></el-input> -->
+                    </div>
+                </div>
+            </el-form-item>
+            <el-form-item label="任务奖励">
+                <div style="width: 100%;">
+                    <el-button class="add-target-btn" @click="addReward">＋ 添加奖励</el-button>
+                    <div v-for="(reward, index) in taskConfig.reward" :key="index" class="task-reward-item">
+                        <el-select v-model="reward.type" placeholder="请选择奖励类型" @change="(value) => changeRewardType(value, reward)">
+                            <el-option v-for="option in rewardOptions" :key="option.value" :label="option.text" :value="option.value"></el-option>
+                        </el-select>
+                        <!-- 金币：数量 -->
+                        <div v-if="reward.type === 'money'" class="task-reward-config">
+                            <div class="reward-title">金币奖励</div>
+                            <div class="map-row">
+                                <span class="map-label">金币数量</span>
+                                <el-input-number v-model="reward.value" :min="0" controls-position="right" placeholder="请输入金币" />
+                            </div>
+                        </div>
+                        <!-- 物品：item 表 ID（手输）+ 数量 -->
+                        <div v-if="reward.type === 'item'" class="task-reward-config">
+                            <div class="reward-title">物品奖励</div>
+                            <div class="map-row">
+                                <span class="map-label">物品ID</span>
+                                <el-input v-model="reward.item_id" placeholder="请输入物品ID（item表）" />
+                            </div>
+                            <div v-if="reward.item_name" class="reward-hint">物品：{{ reward.item_name }}</div>
+                            <div class="map-row">
+                                <span class="map-label">物品数量</span>
+                                <el-input-number v-model="reward.count" :min="1" controls-position="right" placeholder="请输入数量" />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </el-form-item>
@@ -206,8 +259,43 @@ const changeTargetType = (value, target) => {
 }
 
 .map-row .el-input,
-.map-row .el-select {
+.map-row .el-select,
+.map-row .el-input-number {
     flex: 1;
     min-width: 0;
+}
+
+/* ===== 奖励条目（金色调，与目标蓝色区分） ===== */
+.task-reward-item {
+    margin-top: 8px;
+    padding: 10px;
+    border: 1px solid #ebeef5;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.task-reward-item .el-select {
+    width: 100%;
+}
+
+.task-reward-config {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-left: 3px solid #e6a23c;
+    border-radius: 4px;
+    background: #fdf6ec;
+}
+
+.reward-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e6a23c;
+    margin-bottom: 4px;
+}
+
+.reward-hint {
+    font-size: 12px;
+    color: #e6a23c;
+    margin: 2px 0;
 }
 </style>

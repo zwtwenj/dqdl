@@ -84,15 +84,43 @@ export class EventManagementService {
   /**
    * 保存某条连线的配置：merge 进 connect_configs（按 "src->tgt" key）。
    * config 传 null 时删除该连线配置。
-   * @returns 更新后的 connect_configs 对象；事件不存在返回 null
+   * 校验：task.reward 中的 item 奖励需存在于 item 表（不存在则保存失败），
+   * 未配置完整的奖励项会被过滤掉。
+   * @returns { ok, connect_configs?, msg? }；事件不存在返回 { ok:false, msg:'事件不存在' }
    */
-  async saveConnectConfig(id: number, edge: string, config: any): Promise<any> {
+  async saveConnectConfig(
+    id: number,
+    edge: string,
+    config: any,
+  ): Promise<{ ok: boolean; connect_configs?: any; msg?: string }> {
     const res = await this.dataSource.query(
       `SELECT connect_configs FROM story_event WHERE id = ?`,
       [id],
     );
     const rows = toRows(res);
-    if (!rows.length) return null;
+    if (!rows.length) return { ok: false, msg: '事件不存在' };
+
+    // 任务奖励校验：只保留已配置的奖励项（没选类型或缺少必要字段的丢弃），
+    // item 奖励必须存在于 item 表（item_id 是全局唯一ID，前端手输），
+    // 校验通过则自动回填物品名（item_name 供任务展示用）。
+    const rewards: any[] = (config?.task?.reward || []).filter(
+      (r) => r && (r.type === 'money' || (r.type === 'item' && r.item_id)),
+    );
+    for (const r of rewards) {
+      if (r?.type === 'item' && r?.item_id) {
+        const items = toRows(
+          await this.dataSource.query(
+            `SELECT item_id, name FROM item WHERE item_id = ?`,
+            [r.item_id],
+          ),
+        );
+        const item = items[0];
+        if (!item) return { ok: false, msg: `任务奖励物品不存在：${r.item_id}` };
+        r.item_name = item.name; // 自动回填物品名
+      }
+    }
+    if (config?.task) config.task.reward = rewards;
+
     const cfgs: any = {};
     const raw = rows[0].connect_configs;
     if (raw) {
@@ -106,7 +134,7 @@ export class EventManagementService {
       `UPDATE story_event SET connect_configs = ? WHERE id = ?`,
       [JSON.stringify(cfgs), id],
     );
-    return cfgs;
+    return { ok: true, connect_configs: cfgs };
   }
 
   /**

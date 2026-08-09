@@ -43,16 +43,15 @@ export class EventManagementController {
     return { ok: true };
   }
 
-  /** POST /api/events/:id/connect-config  保存某条连线配置 { edge: "src->tgt", config: { event, task } | null } */
+  /** POST /api/events/:id/connect-config  保存某条连线配置 { edge: "src->tgt", config: { event, task } | null }
+   *  task.reward 中 item 奖励会校验 item 表存在性，不存在则保存失败。 */
   @Post('events/:id/connect-config')
   async saveConnectConfig(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: { edge?: string; config?: any },
   ) {
     if (!body?.edge) return { ok: false, msg: '缺少 edge 参数' };
-    const cfgs = await this.events.saveConnectConfig(id, body.edge, body.config ?? null);
-    if (!cfgs) return { ok: false, msg: '事件不存在' };
-    return { ok: true, connect_configs: cfgs };
+    return this.events.saveConnectConfig(id, body.edge, body.config ?? null);
   }
 
   /** POST /api/events/generate */

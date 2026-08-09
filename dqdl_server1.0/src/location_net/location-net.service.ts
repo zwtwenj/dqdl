@@ -774,6 +774,31 @@ export class LocationNetService implements OnApplicationBootstrap {
     need: number,
     maxDist = 3,
   ): Promise<LocationNet[]> {
+    return this.ensureLocationsWithin(netId, 'wild', need, maxDist);
+  }
+
+  /**
+   * 在某节点 maxDist 格内定向生成指定 loc_type 的地图（"前往某地"任务目标解析兜底）。
+   *
+   * 连通性保证（不产生孤儿图）：采用 BFS 扩散——
+   *   只在"与已存在节点对角相邻"的空位中选候选位生成。每生成一个立即入库成为
+   *   "已存在节点"，下一轮就能作为新锚点继续扩散，所以新节点必然连进已有网。
+   *
+   * 强制 loc_type=<locType>（不走随机分布），复用 agent 批量生成 + commitNodeFromItem
+   * （wild 会自动触发 RAG 填 common_mobs）。
+   *
+   * @param netId   中心节点
+   * @param locType 目标类型 wild/city/sect/secret
+   * @param need    期望生成数量
+   * @param maxDist 三格内限制
+   * @returns 实际生成的节点数组（可能少于 need，即三格内空位已用尽）
+   */
+  async ensureLocationsWithin(
+    netId: number,
+    locType: string,
+    need: number,
+    maxDist = 3,
+  ): Promise<LocationNet[]> {
     if (need <= 0) return [];
     const center = await this.netRepo.findOneBy({ id: netId });
     if (!center) throw Biz.notFound(`地图节点 ${netId} 不存在`);
@@ -782,7 +807,7 @@ export class LocationNetService implements OnApplicationBootstrap {
     const existingNames = (await this.netRepo.find()).map((n) => n.name);
     const usedNames = new Set(existingNames);
 
-    // 反复扫描"与已有节点对角相邻的空位"，每轮生成一批 wild，直到凑够 need 或无空位
+    // 反复扫描"与已有节点对角相邻的空位"，每轮生成一批，直到凑够 need 或无空位
     // 安全上限避免极端情况下死循环
     for (let round = 0; round < maxDist + 2 && created.length < need; round++) {
       // 重新拉已存在节点（上轮可能新增了）
@@ -813,8 +838,8 @@ export class LocationNetService implements OnApplicationBootstrap {
       const batch = Math.min(need - created.length, candidateSlots.length);
       const slots = candidateSlots.slice(0, batch);
 
-      // 构造 agent 批量请求：全部强制 wild
-      const nodesRequest = slots.map((s) => ({ loc_type: 'wild', gx: s.gx, gy: s.gy }));
+      // 构造 agent 批量请求：全部强制 locType
+      const nodesRequest = slots.map((s) => ({ loc_type: locType, gx: s.gx, gy: s.gy }));
       const parentContext = [
         { name: center.name, loc_type: center.loc_type, direction: '中心' },
       ];
@@ -823,9 +848,9 @@ export class LocationNetService implements OnApplicationBootstrap {
         parent_context: parentContext,
         existingNames: [...usedNames],
       });
-      // 兜底：agent 失败用名称池（但 wild 的 common_mobs 会为 null，任务生成时会被过滤）
+      // 兜底：agent 失败用名称池（wild 的 common_mobs 会为 null，任务生成时会被过滤）
       if (!items) {
-        this.logger.warn('定向生成 wild：agent 不可用，fallback 名称池');
+        this.logger.warn(`定向生成 ${locType}：agent 不可用，fallback 名称池`);
         items = nodesRequest.map((nr) => this.fallbackNodeItem(nr, [...usedNames]));
       }
 
@@ -842,7 +867,7 @@ export class LocationNetService implements OnApplicationBootstrap {
         usedNames.add(finalName);
         const node = await this.commitNodeFromItem(item, finalName);
         created.push(node);
-        this.logger.log(`定向生成 wild (${nr.gx},${nr.gy}): ${finalName}`);
+        this.logger.log(`定向生成 ${locType} (${nr.gx},${nr.gy}): ${finalName}`);
         if (created.length >= need) break;
       }
     }
@@ -852,6 +877,46 @@ export class LocationNetService implements OnApplicationBootstrap {
       await this.recomputeFrontierAround(netId);
     }
     return created;
+  }
+
+  /**
+   * 找/建一个指定 loc_type 的地点（"前往某地"任务目标解析）：
+   *   优先取玩家位置 N 格内（切比雪夫距离）已存在的匹配节点（最近者）；
+   *   没有则在最近空位生成一个该类型节点（复用 ensureLocationsWithin 的连通生成机制）。
+   *
+   * @param netId   玩家当前所在节点 id
+   * @param locType 目标类型 wild/city/sect/secret
+   * @param maxDist 外扩格数
+   * @returns { net_id, net_name }；生成失败（无空位/agent 全挂）返回 null
+   */
+  async findOrCreateLocation(
+    netId: number,
+    locType: string,
+    maxDist = 3,
+  ): Promise<{ net_id: number; net_name: string } | null> {
+    const center = await this.netRepo.findOneBy({ id: netId });
+    if (!center) throw Biz.notFound(`地图节点 ${netId} 不存在`);
+
+    // 1. 已有节点中找匹配类型（取距离最近）
+    const all = await this.netRepo.find();
+    const candidates = all
+      .filter((n) => n.loc_type === locType)
+      .map((n) => ({
+        node: n,
+        dist: Math.max(Math.abs(n.gx - center.gx), Math.abs(n.gy - center.gy)),
+      }))
+      .filter((x) => x.dist > 0 && x.dist <= maxDist)
+      .sort((a, b) => a.dist - b.dist);
+    if (candidates.length) {
+      return { net_id: candidates[0].node.id, net_name: candidates[0].node.name };
+    }
+
+    // 2. 无 → 最近空位生成一个该类型节点
+    const created = await this.ensureLocationsWithin(netId, locType, 1, maxDist);
+    if (created.length) {
+      return { net_id: created[0].id, net_name: created[0].name };
+    }
+    return null;
   }
 
   /** server 定 loc_type 的分布（配置于 game.config，rollLocTypeFromDist 掷骰） */

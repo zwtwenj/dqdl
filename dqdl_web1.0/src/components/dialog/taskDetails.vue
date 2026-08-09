@@ -37,10 +37,16 @@ const task = ref(null)
 const loading = ref(false)
 const accepting = ref(false)
 
-/** 发布人名（fallback 佣兵公会接待员） */
+/** 发布人名（fallback 佣兵公会接待员；无发布人时隐藏 task-public 前缀） */
 const giverName = computed(
   () => task.value?.giver_npc_name || '佣兵公会接待员',
 )
+
+/** 是否有发布人（story 任务无发布人 → 只显示任务描述，隐藏 task-public 元素） */
+const hasGiver = computed(() => !!task.value?.giver_npc_name)
+
+/** 弹窗标题：故事任务 vs 佣兵任务 */
+const dlgTitle = computed(() => (task.value?.type === 'story' ? '故事任务' : '佣兵任务'))
 
 /** 是否所有目标已达标（查看模式下展示「可交付」状态） */
 const allDone = computed(() => {
@@ -204,7 +210,7 @@ onUnmounted(() => {
 <template>
     <Dlg
         v-if="open"
-        title="佣兵任务"
+        :title="dlgTitle"
         :contentStyleProp="{ width: '580px' }"
         @close="onClose"
     >
@@ -224,16 +230,16 @@ onUnmounted(() => {
                 </div>
                 <div class="line"></div>
 
-                <!-- NPC 对话气泡 -->
+                <!-- NPC 对话气泡（无发布人 → 只显示任务描述，隐藏 task-public 前缀与画像） -->
                 <div class="npc-dlg">
-                    <div class="npc-dlg-bg">
-                        <div class="task-public-description">
-                            <div class="task-public">
+                    <div class="npc-dlg-bg" :class="{ 'no-giver': !hasGiver }">
+                        <div class="task-public-description" :class="{ 'no-giver': !hasGiver }">
+                            <div v-if="hasGiver" class="task-public">
                                 {{ giverName }} ：
                             </div>
                             <div class="task-description" v-html="task.description"></div>
                         </div>
-                        <div class="task-public-img">
+                        <div v-if="hasGiver" class="task-public-img">
                             <img src="/static/19.jpg">
                         </div>
                     </div>
@@ -267,6 +273,11 @@ onUnmounted(() => {
                             </div>
                             <div v-else-if="target.type === 'findNpc'" class="task-target-fight">
                                 <span><span class="target-index">{{ index + 1 }}.</span> <span v-html="target.desc"></span></span>
+                            </div>
+                            <!-- 前往某地（含前往某地击败怪物）：显示目标地点描述 + 进度 -->
+                            <div v-else-if="target.type === 'go_to_location' || target.type === 'go_to_location_defeat_mob'" class="task-target-fight">
+                                <span><span class="target-index">{{ index + 1 }}.</span> <span v-html="target.desc"></span></span>
+                                <span class="task-target-count">({{ target.current || 0 }} / {{ target.required }})</span>
                             </div>
                         </div>
                     </div>
@@ -358,6 +369,16 @@ onUnmounted(() => {
             border-right: 1px solid #bbb09a;
             border-top: 1px solid #bbb09a;
             transform: rotate(45deg);
+        }
+        /* 无发布人（story 任务）：去掉箭头，气泡居中，只显示描述 */
+        .task-public-description.no-giver::after{
+            display: none;
+        }
+        .npc-dlg-bg.no-giver{
+            justify-content: center;
+            .task-public-description{
+                margin: 0;
+            }
         }
         .task-public{
             font-weight: bold;

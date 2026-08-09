@@ -1,12 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { OnEvent, EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Task } from './task.entity';
+import { Player } from '../player/player.entity';
 import { LocationNetService } from '../location_net/location-net.service';
 import { MobService } from '../mob/mob.service';
 import { AgentService } from '../agent/agent.service';
 import { ScriptSseService } from '../script/script-sse.service';
 import { SseEvents } from '../script/sse-events';
+import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
 import { Biz } from '../common/biz.exception';
 import { TASK } from '../config/game.config';
 
@@ -37,16 +40,21 @@ function parseRewardBase(env: string | undefined, def: Record<number, number>): 
   return def;
 }
 
-/** 任务目标项。type 决定走哪个完成判定函数：fight=击杀 / findNpc=找人(预留) */
+/** 任务目标项。type 决定走哪个完成判定函数：
+ *  fight=击杀 / findNpc=找人(预留) / go_to_location=前往某地 / go_to_location_defeat_mob=前往某地击杀(预留)。
+ *  go_to_location 系列同时存「管理员配置（loc_type/distance，前端回显）」与「server 解析结果（net_id/net_name，完成检测用）」。 */
 export interface TaskTarget {
-  type: 'fight' | 'findNpc';
+  type: 'fight' | 'findNpc' | 'go_to_location' | 'go_to_location_defeat_mob';
   desc: string;
   current: number;
   required: number;
   net_id: number;
   net_name: string;
-  mob_id: string;
-  mob_name: string;
+  mob_id?: string;
+  mob_name?: string;
+  // 前往某地：配置
+  loc_type?: string;
+  distance?: number;
 }
 
 /** 任务奖励项 */
@@ -64,10 +72,13 @@ export class TaskService {
   constructor(
     @InjectRepository(Task)
     private readonly taskRepo: Repository<Task>,
+    @InjectRepository(Player)
+    private readonly playerRepo: Repository<Player>,
     private readonly locationNet: LocationNetService,
     private readonly mobService: MobService,
     private readonly agentService: AgentService,
     private readonly sse: ScriptSseService,
+    private readonly eventEmitter: EventEmitter2,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -75,6 +86,175 @@ export class TaskService {
    *  触发点：击杀计数命中 / 接受任务 / 放弃任务。无连接时静默丢弃。 */
   private notifyTaskUpdate(playerId: number): void {
     this.sse.push(Number(playerId), SseEvents.TASK_UPDATE, { player_id: Number(playerId) });
+  }
+
+  // ---------- 故事任务（连线发布任务） ----------
+
+  /**
+   * 为玩家发布一个故事任务（type='story'，直接 pending，不可放弃）。
+   *
+   * 目标解析（target 同时存配置与解析结果）：
+   *   go_to_location            → findOrCreateLocation（玩家位置 N 格内指定 loc_type，无则生成）→ net_id/net_name
+   *   go_to_location_defeat_mob → 同上 + 从目标点 common_mobs 选怪（击杀完成检测下一轮接）
+   *
+   * @returns { taskId, targets } targets 为落库后的完整 target 数组
+   */
+  async issueStoryTask(
+    playerId: number,
+    cfg: { taskTitle?: string; description?: string; target?: any[] },
+  ): Promise<{ taskId: number; targets: TaskTarget[] }> {
+    const player = await this.playerRepo.findOneBy({ id: playerId });
+    if (!player) throw Biz.notFound(`玩家 ${playerId} 不存在`);
+    if (!player.location_id) throw Biz.conflict('玩家尚未在地图上，无法发布任务');
+
+    const targets: TaskTarget[] = [];
+    for (const t of cfg?.target || []) {
+      const locCfg = t?.value?.location;
+      if (t?.type === 'go_to_location') {
+        const loc = await this.resolveTargetLocation(player.location_id, locCfg);
+        if (!loc) throw Biz.conflict('附近没有可用的任务目标地点');
+        targets.push({
+          type: 'go_to_location',
+          desc: `前往 ${loc.net_name}`,
+          current: 0,
+          required: 1,
+          net_id: loc.net_id,
+          net_name: loc.net_name,
+          loc_type: loc.loc_type,
+          distance: loc.distance,
+        });
+      } else if (t?.type === 'go_to_location_defeat_mob') {
+        const loc = await this.resolveTargetLocation(player.location_id, locCfg);
+        if (!loc) throw Biz.conflict('附近没有可用的任务目标地点');
+        const mobCount = Math.max(1, Number(locCfg?.mob_count) || 1);
+        const mob = await this.pickMobFromLocation(loc.net_id);
+        targets.push({
+          type: 'go_to_location_defeat_mob',
+          desc: mob ? `前往 ${loc.net_name} 击败 ${mob.name} × ${mobCount}` : `前往 ${loc.net_name}`,
+          current: 0,
+          required: mobCount,
+          net_id: loc.net_id,
+          net_name: loc.net_name,
+          mob_id: mob?.id,
+          mob_name: mob?.name,
+          loc_type: loc.loc_type,
+          distance: loc.distance,
+        });
+      }
+      // 其它类型直接透传配置（fight/findNpc 等，保留描述与要求量）
+      else if (t?.type) {
+        targets.push({
+          type: t.type as TaskTarget['type'],
+          desc: t.desc || '',
+          current: 0,
+          required: Math.max(1, Number(t.required) || 1),
+          net_id: 0,
+          net_name: '',
+        });
+      }
+    }
+    if (!targets.length) throw Biz.conflict('任务没有有效目标');
+
+    const task = await this.taskRepo.create({
+      player_id: playerId,
+      name: cfg?.taskTitle || '故事任务',
+      description: cfg?.description || '',
+      target: JSON.stringify(targets),
+      reward: JSON.stringify([]),
+      status: 'pending',
+      type: 'story',
+      star: 1,
+      abandonable: 0,
+    });
+    await this.taskRepo.save(task);
+    this.notifyTaskUpdate(playerId);
+    this.logger.log(`发布故事任务 ${task.id}（玩家 ${playerId}，目标 ${targets.length} 个）`);
+    return { taskId: task.id, targets };
+  }
+
+  /** 解析"前往某地"目标地点：玩家位置 N 格内指定 loc_type，无则生成最近空位节点 */
+  private async resolveTargetLocation(
+    fromNetId: number,
+    locCfg: any,
+  ): Promise<{ net_id: number; net_name: string; loc_type: string; distance: number } | null> {
+    const locType = locCfg?.loc_type || 'wild';
+    const distance = Math.max(1, Number(locCfg?.distance) || 3);
+    const loc = await this.locationNet.findOrCreateLocation(fromNetId, locType, distance);
+    if (!loc) return null;
+    return { net_id: loc.net_id, net_name: loc.net_name, loc_type: locType, distance };
+  }
+
+  /** 从目标地点 common_mobs 挑一个怪（go_to_location_defeat_mob 用；选不到返回 null） */
+  private async pickMobFromLocation(netId: number): Promise<{ id: string; name: string } | null> {
+    try {
+      const view = await this.locationNet.fillWildMobs(netId, 4);
+      const mobs: any[] = Array.isArray(view?.common_mobs) ? view.common_mobs : [];
+      if (mobs.length) {
+        return { id: String(mobs[0].mob_id ?? mobs[0].id ?? ''), name: mobs[0].name || '' };
+      }
+    } catch {
+      /* 选怪失败不阻塞任务发布 */
+    }
+    return null;
+  }
+
+  /**
+   * 事件总线：进入地图到达 → 检测 go_to_location 故事任务完成。
+   * 命中（玩家到达任务目标地点）→ 任务直接完成（claimed，无奖励）→ emit story_task_done → 故事推进。
+   */
+  @OnEvent(SCRIPT_HOOK_EVENT)
+  async onStoryHook(payload: any): Promise<void> {
+    try {
+      const { hook, playerId, context } = payload || {};
+      if (hook !== 'enter_map' || !playerId) return;
+      const ctxMap: Record<string, any> = {};
+      for (const c of context || []) ctxMap[c.type] = c.data;
+      const arrivedNetId = ctxMap.location_net?.id;
+      if (arrivedNetId) await this.checkGoToLocationDone(Number(playerId), arrivedNetId);
+    } catch (e) {
+      this.logger.error(`故事任务到达检测异常: ${(e as Error).message}`);
+    }
+  }
+
+  /** 到达目标地点 → go_to_location 目标置满，任务直接完成并通知故事推进 */
+  private async checkGoToLocationDone(playerId: number, arrivedNetId: number): Promise<void> {
+    const tasks = await this.taskRepo.find({
+      where: { player_id: playerId, status: 'pending', type: 'story' },
+    });
+    for (const task of tasks) {
+      let targets: TaskTarget[] = [];
+      try {
+        targets = JSON.parse(task.target || '[]');
+      } catch {
+        continue;
+      }
+      const hit = targets.some(
+        (t) => t.type === 'go_to_location' && t.net_id === arrivedNetId && t.current < t.required,
+      );
+      if (!hit) continue;
+      targets = targets.map((t) =>
+        t.type === 'go_to_location' && t.net_id === arrivedNetId ? { ...t, current: t.required } : t,
+      );
+      task.target = JSON.stringify(targets);
+      // 所有目标都达标才算任务完成（多目标任务：到达只是其中一个目标的进度）
+      const allDone = targets.every((t) => (t.current || 0) >= (t.required || 0));
+      if (allDone) {
+        task.status = 'claimed'; // 故事任务无奖励，到达即完成
+        await this.taskRepo.save(task);
+        this.notifyTaskUpdate(playerId);
+        this.logger.log(`故事任务 ${task.id} 完成（玩家 ${playerId} 到达 ${arrivedNetId}）`);
+        // 通知故事模块推进（事件总线解耦，避免 TaskModule 反向依赖 StoryModule）
+        this.eventEmitter.emit(SCRIPT_HOOK_EVENT, {
+          hook: 'story_task_done',
+          playerId,
+          context: [{ type: 'task', data: { task_id: task.id } }],
+        });
+      } else {
+        await this.taskRepo.save(task);
+        this.notifyTaskUpdate(playerId);
+        this.logger.log(`故事任务 ${task.id} 目标进度更新（玩家 ${playerId} 到达 ${arrivedNetId}）`);
+      }
+    }
   }
 
   // ---------- 佣兵任务生成 ----------

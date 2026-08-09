@@ -40,6 +40,12 @@ export class StoryEventInstance {
   @Column({ type: 'int', nullable: true })
   from_status: number | null;
 
+  @Column({ type: 'int', nullable: true })
+  pending_task_id: number | null; // 故事正在等待该任务完成（task.id；非空时停在当前节点）
+
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  pending_goto: string | null; // 任务完成后推进到的目标节点
+
   @CreateDateColumn()
   created_at: Date;
 

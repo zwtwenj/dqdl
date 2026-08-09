@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StoryEvent } from './story-event.entity';
 import { StoryEventInstance } from './story-event-instance.entity';
+import { StoryService } from './story.service';
 import { ScriptSseService } from '../script/script-sse.service';
 import { SseEvents } from '../script/sse-events';
 import { SCRIPT_HOOK_EVENT } from '../script/script.constants';
@@ -31,6 +32,7 @@ export class StoryTriggerService {
     private readonly eventRepo: Repository<StoryEvent>,
     @InjectRepository(StoryEventInstance)
     private readonly instanceRepo: Repository<StoryEventInstance>,
+    private readonly storyService: StoryService,
     private readonly sse: ScriptSseService,
   ) {}
 
@@ -48,6 +50,11 @@ export class StoryTriggerService {
         const player = ctxMap.player;
         const location = ctxMap.location_net;
         if (player && location) await this.enterMap(player, location);
+      }
+      // 任务完成 → 推进故事（任务模块完成检测后 emit）
+      else if (hook === 'story_task_done') {
+        const task = ctxMap.task;
+        if (task?.task_id) await this.storyService.resumeFromTask(Number(playerId), Number(task.task_id));
       }
       // 后续钩子：complete_task / defeat_enemy / use_item 在此分支
     } catch (e) {

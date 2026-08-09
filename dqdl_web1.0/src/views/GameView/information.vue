@@ -208,6 +208,11 @@ onUnmounted(() => {
                                     <div v-else-if="target.type === 'findNpc'" class="task-target-fight">
                                         <div><span class="target-index">{{ index + 1 }}.</span> <span v-html="target.desc"></span></div>
                                     </div>
+                                    <!-- 前往某地（含前往某地击败怪物） -->
+                                    <div v-else-if="target.type === 'go_to_location' || target.type === 'go_to_location_defeat_mob'" class="task-target-fight">
+                                        <div><span class="target-index">{{ index + 1 }}.</span> <span v-html="target.desc"></span></div>
+                                        <div class="task-target-count">({{ target.current || 0 }} / {{ target.required }})</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

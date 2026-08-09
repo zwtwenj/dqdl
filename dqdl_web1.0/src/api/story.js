@@ -13,3 +13,14 @@ import http from './request'
  */
 export const getCurrentStoryEvent = () =>
   http.get('/story/current')
+
+/**
+ * 故事事件推进 POST /api/story/instance/:id/advance  body: { goto? }
+ *  - 连线配置为发布任务 → { ok, result: 'task_issued', task_id, message }（故事停在当前节点等任务完成）
+ *  - 任务进行中 → { ok, result: 'task_pending', task_id, message }
+ *  - 正常推进 → { ok, current_node, node, status, done }
+ * @param {number} instanceId 事件实例 id
+ * @param {string} [goto] choice 节点选中的分支目标（narrative 不传）
+ */
+export const advanceStory = (instanceId, goto) =>
+  http.post(`/story/instance/${instanceId}/advance`, { goto })

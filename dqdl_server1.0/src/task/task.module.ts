@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Task } from './task.entity';
+import { Player } from '../player/player.entity';
 import { TaskService } from './task.service';
 import { TaskController } from './task.controller';
 import { LocationNetModule } from '../location_net/location-net.module';
@@ -18,7 +19,7 @@ import { ScriptModule } from '../script/script.module';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Task]),
+    TypeOrmModule.forFeature([Task, Player]),
     LocationNetModule,
     MobModule,
     PlayerModule,

@@ -1,5 +1,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
+import { ElMessageBox } from 'element-plus'
+import { Close } from '@element-plus/icons-vue'
 
 /**
  * 发布任务配置组件。
@@ -24,7 +26,16 @@ const rewardOptions = [
 ]
 
 const defaultConfig = () => ({ taskTitle: '', description: '', target: [], reward: [] })
-const clone = (v) => JSON.parse(JSON.stringify(v || defaultConfig()))
+// 兼容旧结构：父值可能是早期保存的配置（缺 reward/target 字段），逐字段兜底补默认值
+const clone = (v) => {
+    const src = v && typeof v === 'object' ? v : {}
+    return {
+        taskTitle: src.taskTitle ?? '',
+        description: src.description ?? '',
+        target: Array.isArray(src.target) ? src.target : [],
+        reward: Array.isArray(src.reward) ? src.reward : [],
+    }
+}
 
 // 本地表单副本：父值同步进来 → 本地；本地编辑 → 抛回父组件
 const taskConfig = ref(clone(props.modelValue))
@@ -101,6 +112,36 @@ const changeRewardType = (value, reward) => {
         delete reward.value
     }
 }
+
+/** 删除目标条目（右上角 ×，二次确认） */
+const removeTarget = (index) => {
+    const item = taskConfig.value.target[index]
+    const label = item?.type ? targetOptions.find((o) => o.value === item.type)?.text : ''
+    ElMessageBox.confirm(
+        `确定删除该任务目标${label ? `（${label}）` : ''}吗？`,
+        '删除确认',
+        { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+        .then(() => {
+            taskConfig.value.target.splice(index, 1)
+        })
+        .catch(() => {})
+}
+
+/** 删除奖励条目（右上角 ×，二次确认） */
+const removeReward = (index) => {
+    const item = taskConfig.value.reward[index]
+    const label = item?.type ? rewardOptions.find((o) => o.value === item.type)?.text : ''
+    ElMessageBox.confirm(
+        `确定删除该任务奖励${label ? `（${label}）` : ''}吗？`,
+        '删除确认',
+        { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+        .then(() => {
+            taskConfig.value.reward.splice(index, 1)
+        })
+        .catch(() => {})
+}
 </script>
 
 <template>
@@ -116,6 +157,7 @@ const changeRewardType = (value, reward) => {
                 <div style="width: 100%;">
                     <el-button class="add-target-btn" @click="addTarget">＋ 添加目标</el-button>
                     <div v-for="(item, index) in taskConfig.target" :key="index" class="task-target">
+                        <el-icon class="item-close" title="删除该目标" @click="removeTarget(index)"><Close /></el-icon>
                         <el-select v-model="item.type" placeholder="请选择目标类型" @change="(value) => changeTargetType(value, item)">
                             <el-option v-for="option in targetOptions" :key="option.value" :label="option.text" :value="option.value"></el-option>
                         </el-select>
@@ -152,10 +194,11 @@ const changeRewardType = (value, reward) => {
                     </div>
                 </div>
             </el-form-item>
-            <el-form-item label="任务奖励">
+            <el-form-item label="任务奖励：">
                 <div style="width: 100%;">
                     <el-button class="add-target-btn" @click="addReward">＋ 添加奖励</el-button>
                     <div v-for="(reward, index) in taskConfig.reward" :key="index" class="task-reward-item">
+                        <el-icon class="item-close" title="删除该奖励" @click="removeReward(index)"><Close /></el-icon>
                         <el-select v-model="reward.type" placeholder="请选择奖励类型" @change="(value) => changeRewardType(value, reward)">
                             <el-option v-for="option in rewardOptions" :key="option.value" :label="option.text" :value="option.value"></el-option>
                         </el-select>
@@ -217,11 +260,28 @@ const changeRewardType = (value, reward) => {
 
 /* 单个目标条目 */
 .task-target {
+    position: relative;
     margin-top: 8px;
     padding: 10px;
     border: 1px solid #ebeef5;
     border-radius: 6px;
     background: #fff;
+}
+
+/* 条目右上角关闭（删除）按钮 */
+.item-close {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    cursor: pointer;
+    color: #c0c4cc;
+    font-size: 14px;
+    transition: color 0.15s;
+}
+
+.item-close:hover {
+    color: #f56c6c;
 }
 
 .task-target .el-select {
@@ -267,6 +327,7 @@ const changeRewardType = (value, reward) => {
 
 /* ===== 奖励条目（金色调，与目标蓝色区分） ===== */
 .task-reward-item {
+    position: relative;
     margin-top: 8px;
     padding: 10px;
     border: 1px solid #ebeef5;

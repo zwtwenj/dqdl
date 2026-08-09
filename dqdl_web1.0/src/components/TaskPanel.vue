@@ -118,7 +118,7 @@ function rewardText(reward) {
   return reward
     .map((r) => {
       if (r.type === 'money' && r.value) return `${r.value} 金币`
-      if (r.name) return `${r.name} ×${r.count || 1}`
+      if (r.type === 'item' && (r.item_name || r.name)) return `${r.item_name || r.name} ×${r.count || 1}`
       return ''
     })
     .filter(Boolean)

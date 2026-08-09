@@ -254,8 +254,8 @@ onUnmounted(() => {
                             <span v-if="r.type === 'money' && r.value">
                                 金币：<span class="task-reward-keyward">{{ r.value }}</span>
                             </span>
-                            <span v-else-if="r.name">
-                                {{ r.name }}：<span class="task-reward-keyward">×{{ r.count || 1 }}</span>
+                            <span v-else-if="r.type === 'item' && (r.item_name || r.name)">
+                                {{ r.item_name || r.name }}：<span class="task-reward-keyward">×{{ r.count || 1 }}</span>
                             </span>
                         </template>
                     </div>

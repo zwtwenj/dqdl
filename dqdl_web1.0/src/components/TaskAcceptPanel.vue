@@ -104,7 +104,11 @@ onUnmounted(() => {
 function rewardText(reward) {
   if (!Array.isArray(reward) || !reward.length) return '无'
   return reward
-    .map((r) => (r.type === 'money' && r.value ? `${r.value} 金币` : r.name ? `${r.name} ×${r.count || 1}` : ''))
+    .map((r) => {
+      if (r.type === 'money' && r.value) return `${r.value} 金币`
+      if (r.type === 'item' && (r.item_name || r.name)) return `${r.item_name || r.name} ×${r.count || 1}`
+      return ''
+    })
     .filter(Boolean)
     .join('、')
 }
